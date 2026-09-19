@@ -1,5 +1,7 @@
 package com.mavworks;
 
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Main;
 import com.vaadin.flow.component.login.LoginForm;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
@@ -16,19 +18,29 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 
 public class LoginView extends Main implements BeforeEnterObserver{
     private final LoginForm login;
+    private final Button createBtn;
 
     public LoginView(){
         login = new LoginForm();
         login.setAction("login");
 
+        createBtn = new Button("New Account", event -> gotoCreateAccount());
+        createBtn.addThemeVariants(ButtonVariant.PRIMARY);
+
         VerticalLayout layout = new VerticalLayout();
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
-        layout.add(login);
+        layout.add(login, createBtn);
         layout.setSizeFull();
+
+        
 
         add(layout);
         setSizeFull();
+    }
+
+    public void gotoCreateAccount(){
+        getUI().ifPresent(ui -> ui.navigate("create-account"));
     }
 
     @Override 

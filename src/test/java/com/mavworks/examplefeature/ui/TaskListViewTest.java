@@ -16,14 +16,14 @@ class TaskListViewTest extends SpringBrowserlessTest {
 
     @Test
     void empty_grid_shows_no_tasks() {
-        var view = navigate(TaskListView.class);
+        var view = navigate(LandingView.class);
         assertThat(test(view.taskGrid).size()).isZero();
         assertThat(view.taskGrid.getEmptyStateText()).isEqualTo("You have no tasks to complete");
     }
 
     @Test
     void create_task_with_empty_description_does_nothing() {
-        var view = navigate(TaskListView.class);
+        var view = navigate(LandingView.class);
 
         test(view.createBtn).click();
 
@@ -34,7 +34,7 @@ class TaskListViewTest extends SpringBrowserlessTest {
 
     @Test
     void create_task_without_due_date() {
-        var view = navigate(TaskListView.class);
+        var view = navigate(LandingView.class);
 
         test(view.description).setValue("Buy groceries");
         test(view.createBtn).click();
@@ -54,7 +54,7 @@ class TaskListViewTest extends SpringBrowserlessTest {
 
     @Test
     void create_task_with_due_date() {
-        var view = navigate(TaskListView.class);
+        var view = navigate(LandingView.class);
 
         test(view.description).setValue("File taxes");
         test(view.dueDate).setValue(LocalDate.of(2026, 3, 15));
@@ -67,7 +67,7 @@ class TaskListViewTest extends SpringBrowserlessTest {
 
     @Test
     void create_multiple_tasks() {
-        var view = navigate(TaskListView.class);
+        var view = navigate(LandingView.class);
 
         test(view.description).setValue("First task");
         test(view.createBtn).click();
