@@ -12,3 +12,21 @@
 node_modules/
 src/main/frontend/generated/
 vite.generated.ts
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+
+# Local H2 database files
+*.mv.db
+*.trace.db
+
+# Application logs
+*.log
+/logs/
+
+# Optional machine-specific configuration
+/src/main/resources/application-local.properties
+/src/main/resources/application-local.yml
+/src/main/resources/application-local.yaml
