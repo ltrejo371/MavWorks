@@ -15,7 +15,10 @@ import com.vaadin.flow.router.Layout;
 import com.vaadin.flow.server.menu.MenuConfiguration;
 import com.vaadin.flow.server.menu.MenuEntry;
 
+import jakarta.annotation.security.PermitAll;
+
 @Layout
+@PermitAll
 public final class MainLayout extends AppLayout {
 
     MainLayout() {
@@ -24,7 +27,6 @@ public final class MainLayout extends AppLayout {
     }
 
     private Component createApplicationHeader() {
-        // TODO Replace with real application logo and name
         var appLogo = new Avatar("MavWorks");
         appLogo.addClassName("app-logo");
         appLogo.addThemeVariants(AvatarVariant.AURA_FILLED, AvatarVariant.XSMALL);
