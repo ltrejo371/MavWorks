@@ -1,5 +1,6 @@
 package com.mavworks.landing.ui;
 
+import com.mavworks.assets.ListingView;
 import com.mavworks.base.ui.ViewTitle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -7,6 +8,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.virtuallist.VirtualList;
 import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -15,7 +17,7 @@ import jakarta.annotation.security.PermitAll;
 
 @Route(value = "")
 @PageTitle("Landing")
-@Menu(order = 0, icon = "icons/clipboard-check.svg", title = "Welcome")
+@Menu(order = 0, icon = "icons/clipboard-check.svg", title = "Landing")
 @PermitAll
 
 class LandingView extends VerticalLayout {
@@ -43,9 +45,16 @@ class LandingView extends VerticalLayout {
         toolbar.setAlignItems(FlexComponent.Alignment.CENTER);
         toolbar.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
 
+        var initListings = new VirtualList<ListingView>();
+        initListings.setItems(new ListingView("Placeholder", "Placeholder", "This is a placeholder"), 
+            new ListingView("Placeholder", "Placeholder", "This is a placeholder"), 
+            new ListingView("Placeholder", "Placeholder", "This is a placeholder"));
+        initListings.setWidthFull();
+
         setSizeFull();
         add(header);
         add(toolbar);
+        add(initListings);
     }
 
     private void confirmSearch() {
