@@ -19,6 +19,9 @@ import jakarta.annotation.security.PermitAll;
 
 @Layout
 @PermitAll
+
+//Overarching layout. Handles the sidebar.
+
 public final class MainLayout extends AppLayout {
 
     MainLayout() {

@@ -16,6 +16,8 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 @PageTitle("Login")
 @AnonymousAllowed 
 
+//Login view. The user must log in to access the application.
+
 public class LoginView extends Main implements BeforeEnterObserver{
     private final LoginForm login;
     private final Button createBtn;
@@ -32,8 +34,6 @@ public class LoginView extends Main implements BeforeEnterObserver{
         layout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
         layout.add(login, createBtn);
         layout.setSizeFull();
-
-        
 
         add(layout);
         setSizeFull();

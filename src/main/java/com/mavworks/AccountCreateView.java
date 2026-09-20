@@ -21,6 +21,8 @@ public class AccountCreateView extends Main{
     final TextField passwordConfirm;
     final Button createBtn;
 
+    //Account creation view. Allows the user to create an account.
+
     public AccountCreateView(){
         username = new TextField();
         username.setPlaceholder("Username");
@@ -52,6 +54,7 @@ public class AccountCreateView extends Main{
         if(password.getValue().equals(passwordConfirm.getValue())){
             if(!username.getValue().isEmpty() && !password.getValue().isEmpty()){
                 if(true /*placeholder*/){
+                    //TODO: Implement backend
                     getUI().ifPresent(ui -> ui.navigate("login"));
                 }
             }

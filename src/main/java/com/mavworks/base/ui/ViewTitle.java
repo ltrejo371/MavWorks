@@ -10,6 +10,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 @StyleSheet("view-title.css")
 public class ViewTitle extends Composite<HorizontalLayout> {
 
+    //Title component.
     public ViewTitle(String title) {
         addClassName("view-title");
         var h = new H1(title);

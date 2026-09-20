@@ -14,6 +14,8 @@ import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 @EnableWebSecurity
 @Configuration
 
+//Backend for login. Uses in-memory authentication, and needs to be replaced.
+
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
@@ -26,8 +28,10 @@ public class SecurityConfig {
 
     @Bean 
     public UserDetailsManager userDetailsManager(){
-        var user = User.withUsername("use1234@mavs.uta.edu").password("{noop}user").roles("USER").build();
+        //DO NOT USE IN PRODUCTION, TODO: Add external authentication
+        var user = User.withUsername("user").password("{noop}user").roles("USER").build();
+        var mod = User.withUsername("mod").password("{noop}mod").roles("MOD").build();
         var admin = User.withUsername("admin").password("{noop}admin").roles("ADMIN").build();
-        return new InMemoryUserDetailsManager(user, admin);
+        return new InMemoryUserDetailsManager(user, mod, admin);
     }
 }

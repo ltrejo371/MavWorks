@@ -1,4 +1,4 @@
-package com.mavworks.examplefeature.ui;
+package com.mavworks.landing.ui;
 
 import com.mavworks.base.ui.ViewTitle;
 import com.vaadin.flow.component.button.Button;
@@ -22,6 +22,8 @@ class LandingView extends VerticalLayout {
 
     final TextField search;
     final Button createBtn;
+
+    //Landing view. First view the user sees when they log in. Contains search bar.
 
     LandingView() {
         search = new TextField();
@@ -47,6 +49,6 @@ class LandingView extends VerticalLayout {
     }
 
     private void confirmSearch() {
-        
+        //TODO: Implement search
     }
 }
