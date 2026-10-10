@@ -25,7 +25,7 @@ import org.springframework.dao.DataAccessException;
 @Route("")
 @RouteAlias("market")
 @PageTitle("Home")
-@Menu(order = 0, title = "Home")
+@Menu(order = 0, icon = "icons/clipboard-check.svg", title = "Home")
 @PermitAll
 public class LandingView extends VerticalLayout {
     private final TextField search = new TextField("Search listings");

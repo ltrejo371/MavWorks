@@ -14,7 +14,7 @@ import org.springframework.dao.DataAccessException;
 
 @Route("dashboard")
 @PageTitle("Dashboard")
-@Menu(order = 1, title = "Dashboard")
+@Menu(order = 1, icon = "icons/clipboard-check.svg", title = "Dashboard")
 @PermitAll
 public class DashboardView extends VerticalLayout {
     private final VerticalLayout account = new VerticalLayout();
