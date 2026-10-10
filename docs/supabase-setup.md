@@ -1,0 +1,83 @@
+# Supabase PostgreSQL setup
+
+The supabase Spring profile connects to the project's Session pooler on port 5432.
+The default profile still uses local H2. Supabase hosts the database; the Java
+application still runs on your computer.
+
+## Start from Git Bash (IntelliJ terminal)
+
+Stop the existing app with Ctrl+C, then run these commands from the project root:
+
+```bash
+read -rsp "Supabase database password: " SUPABASE_DB_PASSWORD; echo
+export SUPABASE_DB_PASSWORD
+./mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=supabase
+```
+
+Enter your Supabase **database password** at the hidden prompt, not your Supabase
+account password or an API key. It is passed separately from the JDBC URL, so
+special characters do not need percent-encoding. Do not paste it in chat or Git.
+
+The profile already contains the non-secret host and database username:
+- Host: aws-0-us-east-2.pooler.supabase.com
+- Port: 5432
+- Database: postgres
+- Username: postgres.jxnpxymmxypfhhfcoimf
+
+Optionally override SUPABASE_DB_URL (JDBC URL without embedded credentials) and
+SUPABASE_DB_USER to use a different database. Keep sslmode=require or stronger.
+For certificate validation, configure sslmode=verify-full and the appropriate
+trusted root certificate for the endpoint.
+
+After stopping the app, remove the password from that terminal with:
+```bash
+unset SUPABASE_DB_PASSWORD
+```
+
+Environment variables apply only to programs launched from that terminal.
+IntelliJ's Run button needs its own environment variables and the supabase active
+profile. A .env file is not loaded automatically by Spring Boot.
+
+## What happens on the first start
+
+Flyway creates the mavworks schema and applies V1__create_mavworks_tables.sql.
+Hibernate validates the schema instead of changing it automatically.
+The existing development terms initializer adds demo terms if the table is empty.
+Existing H2 accounts and listings are not transferred; register a new test account
+on Supabase. H2 files are preserved.
+
+In Supabase's Table Editor, select the **mavworks** schema to inspect the tables.
+The application uses direct JDBC access and Spring Security, not Supabase Auth.
+Do not expose this schema through the Supabase Data API.
+
+The connection pool is limited to three connections per running application.
+Stop unused app instances, especially when teammates share the free database.
+
+## Return to local H2
+
+```bash
+./mvnw.cmd spring-boot:run
+```
+
+## Troubleshooting
+
+- Password authentication failed: check the database password and project username.
+- Missing SUPABASE_DB_PASSWORD: set it in the same terminal used to launch Maven.
+- Connection timeout: confirm the Supabase project is active and the network permits port 5432.
+- Port 8080 in use: stop the previous application.
+- Tables missing in Table Editor: choose mavworks rather than public.
+- Existing nonempty mavworks schema: inspect it before migrating; do not reset or
+  baseline an unknown schema blindly.
+
+Migrations are versioned. Add a new V2 migration for future table changes rather
+than editing an already-applied V1 migration.
+
+## Verification
+
+Run ./mvnw.cmd test without the supabase profile. Tests use isolated local
+databases. SupabaseSchemaTest checks migration/mapping compatibility with H2's
+PostgreSQL mode; it does not verify live PostgreSQL semantics or connectivity.
+
+References:
+- https://supabase.com/docs/guides/getting-started/quickstarts/spring-boot
+- https://docs.spring.io/spring-boot/how-to/data-initialization.html

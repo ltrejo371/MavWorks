@@ -12,8 +12,7 @@ public class TermsOfService {
     @Column(nullable = false, unique = true)
     private String version;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "text")
     private String content;
 
     @Column(nullable = false)

@@ -104,3 +104,8 @@ Accounts are saved in data/mavworks and survive restarts. Always run from the
 project root, and do not run two instances against the same database.
 Email ownership verification and password reset are not implemented yet.
 Development terms are placeholders for testing; replace them before public use.
+
+## Online database
+
+See [Supabase setup](docs/supabase-setup.md) for the password prompt and launch command.
+The supabase profile uses online PostgreSQL; the default profile continues to use local H2.
