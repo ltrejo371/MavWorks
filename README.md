@@ -87,3 +87,20 @@ git switch -c feature/your-feature
 Edit code, restart the app, and refresh the browser to check changes.
 
 Push your branch and open a pull request into `main`. Keep credentials and personal IDE settings out of Git.
+## Create an account
+
+Restart the app after pulling account changes. In Git Bash, run:
+
+```bash
+./mvnw.cmd spring-boot:run
+```
+
+Open http://localhost:8080/create-account. Enter a unique username, a
+@mavs.uta.edu email and matching passwords (at least 8 characters), then read and
+accept the displayed development terms. Registration signs you in automatically.
+
+The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
+Accounts are saved in data/mavworks and survive restarts. Always run from the
+project root, and do not run two instances against the same database.
+Email ownership verification and password reset are not implemented yet.
+Development terms are placeholders for testing; replace them before public use.

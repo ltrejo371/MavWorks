@@ -1,4 +1,4 @@
-package com.mavworks;
+package com.mavworks.auth;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
