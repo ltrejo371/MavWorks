@@ -43,7 +43,7 @@ public class AccountCreateView extends Main {
         username.setMaxLength(30);
         email.setPlaceholder("you@mavs.uta.edu");
         email.setMaxLength(254);
-        password.setHelperText("At least 8 characters; maximum 72 UTF-8 bytes.");
+        password.setHelperText("At least 8 characters.");
         username.setRequiredIndicatorVisible(true);
         email.setRequiredIndicatorVisible(true);
         password.setRequiredIndicatorVisible(true);
@@ -58,7 +58,12 @@ public class AccountCreateView extends Main {
         if (currentTerms.isPresent()) {
             var terms = currentTerms.get();
             termsId = terms.getId();
-            termsText.setText("Terms (" + terms.getVersion() + ")\n" + terms.getContent());
+            String content = terms.getContent();
+            // Older databases still contain this internal note in the demo terms.
+            if ("development-v1".equals(terms.getVersion())) {
+                content = content.replace("The team must replace this text before a public release.", "").strip();
+            }
+            termsText.setText("Terms (" + terms.getVersion() + ")\n" + content);
         } else {
             termsText.setText("Registration is temporarily unavailable: no terms have been published.");
             create.setEnabled(false);

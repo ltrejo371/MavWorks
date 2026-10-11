@@ -69,8 +69,26 @@ Stop unused app instances, especially when teammates share the free database.
 - Existing nonempty mavworks schema: inspect it before migrating; do not reset or
   baseline an unknown schema blindly.
 
-Migrations are versioned. Add a new V2 migration for future table changes rather
-than editing an already-applied V1 migration.
+Migrations are versioned. Add a new migration for future table changes rather
+than editing an already-applied migration.
+
+## Deleting accounts
+
+Restart the updated application with the `supabase` profile to apply Flyway V2
+(`src/main/java/db/migration/postgresql/V2__cascade_account_deletion.java`).
+Wait for startup to finish before retrying a deletion in the Table Editor.
+The migration updates existing foreign keys to `ON DELETE CASCADE`; it does not
+delete any users itself. V1 remains unchanged so existing migration checksums stay valid.
+
+Deleting a row from `mavworks.app_users` then permanently removes that user's
+terms acceptance records, listings, and listing image database records. Shared
+terms documents and other accounts remain. Image files in external storage are
+not deleted by a database cascade. This applies to direct SQL/Table Editor deletions
+as well as application deletions; no account-deletion screen is added.
+
+New Hibernate-created local databases use the same cascade rules. Existing H2
+databases created before this change may still have their old constraints;
+Hibernate's `update` mode does not reliably replace existing foreign keys.
 
 ## Verification
 

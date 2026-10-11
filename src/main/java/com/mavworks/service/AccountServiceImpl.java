@@ -38,9 +38,11 @@ public class AccountServiceImpl implements AccountService {
                 || !normalizedEmail.matches("[a-z0-9_%+\\-]+(?:\\.[a-z0-9_%+\\-]+)*@mavs\\.uta\\.edu")) {
             throw new IllegalArgumentException("Enter a valid @mavs.uta.edu email address.");
         }
-        if (password == null || password.length() < 8
-                || password.getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new IllegalArgumentException("Use at least 8 characters and no more than 72 UTF-8 bytes for your password.");
+        if (password == null || password.length() < 8) {
+            throw new IllegalArgumentException("Use at least 8 characters for your password.");
+        }
+        if (password.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Your password is too long. Please use a shorter password.");
         }
         if (!password.equals(passwordConfirmation)) {
             throw new IllegalArgumentException("Passwords do not match.");

@@ -28,8 +28,7 @@ public class DevelopmentTermsInitializer implements ApplicationRunner {
             draft.setEffectiveAt(Instant.now());
             draft.setContent("Development demo terms — not final terms of service. "
                     + "This MavWorks build is a class-project prototype. Use test data only. "
-                    + "By checking the box you acknowledge this is a development demonstration. "
-                    + "The team must replace this text before a public release.");
+                    + "By checking the box you acknowledge this is a development demonstration.");
             terms.save(draft);
         }
     }

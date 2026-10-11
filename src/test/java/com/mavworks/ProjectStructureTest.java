@@ -28,6 +28,57 @@ class ProjectStructureTest {
     @Autowired EntityManager entityManager;
 
     @Test
+    void deletingUserDirectlyCascadesOnlyTheirRecords() {
+        TermsOfService document = new TermsOfService();
+        document.setVersion("deletion-test");
+        document.setContent("Shared terms");
+        document.setEffectiveAt(Instant.now());
+        terms.saveAndFlush(document);
+        User deleted = createAccountWithListing("deleted-user", document);
+        User retained = createAccountWithListing("retained-user", document);
+        entityManager.flush();
+        entityManager.clear();
+
+        // Bypass ORM removal to exercise the same database behavior as Supabase's Table Editor.
+        assertEquals(1, entityManager.createNativeQuery("delete from {h-schema}app_users where id = :id")
+                .setParameter("id", deleted.getId()).executeUpdate());
+        entityManager.clear();
+
+        assertFalse(users.existsById(deleted.getId()));
+        assertTrue(listings.findByOwnerId(deleted.getId()).isEmpty());
+        assertFalse(agreements.existsByUserIdAndTermsId(deleted.getId(), document.getId()));
+        assertTrue(users.existsById(retained.getId()));
+        assertEquals(1, listings.findByOwnerId(retained.getId()).size());
+        assertTrue(agreements.existsByUserIdAndTermsId(retained.getId(), document.getId()));
+        assertTrue(terms.existsById(document.getId()));
+        assertEquals(List.of("retained-user.png"), entityManager.createQuery(
+                "select i.storageReference from ListingImage i", String.class).getResultList());
+    }
+
+    private User createAccountWithListing(String username, TermsOfService document) {
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@mavs.uta.edu");
+        user.setHashedPassword("test-only");
+        users.saveAndFlush(user);
+        TOSAgreement agreement = new TOSAgreement();
+        agreement.setUser(user);
+        agreement.setTerms(document);
+        agreements.saveAndFlush(agreement);
+        ListingImage image = new ListingImage();
+        image.setStorageReference(username + ".png");
+        Listing listing = new Listing();
+        listing.setOwner(user);
+        listing.setName("Book");
+        listing.setDescription("Test listing");
+        listing.setPrice(BigDecimal.ONE);
+        listing.setType(ListingType.PRODUCT);
+        listing.setImages(List.of(image));
+        listings.saveAndFlush(listing);
+        return user;
+    }
+
+    @Test
     void persistsAccountListingImagesAndTermsRelationships() {
         User user = new User();
         user.setUsername("structure-test");
