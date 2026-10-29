@@ -1,8 +1,8 @@
 package com.mavworks.model;
 
-/** User actions defined by the UML diagram. */
+/** User actions */
 public interface UserActions {
-    void createListing();
+    Listing createListing(com.mavworks.dto.CreateListingRequest request);
 
     void deleteListing();
 

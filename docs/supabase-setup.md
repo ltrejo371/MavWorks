@@ -11,7 +11,7 @@ Stop the existing app with Ctrl+C, then run these commands from the project root
 ```bash
 read -rsp "Supabase database password: " SUPABASE_DB_PASSWORD; echo
 export SUPABASE_DB_PASSWORD
-./mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=supabase
+./mvnw.cmd clean spring-boot:run -Dspring-boot.run.profiles=supabase
 ```
 
 Enter your Supabase **database password** at the hidden prompt, not your Supabase
@@ -42,6 +42,9 @@ profile. A .env file is not loaded automatically by Spring Boot.
 
 Flyway creates the mavworks schema and applies V1__create_mavworks_tables.sql.
 Hibernate validates the schema instead of changing it automatically.
+V2 enables account-deletion cascades. V3 updates listing categories and statuses
+to match the application. The clean launch removes obsolete compiled migrations
+from previous builds, including the former duplicate V2 listing migration.
 The existing development terms initializer adds demo terms if the table is empty.
 Existing H2 accounts and listings are not transferred; register a new test account
 on Supabase. H2 files are preserved.

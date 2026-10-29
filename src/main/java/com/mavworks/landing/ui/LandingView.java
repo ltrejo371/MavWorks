@@ -97,7 +97,8 @@ public class LandingView extends VerticalLayout {
         card.add(new H2(listing.name()),
                 new Paragraph(NumberFormat.getCurrencyInstance(Locale.US).format(listing.price())),
                 new Paragraph(description),
-                new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name())));
+                new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name())),
+                new com.vaadin.flow.component.html.Anchor("listings/" + listing.id(), "View listing"));
         return card;
     }
 

@@ -9,6 +9,6 @@ import java.util.List;
 public record CreateListingRequest(String name, String description, BigDecimal price,
         ListingType type, ListingCategory category, List<String> imageReferences) {
     public CreateListingRequest {
-        imageReferences = List.copyOf(imageReferences);
+        imageReferences = imageReferences == null ? List.of() : List.copyOf(imageReferences);
     }
 }

@@ -6,7 +6,7 @@ import com.mavworks.model.Listing;
 import java.util.List;
 import java.util.Optional;
 
-/** Implementation contract only; not yet wired into the views. */
+/** Listing publication and queries used by the listing views. */
 public interface ListingService {
     // Validate input; resolve ownership from authentication, never from the form.
     Long createListing(CreateListingRequest request);

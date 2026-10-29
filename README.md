@@ -105,7 +105,21 @@ project root, and do not run two instances against the same database.
 Email ownership verification and password reset are not implemented yet.
 Development terms are placeholders for testing; replace them before public use.
 
-## Online database
+## Create a listing
+
+Sign in, open **Dashboard**, select **Add Listing**, and enter a name, price,
+product/service type, and description. Select **Done** to publish; the listing
+then appears on your dashboard and Home, with links to its details and images.
+
+Current defaults for the use case's open questions: images are optional, with
+up to five JPEG/PNG files, each at most 5 MB and 20 megapixels. Category is
+optional (defaults to Other). Prices may be zero through 9,999,999,999.99 with
+at most two decimal places, matching the database's price column.
+Images are validated by content and stored under `data/listing-images`.
+Set `mavworks.images-directory` to change that directory; deployments need a
+persistent volume shared by application instances and included in backups.
+
+## Online database setup
 
 See [Supabase setup](docs/supabase-setup.md) for the password prompt and launch command.
 The supabase profile uses online PostgreSQL; the default profile continues to use local H2.

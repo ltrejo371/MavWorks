@@ -22,6 +22,8 @@ public class DashboardView extends VerticalLayout {
     public DashboardView(AccountDashboardService service) {
         account.setPadding(false);
         add(new ViewTitle("Dashboard"), new Paragraph("Your account and your listings."),
+                new Button("Add Listing", event -> getUI().ifPresent(ui ->
+                        ui.navigate(com.mavworks.listing.CreateListingView.class))),
                 account, new Button("Refresh", event -> loadAccount(service)));
         loadAccount(service);
     }
@@ -39,7 +41,8 @@ public class DashboardView extends VerticalLayout {
             if (data.listings().isEmpty()) {
                 account.add(new Paragraph("You have not created any listings yet."));
             } else {
-                data.listings().forEach(listing -> account.add(new Paragraph(listing.name() + " — "
+                data.listings().forEach(listing -> account.add(new com.vaadin.flow.component.html.Anchor(
+                        "listings/" + listing.id(), listing.name() + " — "
                         + NumberFormat.getCurrencyInstance(Locale.US).format(listing.price()))));
             }
         } catch (DataAccessException ex) {
