@@ -107,7 +107,7 @@ class ProjectStructureTest {
         listing.setDescription("A test listing");
         listing.setPrice(new BigDecimal("12.50"));
         listing.setType(ListingType.PRODUCT);
-        listing.setStatus(ListingStatus.PUBLISHED);
+        listing.setStatus(ListingStatus.ACTIVE);
         listing.setImages(List.of(image));
         listings.saveAndFlush(listing);
         Long userId = user.getId();
@@ -122,7 +122,7 @@ class ProjectStructureTest {
         assertEquals(termsId, terms.findFirstByEffectiveAtLessThanEqualOrderByEffectiveAtDesc(
                 Instant.now()).orElseThrow().getId());
         assertEquals(1, listings.findByOwnerId(userId).size());
-        assertEquals(1, listings.findByStatus(ListingStatus.PUBLISHED).size());
+        assertEquals(1, listings.findByStatus(ListingStatus.ACTIVE).size());
         Listing loaded = listings.findById(listingId).orElseThrow();
         assertEquals(userId, loaded.getOwner().getId());
         assertEquals("test/book.png", loaded.getImages().getFirst().getStorageReference());

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "app_users")
-public class User {
+public class User implements UserActions {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -22,6 +22,36 @@ public class User {
     private Profile profile = new Profile();
 
     public User() {
+    }
+
+    @Override
+    public void createListing() {
+        // TODO: Implement.
+    }
+
+    @Override
+    public void deleteListing() {
+        // TODO: Implement.
+    }
+
+    @Override
+    public void sendMessage() {
+        // TODO: Implement.
+    }
+
+    @Override
+    public void leaveReview() {
+        // TODO: Implement.
+    }
+
+    @Override
+    public void blockUser() {
+        // TODO: Implement.
+    }
+
+    @Override
+    public void reportUser() {
+        // TODO: Implement.
     }
 
     public Long getId() {

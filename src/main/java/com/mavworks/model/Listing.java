@@ -41,7 +41,7 @@ public class Listing {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ListingStatus status = ListingStatus.DRAFT;
+    private ListingStatus status = ListingStatus.ACTIVE;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "listing_id")
@@ -50,6 +50,14 @@ public class Listing {
     private List<ListingImage> images = new ArrayList<>();
 
     public Listing() {
+    }
+
+    public void markSold() {
+        // TODO: Implement.
+    }
+
+    public void renew() {
+        // TODO: Implement.
     }
 
     public Long getId() {

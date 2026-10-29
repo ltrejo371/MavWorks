@@ -26,16 +26,16 @@ class ListingCatalogTest {
     @Autowired com.mavworks.service.AccountDashboardService dashboard;
 
     @Test
-    void homeFiltersPublishedListingsByTextCategoryAndType() {
+    void homeFiltersActiveListingsByTextCategoryAndType() {
         User seller = new User();
         seller.setUsername("seller");
         seller.setEmail("seller@mavs.uta.edu");
         seller.setHashedPassword("test-only");
         users.saveAndFlush(seller);
-        add(seller, "Calculus book", "Used textbook", ListingType.PRODUCT, ListingStatus.PUBLISHED);
-        add(seller, "Tutoring", "Help with CALCULUS", ListingType.SERVICE, ListingStatus.PUBLISHED);
-        add(seller, "Private draft", "Calculus", ListingType.PRODUCT, ListingStatus.DRAFT);
-        add(seller, "Sold book", "Calculus", ListingType.PRODUCT, ListingStatus.UNAVAILABLE);
+        add(seller, "Calculus book", "Used textbook", ListingType.PRODUCT, ListingStatus.ACTIVE);
+        add(seller, "Tutoring", "Help with CALCULUS", ListingType.SERVICE, ListingStatus.ACTIVE);
+        add(seller, "Removed listing", "Calculus", ListingType.PRODUCT, ListingStatus.REMOVED);
+        add(seller, "Sold book", "Calculus", ListingType.PRODUCT, ListingStatus.SOLD);
 
         assertEquals(2, catalog.search(new SearchFilter("", null), null).size());
         assertEquals(2, catalog.search(new SearchFilter(" calculus ", ListingCategory.OTHER), null).size());
@@ -70,8 +70,8 @@ class ListingCatalogTest {
         second.setEmail("second@mavs.uta.edu");
         second.setHashedPassword("test-only");
         users.saveAndFlush(second);
-        add(first, "My listing", "Mine", ListingType.PRODUCT, ListingStatus.PUBLISHED);
-        add(second, "Their listing", "Theirs", ListingType.PRODUCT, ListingStatus.PUBLISHED);
+        add(first, "My listing", "Mine", ListingType.PRODUCT, ListingStatus.ACTIVE);
+        add(second, "Their listing", "Theirs", ListingType.PRODUCT, ListingStatus.ACTIVE);
         var context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                 "first", null, java.util.List.of()));

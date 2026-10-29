@@ -21,7 +21,7 @@ public class ListingCatalogService {
     @Transactional(readOnly = true)
     public List<ListingSummary> search(SearchFilter filter, ListingType type) {
         String keyword = filter.keyword() == null ? "" : filter.keyword().trim();
-        return listings.searchPublished(ListingStatus.PUBLISHED, keyword, filter.category(), type)
+        return listings.searchPublished(ListingStatus.ACTIVE, keyword, filter.category(), type)
                 .stream().map(listing -> new ListingSummary(listing.getId(), listing.getName(),
                         listing.getDescription(), listing.getPrice(), listing.getCategory(),
                         listing.getType())).toList();
