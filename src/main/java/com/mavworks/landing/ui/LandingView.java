@@ -7,7 +7,14 @@ import com.mavworks.model.ListingCategory;
 import com.mavworks.model.ListingType;
 import com.mavworks.security.CurrentUser;
 import com.mavworks.service.ListingCatalogService;
+import com.mavworks.service.LocalImageStorageService;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
@@ -27,6 +34,7 @@ import org.springframework.dao.DataAccessException;
 @PageTitle("Home")
 @Menu(order = 0, icon = "icons/clipboard-check.svg", title = "Home")
 @PermitAll
+@CssImport("./styles/marketplace.css")
 public class LandingView extends VerticalLayout {
     private final TextField search = new TextField("Search listings");
     private final ComboBox<ListingCategory> category = new ComboBox<>("Category");
@@ -34,9 +42,11 @@ public class LandingView extends VerticalLayout {
     private final Paragraph status = new Paragraph();
     private final Div results = new Div();
     private final ListingCatalogService catalog;
+    private final LocalImageStorageService images;
 
-    public LandingView(CurrentUser currentUser, ListingCatalogService catalog) {
+    public LandingView(CurrentUser currentUser, ListingCatalogService catalog, LocalImageStorageService images) {
         this.catalog = catalog;
+        this.images = images;
         add(new ViewTitle("Home"),
                 new Paragraph("Welcome, " + currentUser.username().orElse("there")
                         + "! Browse products and services from the MavWorks community."));
@@ -58,9 +68,7 @@ public class LandingView extends VerticalLayout {
         filters.setWidthFull();
         filters.getStyle().set("flex-wrap", "wrap");
         results.setWidthFull();
-        results.getStyle().set("display", "grid")
-                .set("grid-template-columns", "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))")
-                .set("gap", "1rem");
+        results.addClassName("marketplace-results");
         status.getElement().setAttribute("role", "status");
         add(filters, status, results);
         search.addValueChangeListener(event -> loadListings());
@@ -88,18 +96,56 @@ public class LandingView extends VerticalLayout {
 
     private Div card(ListingSummary listing) {
         Div card = new Div();
-        card.getStyle().set("padding", "1rem").set("border", "1px solid #d8dce2")
-                .set("border-radius", "0.75rem");
+        card.addClassName("marketplace-card");
         String description = listing.description();
         if (description.length() > 180) {
             description = description.substring(0, 177) + "...";
         }
-        card.add(new H2(listing.name()),
-                new Paragraph(NumberFormat.getCurrencyInstance(Locale.US).format(listing.price())),
-                new Paragraph(description),
-                new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name())),
-                new com.vaadin.flow.component.html.Anchor("listings/" + listing.id(), "View listing"));
+        Div details = new Div();
+        details.addClassName("marketplace-details");
+        H2 title = new H2();
+        title.add(new Anchor("listings/" + listing.id(), listing.name()));
+        Paragraph price = new Paragraph(NumberFormat.getCurrencyInstance(Locale.US).format(listing.price()));
+        price.addClassName("marketplace-price");
+        Paragraph summary = new Paragraph(description);
+        summary.addClassName("marketplace-description");
+        Paragraph category = new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name()));
+        category.addClassName("marketplace-category");
+        details.add(title, price, summary, category);
+        card.add(preview(listing), details);
         return card;
+    }
+
+    private Anchor preview(ListingSummary listing) {
+        Anchor preview = new Anchor("listings/" + listing.id(), "");
+        preview.addClassName("marketplace-preview");
+        preview.getElement().setAttribute("aria-label", "View " + listing.name());
+        preview.getStyle().set("display", "grid").set("place-items", "center")
+                .set("position", "relative").set("width", "100%").set("aspect-ratio", "1 / 1")
+                .set("overflow", "hidden").set("border-radius", "0.5rem")
+                .set("background", "#f2f3f5").set("color", "#6e6e73")
+                .set("text-decoration", "none");
+        preview.add(new Span("No image available"));
+        String reference = listing.imageReference();
+        if (reference != null && !reference.isBlank()) {
+            var handler = DownloadHandler.fromInputStream(event -> {
+                try {
+                    return new DownloadResponse(images.open(reference), reference,
+                            reference.endsWith("png") ? "image/png" : "image/jpeg", -1);
+                } catch (java.io.IOException | IllegalArgumentException ex) {
+                    return DownloadResponse.error(404);
+                }
+            });
+            Image image = new Image(handler, listing.name());
+            image.getElement().setAttribute("loading", "lazy");
+            image.getElement().setAttribute("decoding", "async");
+            image.getStyle().set("position", "absolute").set("inset", "0")
+                    .set("width", "100%").set("height", "100%")
+                    .set("object-fit", "cover").set("background", "#f2f3f5");
+            image.getElement().addEventListener("error", event -> image.setVisible(false));
+            preview.add(image);
+        }
+        return preview;
     }
 
     private static String label(String value) {

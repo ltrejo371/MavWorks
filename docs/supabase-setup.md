@@ -45,6 +45,9 @@ Hibernate validates the schema instead of changing it automatically.
 V2 enables account-deletion cascades. V3 updates listing categories and statuses
 to match the application. The clean launch removes obsolete compiled migrations
 from previous builds, including the former duplicate V2 listing migration.
+V4 adds conversations and provider reviews, including one-review-per-user/listing
+uniqueness and rating constraints. Restart with the Supabase profile to apply it.
+V5 adds persisted messages and block-list records for the messaging workflow.
 The existing development terms initializer adds demo terms if the table is empty.
 Existing H2 accounts and listings are not transferred; register a new test account
 on Supabase. H2 files are preserved.

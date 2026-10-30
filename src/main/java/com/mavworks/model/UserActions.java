@@ -6,9 +6,9 @@ public interface UserActions {
 
     void deleteListing();
 
-    void sendMessage();
+    Message sendMessage(Conversation conversation, String text);
 
-    void leaveReview();
+    Review leaveReview(Conversation conversation, Integer rating, String comment);
 
     void blockUser();
 

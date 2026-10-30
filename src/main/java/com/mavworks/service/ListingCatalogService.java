@@ -24,6 +24,7 @@ public class ListingCatalogService {
         return listings.searchPublished(ListingStatus.ACTIVE, keyword, filter.category(), type)
                 .stream().map(listing -> new ListingSummary(listing.getId(), listing.getName(),
                         listing.getDescription(), listing.getPrice(), listing.getCategory(),
-                        listing.getType())).toList();
+                        listing.getType(), listing.getImages().isEmpty() ? null
+                                : listing.getImages().getFirst().getStorageReference())).toList();
     }
 }

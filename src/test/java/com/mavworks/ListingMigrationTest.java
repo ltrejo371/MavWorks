@@ -27,7 +27,7 @@ class ListingMigrationTest {
                         + "VALUES (1, '" + status + "', 'Test', 10, CURRENT_TIMESTAMP, 'PRODUCT', 'OTHER', '" + status + "')");
             }
             var flyway = Flyway.configure().dataSource(source).schemas("mavworks")
-                    .defaultSchema("mavworks").locations("classpath:db/migration/postgresql").load();
+                    .defaultSchema("mavworks").locations("classpath:db/migration/postgresql").target("3").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
             assertEquals(0, flyway.migrate().migrationsExecuted);
             try (var rows = sql.executeQuery("SELECT name, status FROM mavworks.listings ORDER BY id")) {

@@ -75,13 +75,13 @@ public class User implements UserActions {
     }
 
     @Override
-    public void sendMessage() {
-        // TODO: Implement.
+    public Message sendMessage(Conversation conversation, String text) {
+        return new Message(this, conversation, text);
     }
 
     @Override
-    public void leaveReview() {
-        // TODO: Implement.
+    public Review leaveReview(Conversation conversation, Integer rating, String comment) {
+        return new Review(this, conversation, rating, comment);
     }
 
     @Override

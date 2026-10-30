@@ -119,7 +119,51 @@ Images are validated by content and stored under `data/listing-images`.
 Set `mavworks.images-directory` to change that directory; deployments need a
 persistent volume shared by application instances and included in backups.
 
-## Online database setup
+## Provider reviews
+
+Open a listing's **View provider profile and reviews** link, then select **Review**.
+Only listings from your conversations closed after provider-confirmed sales are
+offered. Select a listing, choose a rating from 1 to 5, optionally write a comment
+(up to 2000 characters), and submit. The review is saved and displayed on the
+provider's profile. Failed submissions preserve the form for retry.
+
+Current policy: one review per user per listing; no self-reviews, editing, or
+provider replies. Eligibility and uniqueness are enforced on the server, with a
+database uniqueness constraint as well. Profile reviews are visible to other
+signed-in users, consistent with the existing marketplace access rules.
+
+In the chat, the provider selects **Confirm sale and close** after completing a
+sale. This requires at least one sent message and verifies the provider's identity;
+merely closing a conversation or marking a listing sold does not qualify a review.
+Without a qualifying persisted conversation, the Review button explains that a
+completed sale is required. Flyway V4 adds conversation and review tables on
+Supabase; local H2 adds them through the existing Hibernate schema-update setting.
+
+## Messaging
+
+Select **Message** on a listing to start or reopen its conversation. Both users
+can send replies and revisit the saved conversation using **Messages** in the
+sidebar. Opening a listing concurrently reuses one conversation; starts are
+serialized per buyer. Existing conversations remain available after a sale.
+The provider uses Messages to select the particular buyer they want to reply to.
+
+Messages must contain text and be at most 4000 characters. Unsent drafts are
+discarded when leaving the chat; a failed send retains the draft for retry.
+Messages are rendered as plain text and are persisted before success is shown.
+Only the two participants can read or send messages. Saved blocks in either
+direction prevent opening and sending, including when a block is added after the
+chat is opened. The block-management UI is a separate, unimplemented use case.
+
+Chats load the most recent 100 messages, offer **Load older messages**, and check
+for new messages every three seconds while open. A **Refresh** button is also
+available. These are implementation defaults, not a measured response-time SLA;
+loading and sending still depend on the database and network.
+Confirmed, closed conversations retain read-only history and unlock the review
+flow on the provider profile. An empty conversation cannot be confirmed as a sale.
+Flyway V5 adds messages and block-list tables; restart with the Supabase profile
+to apply it. Existing conversations and reviews are retained.
+
+## Supabase connection
 
 See [Supabase setup](docs/supabase-setup.md) for the password prompt and launch command.
 The supabase profile uses online PostgreSQL; the default profile continues to use local H2.
