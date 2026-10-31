@@ -11,7 +11,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     Optional<Conversation> findFirstByBuyerIdAndListingIdOrderByIdDesc(Long buyerId, Long listingId);
 
     @Query("""
-            select c from Conversation c join fetch c.listing l join fetch l.owner join fetch c.buyer
+            select distinct c from Conversation c join fetch c.listing l join fetch l.owner join fetch c.buyer
+            left join fetch l.images
             where c.buyer.id = :userId or l.owner.id = :userId order by c.id desc
             """)
     List<Conversation> findForParticipant(@Param("userId") Long userId);

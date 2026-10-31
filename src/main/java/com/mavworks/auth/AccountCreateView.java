@@ -39,6 +39,8 @@ public class AccountCreateView extends Main {
     public AccountCreateView(AccountService accounts, TermsOfServiceService termsService, RegistrationLogin registrationLogin) {
         this.accounts = accounts;
         this.registrationLogin = registrationLogin;
+        addClassName("auth-page");
+        username.setWidthFull(); email.setWidthFull(); password.setWidthFull(); confirmation.setWidthFull();
         username.setHelperText("3–30 letters, numbers, dots, underscores or hyphens. Case-insensitive.");
         username.setMaxLength(30);
         email.setPlaceholder("you@mavs.uta.edu");
@@ -51,6 +53,7 @@ public class AccountCreateView extends Main {
         feedback.getElement().setAttribute("role", "alert");
         feedback.setVisible(false);
         Paragraph termsText = new Paragraph();
+        termsText.addClassName("registration-terms");
         termsText.getStyle().set("white-space", "pre-wrap");
         Button create = new Button("Create account", event -> register());
         create.addThemeVariants(ButtonVariant.PRIMARY);
@@ -72,6 +75,7 @@ public class AccountCreateView extends Main {
                 password, confirmation, termsText, acceptance, feedback, create,
                 new RouterLink("Back to login", LoginView.class));
         form.setMaxWidth("36rem");
+        form.addClassName("auth-card");
         form.getStyle().set("margin", "auto");
         add(form);
     }

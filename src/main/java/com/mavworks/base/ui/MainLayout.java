@@ -22,11 +22,42 @@ import jakarta.annotation.security.PermitAll;
 
 //Overarching layout: Handles the sidebar.
 
-public final class MainLayout extends AppLayout {
+public final class MainLayout extends AppLayout implements com.vaadin.flow.router.AfterNavigationObserver {
+    private final java.util.Map<String, com.vaadin.flow.component.html.Anchor> mobileLinks = new java.util.LinkedHashMap<>();
 
     MainLayout() {
         setPrimarySection(Section.DRAWER);
         addToDrawer(createApplicationHeader(), createApplicationDrawer(), createApplicationFooter());
+        addClassName("mav-shell");
+        var mobile = new com.vaadin.flow.component.html.Nav();
+        mobile.addClassName("mobile-navigation");
+        mobile.getElement().setAttribute("aria-label", "Main navigation");
+        mobile.add(mobileLink("", "Home", com.vaadin.flow.component.icon.VaadinIcon.HOME),
+                mobileLink("messages", "Messages", com.vaadin.flow.component.icon.VaadinIcon.COMMENTS),
+                mobileLink("dashboard", "Dashboard", com.vaadin.flow.component.icon.VaadinIcon.USER));
+        // Retain access to moderation on small screens for administrators only.
+        if (MenuConfiguration.getMenuEntries().stream().anyMatch(e -> e.menuClass() == com.mavworks.admin.ReportsView.class)) {
+            mobile.add(mobileLink("admin/reports", "Reports", com.vaadin.flow.component.icon.VaadinIcon.FLAG));
+        }
+        addToNavbar(mobile);
+    }
+
+    private com.vaadin.flow.component.html.Anchor mobileLink(String path, String label, com.vaadin.flow.component.icon.VaadinIcon symbol) {
+        var link = new com.vaadin.flow.component.html.Anchor(path, "");
+        var icon = symbol.create(); icon.getElement().setAttribute("aria-hidden", "true");
+        link.add(icon, new Span(label));
+        link.getElement().setAttribute("aria-label", label);
+        mobileLinks.put(path, link); return link;
+    }
+
+    @Override public void afterNavigation(com.vaadin.flow.router.AfterNavigationEvent event) {
+        String path = event.getLocation().getPath();
+        String selected = path.startsWith("messages") ? "messages" : path.equals("dashboard") ? "dashboard"
+                : path.startsWith("admin/reports") ? "admin/reports" : "";
+        mobileLinks.forEach((route, link) -> {
+            if (route.equals(selected)) link.getElement().setAttribute("aria-current", "page");
+            else link.getElement().removeAttribute("aria-current");
+        });
     }
 
     private Component createApplicationHeader() {
@@ -50,7 +81,7 @@ public final class MainLayout extends AppLayout {
     }
 
     private Component createApplicationFooter() {
-        var footer = new VerticalLayout(new Span("Made with ❤️ with Vaadin"));
+        var footer = new VerticalLayout(new Span("MavWorks · Campus marketplace"));
         footer.setAlignItems(FlexComponent.Alignment.CENTER);
         footer.addClassName("app-footer");
         return footer;

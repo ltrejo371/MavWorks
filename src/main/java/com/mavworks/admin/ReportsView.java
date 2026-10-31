@@ -25,6 +25,7 @@ public class ReportsView extends VerticalLayout implements BeforeEnterObserver {
 
     public ReportsView(ReportService reports) {
         this.reports = reports;
+        addClassNames("mw-page", "reports-page");
         status.setItems(ReportStatus.values());
         status.setItemLabelGenerator(value -> value == ReportStatus.PENDING ? "Pending" : value + " (archived)");
         status.setValue(ReportStatus.PENDING);
@@ -44,6 +45,7 @@ public class ReportsView extends VerticalLayout implements BeforeEnterObserver {
             if (data.isEmpty()) results.add(new Paragraph("No reports with this status on this page."));
             for (var report : data) {
                 Div card = new Div();
+                card.addClassNames("mw-panel", "report-card");
                 card.getStyle().set("padding", "1rem").set("border-bottom", "1px solid #ddd");
                 Paragraph reason = new Paragraph(report.reason().isBlank() ? "No additional reason provided." : report.reason());
                 reason.getStyle().set("white-space", "pre-wrap").set("overflow-wrap", "anywhere");

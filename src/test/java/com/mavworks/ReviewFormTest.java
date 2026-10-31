@@ -57,8 +57,8 @@ class ReviewFormTest {
 
     private ProfileView view(ReviewService service) {
         when(service.getProviderProfile(2L)).thenReturn(Optional.of(new ReviewService.ProviderProfile(
-                new PublicProfileData(2L, "provider", "Provider", "", null, ""), List.of())));
-        var view = new ProfileView(service, mock(com.mavworks.service.BlockService.class), mock(com.mavworks.service.ReportService.class));
+                new PublicProfileData(2L, "provider", "Provider", "", null, ""), List.of(), List.of())));
+        var view = new ProfileView(service, mock(com.mavworks.service.BlockService.class), mock(com.mavworks.service.ReportService.class), mock(com.mavworks.service.LocalImageStorageService.class));
         var event = mock(BeforeEnterEvent.class);
         when(event.getRouteParameters()).thenReturn(new RouteParameters("userId", "2"));
         view.beforeEnter(event);

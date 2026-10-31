@@ -26,6 +26,7 @@ import java.util.List;
 @PermitAll
 public class CreateListingView extends VerticalLayout {
     public CreateListingView(ListingService listings, LocalImageStorageService storage) {
+        addClassNames("mw-page", "mw-form-page");
         TextField name = new TextField("Name");
         TextField price = new TextField("Price ($)");
 
@@ -57,6 +58,7 @@ public class CreateListingView extends VerticalLayout {
         previews.setPadding(false);
 
         Button done = new Button("Done");
+        done.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.PRIMARY);
         Upload upload = new Upload((UploadHandler) event -> {
             uploadsInProgress.incrementAndGet();
             try {

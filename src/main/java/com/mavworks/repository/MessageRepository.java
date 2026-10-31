@@ -8,6 +8,19 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
+    interface LastActivity {
+        Long getConversationId();
+        java.time.Instant getSentAt();
+    }
+
+    @Query("""
+            select m.conversation.id as conversationId, max(m.sentAt) as sentAt
+            from Message m where m.conversation.buyer.id = :userId
+                or m.conversation.listing.owner.id = :userId
+            group by m.conversation.id
+            """)
+    List<LastActivity> findLastActivityForParticipant(@Param("userId") Long userId);
+
     boolean existsByConversationId(Long conversationId);
 
     @Query("""

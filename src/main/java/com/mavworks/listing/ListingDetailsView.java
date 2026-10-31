@@ -25,6 +25,7 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
         this.messages = messages;
         this.blocks = blocks;
         this.reports = reports;
+        addClassNames("mw-page", "listing-detail-page");
     }
 
     @Override
@@ -38,17 +39,43 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                 return;
             }
             var listing = result.get();
-            add(new ViewTitle(listing.getName()),
-                    new Paragraph(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.getPrice())),
-                    new Paragraph(listing.getType().name() + " · " + listing.getCategory().name()),
-                    new Paragraph(listing.getDescription()));
-            blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> add(
+            add(new com.vaadin.flow.component.html.Anchor("", "← Back to marketplace"));
+            var gallery = new com.vaadin.flow.component.html.Div(); gallery.addClassName("listing-gallery");
+            var hero = new com.vaadin.flow.component.html.Div(); hero.addClassName("listing-hero");
+            hero.add(com.mavworks.base.ui.ListingPreview.image(listing.getImages().isEmpty() ? null : listing.getImages().getFirst().getStorageReference(), listing.getName(), storage));
+            gallery.add(hero);
+            if (listing.getImages().size() > 1) {
+                var thumbnails = new com.vaadin.flow.component.html.Div(); thumbnails.addClassName("listing-thumbnails");
+                for (int index = 0; index < listing.getImages().size(); index++) {
+                    String reference = listing.getImages().get(index).getStorageReference();
+                    var thumb = new com.vaadin.flow.component.html.NativeButton();
+                    thumb.getElement().setAttribute("aria-label", "View photo " + (index + 1));
+                    thumb.add(com.mavworks.base.ui.ListingPreview.image(reference, listing.getName() + " photo " + (index + 1), storage));
+                    thumb.addClickListener(e -> { hero.removeAll(); hero.add(com.mavworks.base.ui.ListingPreview.image(reference, listing.getName(), storage)); });
+                    thumbnails.add(thumb);
+                }
+                gallery.add(thumbnails);
+            }
+            var info = new com.vaadin.flow.component.html.Div(); info.addClassNames("mw-panel", "listing-info");
+            var price = new Paragraph(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.getPrice()));
+            price.addClassName("listing-price");
+            var tags = new com.vaadin.flow.component.html.Div(); tags.addClassName("listing-tags");
+            for (String tag : java.util.List.of(listing.getType().name(), listing.getCategory().name(), listing.getStatus().name())) {
+                var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
+            }
+            info.add(tags, new ViewTitle(listing.getName()), price);
+            var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
+            providerCard.addClassName("listing-provider");
+            blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
                     new com.mavworks.base.ui.UserOptions(provider.id(), provider.username(), blocks, reports,
                             () -> beforeEnter(event)),
-                    new com.vaadin.flow.component.html.Anchor("profiles/" + provider.id(), "View provider profile and reviews")));
+                    new com.vaadin.flow.component.html.Anchor("profiles/" + provider.id(), "View profile and reviews")));
+            info.add(providerCard);
             Paragraph messageStatus = new Paragraph();
             messageStatus.getElement().setAttribute("role", "status");
             var messageButton = new com.vaadin.flow.component.button.Button("Message");
+            messageButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.PRIMARY);
+            messageButton.setWidthFull();
             messageButton.setDisableOnClick(true);
             messageButton.addClickListener(click -> {
                 try {
@@ -60,23 +87,11 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                     messageStatus.setText("The conversation could not be opened. Select Message to try again.");
                 } finally { messageButton.setEnabled(true); }
             });
-            add(messageButton, messageStatus);
-            for (var image : listing.getImages()) {
-                String reference = image.getStorageReference();
-                var handler = com.vaadin.flow.server.streams.DownloadHandler.fromInputStream(download -> {
-                    try {
-                        return new com.vaadin.flow.server.streams.DownloadResponse(storage.open(reference), reference,
-                                reference.endsWith("png") ? "image/png" : "image/jpeg", -1);
-                    } catch (java.io.IOException ex) {
-                        return com.vaadin.flow.server.streams.DownloadResponse.error(404);
-                    }
-                }
-                );
-                var display = new com.vaadin.flow.component.html.Image(handler, listing.getName());
-                display.setMaxWidth("100%");
-                display.setWidth("32rem");
-                add(display);
-            }
+            info.add(messageButton, messageStatus);
+            var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
+            var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
+            var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);
+            about.addClassName("mw-panel"); add(overview, about);
         } catch (NumberFormatException ex) {
             add(new Paragraph("Listing not found."));
         } catch (org.springframework.dao.DataAccessException ex) {

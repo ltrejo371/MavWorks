@@ -12,20 +12,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class ReviewService {
-    public record ProviderProfile(PublicProfileData profile, List<ReviewSummary> reviews) {}
+    public record ProviderProfile(PublicProfileData profile, List<ReviewSummary> reviews, List<ListingSummary> listings) {}
     private final CurrentUser currentUser;
     private final UserRepository users;
     private final ConversationRepository conversations;
     private final ReviewRepository reviews;
     private final UserBlockRepository blocks;
+    private final ListingRepository listings;
 
     public ReviewService(CurrentUser currentUser, UserRepository users,
-            ConversationRepository conversations, ReviewRepository reviews, UserBlockRepository blocks) {
+            ConversationRepository conversations, ReviewRepository reviews, UserBlockRepository blocks, ListingRepository listings) {
         this.currentUser = currentUser;
         this.users = users;
         this.conversations = conversations;
         this.reviews = reviews;
         this.blocks = blocks;
+        this.listings = listings;
     }
 
     private User author(boolean lock) {
@@ -46,7 +48,10 @@ public class ReviewService {
                     p == null ? null : p.getName(), p == null ? null : p.getBio(),
                     p == null ? null : p.getProfilePictureUrl(), p == null ? null : p.getContactInformation());
             return new ProviderProfile(publicData, reviews.findPublicReviews(providerId).stream()
-                    .filter(review -> !hidden.contains(review.authorId())).toList());
+                    .filter(review -> !hidden.contains(review.authorId())).toList(),
+                    listings.findByOwnerIdAndStatusOrderByCreatedAtDescIdDesc(providerId, com.mavworks.model.ListingStatus.ACTIVE)
+                            .stream().map(l -> new ListingSummary(l.getId(), l.getName(), l.getDescription(), l.getPrice(),
+                                    l.getCategory(), l.getType(), l.getImages().isEmpty() ? null : l.getImages().getFirst().getStorageReference())).toList());
         });
     }
 

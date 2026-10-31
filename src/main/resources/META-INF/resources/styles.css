@@ -1,29 +1,96 @@
-/* Add your styles here */
-
-.app-logo {
-    border-radius: min(40%, var(--vaadin-radius-m));
-    margin-inline-start: var(--vaadin-padding-inline-container);
+/* Shared visual language for the marketplace and its account workflows. */
+:root { --mw-border: #e1e7ef; --mw-muted: #5f6d80; --mw-surface: var(--vaadin-background-color, #fff); }
+.mav-shell { --vaadin-app-layout-drawer-overlay: false; }
+.mav-shell::part(navbar) { display: none; }
+.mobile-navigation { display: none; }
+.listing-info vaadin-drawer-toggle, .profile-identity vaadin-drawer-toggle { display: none; }
+.dashboard-card h3 a { color: inherit; text-decoration: none; }
+.dashboard-card h3 a:hover { text-decoration: underline; }
+@media (max-width: 800px) {
+    .mav-shell vaadin-drawer-toggle { display: none; }
+    .mav-shell { --vaadin-app-layout-drawer-offset-left: 0px !important; --vaadin-app-layout-drawer-offset-right: 0px !important; --vaadin-app-layout-navbar-offset-top: 0px !important; }
+    .mav-shell::part(drawer), .mav-shell::part(backdrop) { display: none !important; }
+    .mav-shell::part(navbar) { display: flex; position: fixed; inset: auto 0 0; z-index: 200; padding: 0; background: var(--mw-surface); border-top: 1px solid var(--mw-border); box-shadow: 0 -2px 12px #18304f08; }
+    .mav-shell::part(content) { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+    .mobile-navigation { display: flex; width: 100%; justify-content: space-around; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+    .mobile-navigation a { display: flex; flex: 1; min-height: 46px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #586574; text-decoration: none; border-radius: 10px; font-size: 10px; font-weight: 600; }
+    .mobile-navigation vaadin-icon { width: 25px; height: 25px; }
+    .mobile-navigation a[aria-current="page"] { color: #235bb7; background: #edf3fd; }
+    .mav-shell .mav-chat { height: calc(100dvh - 84px - env(safe-area-inset-bottom, 0px)); min-height: 0; margin: 6px auto; }
 }
-
-.app-name {
-    font-weight: var(--aura-font-weight-semibold);
-    font-size: var(--aura-font-size-l);
-}
-
-.app-footer {
-    color: var(--vaadin-text-color-secondary);
-    font-size: var(--aura-font-size-s);
-}
-
-/* TODO: This is only for demo purposes. You can delete it. */
-vaadin-side-nav:has(vaadin-side-nav-item:only-child)::after {
-    display: block;
-    content: "More menu items will appear here when you add more views.";
-    font-size: var(--aura-font-size-s);
-    color: var(--vaadin-text-color-secondary);
-    box-sizing: border-box;
-    padding: 1em;
-    max-width: 14em;
-    min-width: 100%;
-    white-space: normal;
+body { background: #f6f8fb; }
+.app-logo { border-radius: 12px; }
+.app-name { font-weight: 750; font-size: 21px; letter-spacing: -0.5px; }
+.app-footer { color: var(--mw-muted); font-size: 12px; padding: 20px; }
+vaadin-side-nav { padding: 12px; }
+vaadin-side-nav-item { margin-bottom: 5px; border-radius: 10px; }
+vaadin-button { border-radius: 9px; }
+a { text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 3px solid #3267b4; outline-offset: 3px; }
+.mw-page { width: 100%; max-width: 1360px; margin: 0 auto; padding: clamp(12px, 2vw, 22px); box-sizing: border-box; gap: 14px; }
+.mw-page h1, .mw-page h2, .mw-page h3 { overflow-wrap: anywhere; letter-spacing: -0.02em; }
+.mw-page h1 { margin: 0; line-height: 1.2; }
+.mw-page h2 { margin: 0; font-size: 22px; }
+.mw-page h3 { margin: 0 0 10px; font-size: 16px; }
+.mw-page p { line-height: 1.65; }
+.mw-panel { background: var(--mw-surface); border: 1px solid var(--mw-border); border-radius: 16px; padding: 16px !important; box-sizing: border-box; min-width: 0; width: 100%; box-shadow: 0 3px 12px #18304f06; }
+.mw-prose { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
+.mw-section-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; flex-wrap: wrap; }
+.mw-badge { display: inline-block; background: #edf2fa; color: #405875; padding: 5px 10px; border-radius: 7px; font-size: 12px; font-weight: 600; }
+.mw-form-page { margin: 16px auto; background: var(--mw-surface); border: 1px solid var(--mw-border); border-radius: 18px; box-shadow: 0 5px 20px #18304f08; }
+.mw-form-page > vaadin-text-field, .mw-form-page > vaadin-text-area, .mw-form-page > vaadin-combo-box, .review-form > vaadin-combo-box { width: 100%; }
+.mw-form-page vaadin-upload { width: 100%; box-sizing: border-box; border-radius: 12px; }
+.mw-form-page > p:empty, .profile-page > p:empty { display: none; }
+.marketplace-page > vaadin-horizontal-layout { flex-wrap: wrap; background: var(--mw-surface); border: 1px solid var(--mw-border); border-radius: 14px; padding: 16px; width: 100%; box-sizing: border-box; }
+.marketplace-results { width: 100%; }
+.marketplace-card { box-shadow: 0 2px 10px #18304f05; }
+.listing-overview { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; width: 100%; align-items: start; }
+.listing-gallery { min-width: 0; }
+.listing-picture { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 12px; background: #edf1f6; color: var(--mw-muted); font-size: 13px; text-align: center; }
+.listing-picture img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #edf1f6; }
+.listing-hero .listing-picture { aspect-ratio: 4 / 3; border: 1px solid var(--mw-border); box-sizing: border-box; }
+.listing-hero img { object-fit: contain; }
+.listing-thumbnails { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 80px)); gap: 10px; margin-top: 12px; }
+.listing-thumbnails button { padding: 0; cursor: pointer; border: 1px solid var(--mw-border); border-radius: 12px; background: transparent; }
+.listing-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.listing-info h1 { font-size: clamp(24px, 3vw, 34px); }
+.listing-price { font-size: 30px; font-weight: 750; margin: 10px 0 16px; }
+.listing-provider { border-top: 1px solid var(--mw-border); padding: 18px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.listing-info > p:empty { display: none; }
+.profile-header { display: flex; gap: 16px; align-items: flex-start; }
+.profile-header > img, .profile-header > vaadin-avatar { flex-shrink: 0; }
+.profile-identity { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.profile-identity h1 { font-size: 28px; }
+.profile-identity p { margin: 8px 0; }
+.review-score { display: block; margin-top: 16px; color: #79531a; font-weight: 600; }
+.profile-listings, .profile-reviews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; }
+.profile-listing-card { display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: center; gap: 16px; padding: 14px; background: var(--mw-surface); border: 1px solid var(--mw-border); border-radius: 14px; text-decoration: none; color: inherit; }
+.profile-listing-card:hover { border-color: #a6bad3; text-decoration: none; box-shadow: 0 3px 12px #18304f10; }
+.profile-listing-card h3 { margin-bottom: 6px; overflow-wrap: anywhere; }
+.profile-listing-card p { margin: 4px 0 0; font-size: 12px; color: var(--mw-muted); }
+.listing-price-small { font-weight: 650; }
+.review-card { gap: 8px; align-items: flex-start; }
+.review-card p { margin: 0; overflow-wrap: anywhere; }
+.review-card p:nth-of-type(1) { color: #79531a; }
+.review-card p:nth-of-type(2) { font-size: 13px; color: var(--mw-muted); }
+.report-card h2 { font-size: 19px; }
+.report-card h2 a { text-decoration: none; }
+.report-card p { margin: 8px 0; overflow-wrap: anywhere; }
+.report-detail-page > p { margin: 0; overflow-wrap: anywhere; }
+.auth-page { min-height: 100dvh; display: grid; place-items: center; padding: 28px 16px; box-sizing: border-box; background: radial-gradient(ellipse at top, #e8effb, #f6f8fb 70%); }
+.auth-card { width: 100%; max-width: 460px; padding: 32px; background: var(--mw-surface); border: 1px solid var(--mw-border); border-radius: 20px; box-shadow: 0 12px 45px #243e6510; box-sizing: border-box; }
+.auth-card h1 { margin: 0; letter-spacing: -0.04em; }
+.auth-card > p { color: var(--mw-muted); line-height: 1.6; }
+.auth-card vaadin-login-form { width: 100%; max-width: 100%; }
+.auth-card > p:empty { display: none; }
+.registration-terms { max-height: 220px; overflow-y: auto; padding: 16px; border: 1px solid var(--mw-border); border-radius: 10px; font-size: 13px; box-sizing: border-box; width: 100%; }
+.mav-chat { border-radius: 16px; box-shadow: 0 4px 20px #18304f08; }
+@media (max-width: 720px) {
+    .listing-overview, .profile-listings, .profile-reviews { grid-template-columns: minmax(0, 1fr); }
+    .mw-panel { padding: 18px !important; }
+    .mw-form-page { margin: 12px auto; border-radius: 12px; }
+    .profile-header { gap: 14px; flex-wrap: wrap; }
+    .profile-header > img, .profile-header > vaadin-avatar { width: 64px !important; height: 64px !important; }
+    .profile-listing-card { grid-template-columns: 80px minmax(0, 1fr); }
+    .auth-card { padding: 22px; }
 }

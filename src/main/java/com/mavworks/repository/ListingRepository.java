@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ListingRepository extends JpaRepository<Listing, Long> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "images")
+    List<Listing> findByOwnerIdAndStatusOrderByCreatedAtDescIdDesc(Long ownerId, ListingStatus status);
     List<Listing> findByOwnerId(Long ownerId);
     List<Listing> findByStatus(ListingStatus status);
 

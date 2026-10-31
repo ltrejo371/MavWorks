@@ -41,6 +41,11 @@ public class DashboardView extends VerticalLayout {
         try {
             var data = service.load();
             Div profile = card("Your profile");
+            H3 profileTitle = (H3) profile.getComponentAt(0);
+            profileTitle.removeAll();
+            Anchor profileLink = new Anchor("profiles/" + data.userId(), "Your profile →");
+            profileLink.getElement().setAttribute("aria-label", "View your public profile");
+            profileTitle.add(profileLink);
             Div identity = new Div(); identity.addClassName("dashboard-identity");
             if (data.hasPicture()) identity.add(EditAccountDialog.picture(data.userId()));
             else {

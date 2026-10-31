@@ -24,6 +24,7 @@ public class LoginView extends Main implements BeforeEnterObserver{
     private final com.vaadin.flow.component.html.Paragraph accountStatus = new com.vaadin.flow.component.html.Paragraph();
 
     public LoginView(){
+        addClassName("auth-page");
         login = new LoginForm();
         login.setAction("login");
 
@@ -31,14 +32,14 @@ public class LoginView extends Main implements BeforeEnterObserver{
         createBtn.addThemeVariants(ButtonVariant.PRIMARY);
 
         VerticalLayout layout = new VerticalLayout();
+        layout.addClassName("auth-card");
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
         accountStatus.getElement().setAttribute("role", "alert");
-        layout.add(accountStatus, login, createBtn);
-        layout.setSizeFull();
+        layout.add(new com.vaadin.flow.component.html.H1("MavWorks"),
+                new com.vaadin.flow.component.html.Paragraph("Your campus marketplace. Sign in to get started."), accountStatus, login, createBtn);
 
         add(layout);
-        setSizeFull();
     }
 
     public void gotoCreateAccount(){
