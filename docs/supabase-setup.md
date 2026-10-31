@@ -4,6 +4,23 @@ The supabase Spring profile connects to the project's Session pooler on port 543
 The default profile still uses local H2. Supabase hosts the database; the Java
 application still runs on your computer.
 
+## Start from PowerShell
+
+Stop the existing app with Ctrl+C, then run these commands from the project root:
+
+```powershell
+$securePassword = Read-Host "Supabase database password" -AsSecureString
+$env:SUPABASE_DB_PASSWORD = [System.Net.NetworkCredential]::new("", $securePassword).Password
+.\mvnw.cmd clean spring-boot:run "-Dspring-boot.run.profiles=supabase"
+```
+
+After stopping the app, remove the password from that terminal with:
+
+```powershell
+Remove-Item Env:SUPABASE_DB_PASSWORD
+Remove-Variable securePassword
+```
+
 ## Start from Git Bash (IntelliJ terminal)
 
 Stop the existing app with Ctrl+C, then run these commands from the project root:
@@ -53,6 +70,15 @@ V6 adds reports and the pending administrator review queue. Set
 values to grant administrator access on the next login; the default grants none.
 V7 adds report decisions, warning explanations, and account bans. Admins can open
 reports, save a VALID/INVALID decision, and filter the archived results by status.
+V8 adds listing expiration, view counts, styles, expanded categories, conversation
+read markers, and listing references on reports. Existing listings receive an
+expiration date 30 days after creation. New listings must supply expires_at;
+the application initializes it to 30 days after creation.
+V9 adds WITHDRAWN to the listing status constraint for owner withdrawal and
+renewal. It preserves existing listings and their history. Start the updated
+branch with the Supabase profile to apply pending migrations automatically.
+When sharing the database, keep the team's application code and migrations in
+sync; a schema ahead of an older checkout can cause validation or insert errors.
 The existing development terms initializer adds demo terms if the table is empty.
 Existing H2 accounts and listings are not transferred; register a new test account
 on Supabase. H2 files are preserved.
