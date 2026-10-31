@@ -6,7 +6,7 @@ import java.util.List;
 public interface ModerationActions {
     List<Report> viewReports();
 
-    void validateReport();
+    void validateReport(Report report, ReportStatus decision, ModerationAction action, String explanation);
 
     void banUser();
 

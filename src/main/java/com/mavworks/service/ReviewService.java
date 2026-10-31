@@ -17,13 +17,15 @@ public class ReviewService {
     private final UserRepository users;
     private final ConversationRepository conversations;
     private final ReviewRepository reviews;
+    private final UserBlockRepository blocks;
 
     public ReviewService(CurrentUser currentUser, UserRepository users,
-            ConversationRepository conversations, ReviewRepository reviews) {
+            ConversationRepository conversations, ReviewRepository reviews, UserBlockRepository blocks) {
         this.currentUser = currentUser;
         this.users = users;
         this.conversations = conversations;
         this.reviews = reviews;
+        this.blocks = blocks;
     }
 
     private User author(boolean lock) {
@@ -34,19 +36,24 @@ public class ReviewService {
     }
 
     public Optional<ProviderProfile> getProviderProfile(Long providerId) {
+        var viewer = author(false);
         if (providerId == null) return Optional.empty();
+        var hidden = blocks.findHiddenUserIds(viewer.getId());
+        if (hidden.contains(providerId)) return Optional.empty();
         return users.findById(providerId).map(user -> {
             var p = user.getProfile();
             var publicData = new PublicProfileData(user.getId(), user.getUsername(),
                     p == null ? null : p.getName(), p == null ? null : p.getBio(),
                     p == null ? null : p.getProfilePictureUrl(), p == null ? null : p.getContactInformation());
-            return new ProviderProfile(publicData, reviews.findPublicReviews(providerId));
+            return new ProviderProfile(publicData, reviews.findPublicReviews(providerId).stream()
+                    .filter(review -> !hidden.contains(review.authorId())).toList());
         });
     }
 
     public List<ReviewableListing> getReviewableListings(Long providerId) {
         var user = author(false);
         if (providerId == null || providerId.equals(user.getId())) return List.of();
+        if (blocks.findHiddenUserIds(user.getId()).contains(providerId)) return List.of();
         var reviewed = new HashSet<>(reviews.findReviewedListingIds(user.getId()));
         return conversations.findCompletedSales(user.getId(), providerId).stream()
                 .filter(c -> c.qualifiesForReview(user)).map(c -> c.getListing())
@@ -58,6 +65,9 @@ public class ReviewService {
     public Long leaveReview(Long providerId, CreateReviewRequest request) {
         // Serialize submissions by author; the database unique constraint also protects duplicates.
         var user = author(true);
+        if (providerId != null && blocks.findHiddenUserIds(user.getId()).contains(providerId)) {
+            throw new AccessDeniedException("Reviews are unavailable for this account.");
+        }
         if (request == null || request.listingId() == null) {
             throw new IllegalArgumentException("Select the listing you are reviewing.");
         }

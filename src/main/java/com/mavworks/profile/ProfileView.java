@@ -23,12 +23,17 @@ import org.springframework.security.access.AccessDeniedException;
 @PermitAll
 public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
     private final ReviewService service;
+    private final com.mavworks.service.BlockService blocks;
+    private final com.mavworks.service.ReportService reports;
     private Long providerId;
     private final VerticalLayout form = new VerticalLayout();
     private final Paragraph feedback = new Paragraph();
 
-    public ProfileView(ReviewService service) {
+    public ProfileView(ReviewService service, com.mavworks.service.BlockService blocks,
+            com.mavworks.service.ReportService reports) {
         this.service = service;
+        this.blocks = blocks;
+        this.reports = reports;
         setMaxWidth("48rem");
         form.setPadding(false);
         feedback.getElement().setAttribute("role", "status");
@@ -58,7 +63,9 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             }
             var data = result.get();
             var profile = data.profile();
-            add(new ViewTitle(profile.username()));
+            if (profile.profilePictureUrl() != null) add(com.mavworks.dashboard.EditAccountDialog.picture(profile.userId()));
+            add(new ViewTitle("Profile"), new com.mavworks.base.ui.UserOptions(
+                    profile.userId(), profile.username(), blocks, reports, this::loadProfile));
             if (profile.name() != null && !profile.name().isBlank()) add(new Paragraph(profile.name()));
             if (profile.bio() != null && !profile.bio().isBlank()) add(new Paragraph(profile.bio()));
             if (profile.contactInformation() != null && !profile.contactInformation().isBlank()) {
@@ -70,7 +77,8 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
                 VerticalLayout card = new VerticalLayout();
                 card.setPadding(false);
                 card.getStyle().set("border-bottom", "1px solid #d8dce2").set("padding-bottom", "1rem");
-                card.add(new Paragraph(review.author() + " · " + review.rating() + "/5"),
+                card.add(new com.mavworks.base.ui.UserOptions(review.authorId(), review.author(), blocks, reports, this::loadProfile),
+                        new Paragraph(review.rating() + "/5"),
                         new Paragraph("Listing: " + review.listingName()));
                 if (review.comment() != null && !review.comment().isBlank()) {
                     Paragraph comment = new Paragraph(review.comment());

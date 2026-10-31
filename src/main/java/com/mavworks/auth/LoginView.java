@@ -21,6 +21,7 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 public class LoginView extends Main implements BeforeEnterObserver{
     private final LoginForm login;
     private final Button createBtn;
+    private final com.vaadin.flow.component.html.Paragraph accountStatus = new com.vaadin.flow.component.html.Paragraph();
 
     public LoginView(){
         login = new LoginForm();
@@ -32,7 +33,8 @@ public class LoginView extends Main implements BeforeEnterObserver{
         VerticalLayout layout = new VerticalLayout();
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
-        layout.add(login, createBtn);
+        accountStatus.getElement().setAttribute("role", "alert");
+        layout.add(accountStatus, login, createBtn);
         layout.setSizeFull();
 
         add(layout);
@@ -45,6 +47,8 @@ public class LoginView extends Main implements BeforeEnterObserver{
 
     @Override 
     public void beforeEnter(BeforeEnterEvent event){
+        accountStatus.setText(event.getLocation().getQueryParameters().getParameters().containsKey("banned")
+                ? "This account has been banned from MavWorks." : "");
         if(event.getLocation().getQueryParameters().getParameters().containsKey("error")){
             login.setError(true);
         }

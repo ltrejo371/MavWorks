@@ -13,16 +13,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountDashboardService {
     public record DashboardData(String username, String email, String name, String bio,
-            String contactInformation, List<ListingSummary> listings) {}
+            String contactInformation, List<ListingSummary> listings, List<com.mavworks.dto.AccountWarning> warnings,
+            Long userId, boolean hasPicture, List<SubmittedReport> submittedReports, List<String> blockedAccounts) {}
+    public record SubmittedReport(Long id, String reportedUser, com.mavworks.model.ReportCategory category,
+            com.mavworks.model.ReportStatus status, java.time.Instant createdAt) {}
 
     private final CurrentUser currentUser;
     private final UserRepository users;
     private final ListingRepository listings;
+    private final com.mavworks.repository.ReportRepository reports;
+    private final com.mavworks.repository.UserBlockRepository blocks;
 
-    public AccountDashboardService(CurrentUser currentUser, UserRepository users, ListingRepository listings) {
+    public AccountDashboardService(CurrentUser currentUser, UserRepository users, ListingRepository listings,
+            com.mavworks.repository.ReportRepository reports, com.mavworks.repository.UserBlockRepository blocks) {
         this.currentUser = currentUser;
         this.users = users;
         this.listings = listings;
+        this.reports = reports;
+        this.blocks = blocks;
     }
 
     @Transactional(readOnly = true)
@@ -37,6 +45,10 @@ public class AccountDashboardService {
         return new DashboardData(user.getUsername(), user.getEmail(),
                 profile == null ? null : profile.getName(),
                 profile == null ? null : profile.getBio(),
-                profile == null ? null : profile.getContactInformation(), ownedListings);
+                profile == null ? null : profile.getContactInformation(), ownedListings, reports.findWarnings(user.getId()),
+                user.getId(), profile != null && profile.getProfilePictureUrl() != null,
+                reports.findByReporterIdOrderByCreatedAtDescIdDesc(user.getId()).stream().map(r -> new SubmittedReport(
+                        r.getId(), r.getReportedUser() == null ? "Deleted account" : r.getReportedUser().getUsername(),
+                        r.getCategory(), r.getStatus(), r.getCreatedAt())).toList(), blocks.findBlockedUsernames(user.getId()));
     }
 }

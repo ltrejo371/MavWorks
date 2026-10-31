@@ -3,6 +3,7 @@ package com.mavworks.model;
 import jakarta.persistence.*;
 
 @Entity
+@org.hibernate.annotations.DynamicUpdate
 @Table(name = "app_users")
 public class User implements UserActions {
     @Id
@@ -20,6 +21,12 @@ public class User implements UserActions {
 
     @Embedded
     private Profile profile = new Profile();
+
+    @Column(nullable = false)
+    private boolean banned;
+
+    public boolean isBanned() { return banned; }
+    public void ban() { banned = true; }
 
     public User() {
     }
@@ -85,13 +92,13 @@ public class User implements UserActions {
     }
 
     @Override
-    public void blockUser() {
-        // TODO: Implement.
+    public UserBlock blockUser(User target) {
+        return new UserBlock(this, target);
     }
 
     @Override
-    public void reportUser() {
-        // TODO: Implement.
+    public Report reportUser(User target, ReportCategory category, String reason) {
+        return new Report(this, target, category, reason);
     }
 
     public Long getId() {

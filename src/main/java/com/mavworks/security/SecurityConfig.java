@@ -16,8 +16,11 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users) throws Exception {
+        http.authorizeHttpRequests(auth -> auth.requestMatchers("/profile-pictures/**").authenticated());
         http.with(VaadinSecurityConfigurer.vaadin(), config -> config.loginView(LoginView.class).defaultSuccessUrl("/", true));
+        http.addFilterAfter(new BannedAccountFilter(users),
+                org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class);
 
         return http.build();
     }
@@ -28,13 +31,21 @@ public class SecurityConfig {
     }
 
     @Bean
-    UserDetailsService userDetailsService(UserRepository users) {
+    UserDetailsService userDetailsService(UserRepository users,
+            @org.springframework.beans.factory.annotation.Value("${mavworks.admin-user-ids:}") String adminUserIds) {
+        var admins = java.util.Arrays.stream(adminUserIds.split(",")).map(String::trim)
+                .filter(value -> !value.isEmpty()).map(Long::valueOf)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         return username -> {
             var user = users.findByUsername(username.trim().toLowerCase(Locale.ROOT))
                     .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
-            return org.springframework.security.core.userdetails.User
+            var details = org.springframework.security.core.userdetails.User
                     .withUsername(user.getUsername()).password(user.getHashedPassword())
-                    .roles("USER").build();
+                    .disabled(user.isBanned())
+                    .roles(admins.contains(user.getId())
+                            ? new String[] {"USER", "ADMIN"} : new String[] {"USER"}).build();
+            return new AccountPrincipal(user.getId(), details.getUsername(), details.getPassword(),
+                    details.isEnabled(), details.getAuthorities());
         };
     }
 }

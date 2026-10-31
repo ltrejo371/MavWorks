@@ -28,6 +28,8 @@ import org.springframework.security.access.AccessDeniedException;
 public class ConversationView extends VerticalLayout implements BeforeEnterObserver {
     private final MessagingService service;
     private final ConversationService sales;
+    private final BlockService blocks;
+    private final ReportService reports;
     private Long conversationId;
     private Long firstId;
     private Long lastId;
@@ -45,9 +47,11 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private Registration poll;
     private int previousPollInterval;
 
-    public ConversationView(MessagingService service, ConversationService sales) {
+    public ConversationView(MessagingService service, ConversationService sales, BlockService blocks, ReportService reports) {
         this.service = service;
         this.sales = sales;
+        this.blocks = blocks;
+        this.reports = reports;
         addClassName("mav-chat");
         setPadding(false);
         setSpacing(false);
@@ -104,7 +108,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             viewerIsProvider = chat.provider();
             Span avatar = new Span(chat.otherUser().substring(0, 1).toUpperCase(java.util.Locale.ROOT));
             avatar.addClassName("mav-chat-avatar");
-            Span person = new Span(chat.otherUser());
+            var person = new com.mavworks.base.ui.UserOptions(chat.otherUserId(), chat.otherUser(), blocks, reports, () -> {
+                denied();
+                getUI().ifPresent(ui -> ui.navigate("messages"));
+            });
             person.addClassName("mav-chat-person");
             Span listing = new Span(chat.listingName());
             listing.addClassName("mav-chat-listing");

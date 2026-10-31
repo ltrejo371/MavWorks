@@ -31,6 +31,9 @@ class MessagingWorkflowTest {
     @Autowired MessagingService service;
     @Autowired ConversationService sales;
     @Autowired ReviewService reviews;
+    @Autowired BlockService blocking;
+    @Autowired ListingService listingService;
+    @Autowired ListingCatalogService catalog;
     User buyer, provider, outsider;
     Listing listing;
 
@@ -49,6 +52,87 @@ class MessagingWorkflowTest {
         login(buyer);
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
+
+    @Test void blockingIsIdempotentAndRejectsSelfMissingAndAnonymousAccounts() {
+        assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(buyer.getId()));
+        assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(null));
+        assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(Long.MAX_VALUE));
+        assertEquals(BlockService.Result.BLOCKED, blocking.blockUser(provider.getId()));
+        assertEquals(BlockService.Result.ALREADY_BLOCKED, blocking.blockUser(provider.getId()));
+        assertEquals(1, blocks.count());
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> blocking.blockUser(outsider.getId()));
+    }
+
+    @Test void blockHidesAccountsReviewsAndConversationsButRetainsListingsAndHistory() {
+        Long id = service.startConversation(listing.getId());
+        service.sendMessage(id, "Agreed");
+        login(provider);
+        sales.confirmSaleAndClose(id);
+        login(buyer);
+        reviews.leaveReview(provider.getId(), new CreateReviewRequest(listing.getId(), 5, "Great"));
+        blocking.blockUser(provider.getId());
+        assertTrue(reviews.getProviderProfile(provider.getId()).isEmpty());
+        assertTrue(blocking.visibleUser(provider.getId()).isEmpty());
+        assertTrue(reviews.getReviewableListings(provider.getId()).isEmpty());
+        assertThrows(AccessDeniedException.class, () -> reviews.leaveReview(provider.getId(),
+                new CreateReviewRequest(listing.getId(), 4, "Changed")));
+        assertTrue(service.getMyConversations().isEmpty());
+        assertThrows(MessagingBlockedException.class, () -> service.getChat(id, null));
+        assertTrue(listingService.getListingDetails(listing.getId()).isPresent());
+        assertEquals(1, catalog.search(new com.mavworks.dto.SearchFilter("", null), null).size());
+        login(provider);
+        assertTrue(reviews.getProviderProfile(buyer.getId()).isEmpty());
+        assertTrue(blocking.visibleUser(buyer.getId()).isEmpty());
+        assertTrue(service.getMyConversations().isEmpty());
+        assertTrue(reviews.getProviderProfile(provider.getId()).orElseThrow().reviews().isEmpty());
+        assertThrows(MessagingBlockedException.class, () -> service.sendMessage(id, "No contact"));
+        assertEquals(1, messages.count());
+        assertEquals(1, conversations.count());
+        login(outsider);
+        assertEquals(1, reviews.getProviderProfile(provider.getId()).orElseThrow().reviews().size());
+    }
+
+    @Test void blockedAuthorsAreHiddenOnThirdPartyProfilesToo() {
+        var otherListing = new Listing();
+        otherListing.setOwner(outsider);
+        otherListing.setName("Service");
+        otherListing.setDescription("Help");
+        otherListing.setPrice(BigDecimal.ONE);
+        otherListing.setType(ListingType.SERVICE);
+        listings.saveAndFlush(otherListing);
+        Long id = service.startConversation(otherListing.getId());
+        service.sendMessage(id, "Thanks");
+        login(outsider);
+        sales.confirmSaleAndClose(id);
+        login(buyer);
+        reviews.leaveReview(outsider.getId(), new CreateReviewRequest(otherListing.getId(), 5, "Excellent"));
+        login(provider);
+        assertEquals(1, reviews.getProviderProfile(outsider.getId()).orElseThrow().reviews().size());
+        blocking.blockUser(buyer.getId());
+        assertTrue(reviews.getProviderProfile(outsider.getId()).orElseThrow().reviews().isEmpty());
+        login(outsider);
+        assertEquals(1, reviews.getProviderProfile(outsider.getId()).orElseThrow().reviews().size());
+    }
+
+    @Test void concurrentConfirmationsCreateOnlyOneBlock() throws Exception {
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<BlockService.Result> action = () -> {
+                login(buyer);
+                try {
+                    if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Start timed out");
+                    return blocking.blockUser(provider.getId());
+                } finally { SecurityContextHolder.clearContext(); }
+            };
+            var first = executor.submit(action);
+            var second = executor.submit(action);
+            start.countDown();
+            assertEquals(java.util.Set.of(BlockService.Result.BLOCKED, BlockService.Result.ALREADY_BLOCKED),
+                    java.util.Set.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS)));
+        }
+        assertEquals(1, blocks.count());
+    }
 
     @Test void bothPartiesCanReplyAndRevisitPersistedHistory() {
         Long id = service.startConversation(listing.getId());

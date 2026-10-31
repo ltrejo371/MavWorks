@@ -14,7 +14,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     @Query("""
             select new com.mavworks.dto.ReviewSummary(r.id, r.author.username, r.listing.id,
-                r.listing.name, r.rating, r.comment, r.createdAt)
+                r.listing.name, r.rating, r.comment, r.createdAt, r.author.id)
             from Review r where r.listing.owner.id = :providerId
             order by r.createdAt desc, r.id desc
             """)

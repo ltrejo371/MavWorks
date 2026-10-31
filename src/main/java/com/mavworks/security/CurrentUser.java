@@ -6,15 +6,21 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-/** Reads the authenticated principal; database User lookup will be added with account integration. */
+/** Rechecks account status so an existing session cannot continue acting after a ban. */
 @Component
 public class CurrentUser {
+    private final com.mavworks.repository.UserRepository users;
+
+    public CurrentUser(com.mavworks.repository.UserRepository users) { this.users = users; }
     public Optional<String> username() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {
             return Optional.empty();
         }
-        return Optional.of(authentication.getName());
+        return (authentication.getPrincipal() instanceof AccountPrincipal principal
+                ? users.findById(principal.accountId()) : users.findByUsername(authentication.getName()))
+                .filter(user -> !user.isBanned())
+                .map(user -> user.getUsername());
     }
 }

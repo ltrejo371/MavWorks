@@ -107,10 +107,10 @@ class MessagingViewTest {
     }
 
     private MessagingService.Chat chat(boolean closed, List<MessageSummary> messages) {
-        return new MessagingService.Chat(3L, 10L, "Book", 2L, "provider", false, closed, messages);
+        return new MessagingService.Chat(3L, 10L, "Book", 2L, "provider", false, closed, messages, 2L);
     }
     private ConversationView view(MessagingService service) {
-        var view = new ConversationView(service, mock(ConversationService.class));
+        var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class), mock(ReportService.class));
         var event = mock(BeforeEnterEvent.class);
         when(event.getRouteParameters()).thenReturn(new RouteParameters("conversationId", "3"));
         view.beforeEnter(event);

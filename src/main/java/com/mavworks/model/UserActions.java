@@ -10,7 +10,7 @@ public interface UserActions {
 
     Review leaveReview(Conversation conversation, Integer rating, String comment);
 
-    void blockUser();
+    UserBlock blockUser(User target);
 
-    void reportUser();
+    Report reportUser(User target, ReportCategory category, String reason);
 }

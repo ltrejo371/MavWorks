@@ -10,8 +10,9 @@ public class Admin extends User implements ModerationActions {
     }
 
     @Override
-    public void validateReport() {
-        // TODO: Implement.
+    public void validateReport(Report report, ReportStatus decision, ModerationAction action, String explanation) {
+        if (report == null) throw new IllegalArgumentException("Select a report.");
+        report.resolve(this, decision, action, explanation);
     }
 
     @Override

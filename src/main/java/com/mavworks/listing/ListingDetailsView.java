@@ -14,12 +14,17 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
     private final com.mavworks.service.ListingService listings;
     private final com.mavworks.service.LocalImageStorageService storage;
     private final com.mavworks.service.MessagingService messages;
+    private final com.mavworks.service.BlockService blocks;
+    private final com.mavworks.service.ReportService reports;
 
     public ListingDetailsView(com.mavworks.service.ListingService listings,
-            com.mavworks.service.LocalImageStorageService storage, com.mavworks.service.MessagingService messages) {
+            com.mavworks.service.LocalImageStorageService storage, com.mavworks.service.MessagingService messages,
+            com.mavworks.service.BlockService blocks, com.mavworks.service.ReportService reports) {
         this.listings = listings;
         this.storage = storage;
         this.messages = messages;
+        this.blocks = blocks;
+        this.reports = reports;
     }
 
     @Override
@@ -36,8 +41,11 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             add(new ViewTitle(listing.getName()),
                     new Paragraph(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.getPrice())),
                     new Paragraph(listing.getType().name() + " · " + listing.getCategory().name()),
-                    new Paragraph(listing.getDescription()),
-                    new com.vaadin.flow.component.html.Anchor("profiles/" + listing.getOwner().getId(), "View provider profile and reviews"));
+                    new Paragraph(listing.getDescription()));
+            blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> add(
+                    new com.mavworks.base.ui.UserOptions(provider.id(), provider.username(), blocks, reports,
+                            () -> beforeEnter(event)),
+                    new com.vaadin.flow.component.html.Anchor("profiles/" + provider.id(), "View provider profile and reviews")));
             Paragraph messageStatus = new Paragraph();
             messageStatus.getElement().setAttribute("role", "status");
             var messageButton = new com.vaadin.flow.component.button.Button("Message");

@@ -48,6 +48,11 @@ from previous builds, including the former duplicate V2 listing migration.
 V4 adds conversations and provider reviews, including one-review-per-user/listing
 uniqueness and rating constraints. Restart with the Supabase profile to apply it.
 V5 adds persisted messages and block-list records for the messaging workflow.
+V6 adds reports and the pending administrator review queue. Set
+`MAVWORKS_ADMIN_USER_IDS` to a comma-separated list of trusted existing `app_users.id`
+values to grant administrator access on the next login; the default grants none.
+V7 adds report decisions, warning explanations, and account bans. Admins can open
+reports, save a VALID/INVALID decision, and filter the archived results by status.
 The existing development terms initializer adds demo terms if the table is empty.
 Existing H2 accounts and listings are not transferred; register a new test account
 on Supabase. H2 files are preserved.
