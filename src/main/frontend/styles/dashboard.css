@@ -1,23 +1,23 @@
-.dashboard { max-width: 1120px; margin: 0 auto; padding: clamp(16px, 3vw, 36px); gap: 24px; box-sizing: border-box; }
+.dashboard { max-width: 1360px; margin: 0 auto; padding: clamp(12px, 2vw, 22px); gap: 14px; box-sizing: border-box; }
 .dashboard-header, .dashboard-actions, .dashboard-profile-header, .dashboard-identity { display: flex; align-items: center; gap: 16px; }
 .dashboard-header, .dashboard-profile-header { justify-content: space-between; width: 100%; flex-wrap: wrap; }
 .dashboard-header p { margin: 6px 0 0; color: var(--vaadin-text-color-secondary, #586574); }
-.dashboard-content { width: 100%; display: grid; gap: 20px; }
-.dashboard-card { padding: 24px; border: 1px solid var(--vaadin-border-color, #e1e6ed); border-radius: 16px; background: var(--vaadin-background-color, #fff); min-width: 0; box-shadow: 0 2px 8px #182b4910; }
-.dashboard-card h3 { margin: 0 0 20px; display: flex; align-items: center; gap: 10px; font-size: 16px; }
-.dashboard-profile-header { margin-bottom: 24px; }
+.dashboard-content { width: 100%; display: grid; gap: 12px; }
+.dashboard-card { padding: 16px; border: 1px solid var(--vaadin-border-color, #e1e6ed); border-radius: 16px; background: var(--vaadin-background-color, #fff); min-width: 0; box-shadow: 0 2px 8px #182b4910; }
+.dashboard-card h3 { margin: 0 0 12px; display: flex; align-items: center; gap: 10px; font-size: 16px; }
+.dashboard-profile-header { margin-bottom: 12px; }
 .dashboard-identity { min-width: 0; }
 .dashboard-identity img { flex-shrink: 0; background: #eef2f7; }
 .dashboard-avatar { width: 80px; height: 80px; border-radius: 50%; display: grid; place-items: center; background: #eaf0fc; color: #315b9b; font-size: 28px; font-weight: 600; flex-shrink: 0; }
 .dashboard-names { min-width: 0; overflow-wrap: anywhere; }
 .dashboard-names h2 { margin: 0 0 4px; font-size: 24px; }
 .dashboard-names p { margin: 0; color: var(--vaadin-text-color-secondary, #586574); }
-.dashboard-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 20px; }
+.dashboard-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
 .dashboard-label { font-size: 12px; font-weight: 600; color: var(--vaadin-text-color-secondary, #586574); }
 .dashboard-field p { margin: 5px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
 .dashboard-count { background: #edf1f7; color: #495971; padding: 2px 8px; border-radius: 20px; font-size: 12px; }
-.dashboard-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid var(--vaadin-border-color, #e8ecf1); }
+.dashboard-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--vaadin-border-color, #e8ecf1); }
 .dashboard-row > :first-child { min-width: 0; overflow-wrap: anywhere; }
 .dashboard-row > :last-child { flex-shrink: 0; font-size: 13px; }
 .dashboard-row p { margin: 4px 0 0; font-size: 12px; color: var(--vaadin-text-color-secondary, #586574); }
@@ -28,11 +28,11 @@
 .dashboard-status-pending { background: #fff4d4; color: #795200; }
 .dashboard-status-valid { background: #e3f4e9; color: #1b653b; }
 .dashboard-status-invalid { background: #eef0f4; color: #505b6c; }
-.dashboard-empty { padding: 16px 0; margin: 0; color: var(--vaadin-text-color-secondary, #586574); line-height: 1.6; font-size: 14px; }
+.dashboard-empty { padding: 8px 0; margin: 0; color: var(--vaadin-text-color-secondary, #586574); line-height: 1.6; font-size: 14px; }
 .dashboard-warnings { border-color: #eacb86; }
 @media (max-width: 680px) {
-    .dashboard-grid, .dashboard-details { grid-template-columns: minmax(0, 1fr); }
-    .dashboard-card { padding: 18px; }
+    .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+    .dashboard-card { padding: 14px; }
     .dashboard-actions { gap: 8px; }
     .dashboard-identity img, .dashboard-avatar { width: 64px !important; height: 64px !important; }
 }

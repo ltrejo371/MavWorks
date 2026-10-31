@@ -29,17 +29,20 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
     private final ReviewService service;
     private final com.mavworks.service.BlockService blocks;
     private final com.mavworks.service.ReportService reports;
+    private final com.mavworks.service.LocalImageStorageService images;
     private Long providerId;
     private final VerticalLayout form = new VerticalLayout();
     private final Paragraph feedback = new Paragraph();
 
     public ProfileView(ReviewService service, com.mavworks.service.BlockService blocks,
-            com.mavworks.service.ReportService reports) {
+            com.mavworks.service.ReportService reports, com.mavworks.service.LocalImageStorageService images) {
         this.service = service;
         this.blocks = blocks;
         this.reports = reports;
-        setMaxWidth("48rem");
+        this.images = images;
+        addClassNames("mw-page", "profile-page");
         form.setPadding(false);
+        form.addClassNames("mw-panel", "review-form");
         feedback.getElement().setAttribute("role", "status");
     }
 
@@ -67,61 +70,66 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             }
             var data = result.get();
             var profile = data.profile();
-            if (profile.profilePictureUrl() != null) add(com.mavworks.dashboard.EditAccountDialog.picture(profile.userId()));
-            add(new ViewTitle("Profile"), new com.mavworks.base.ui.UserOptions(
-                    profile.userId(), profile.username(), blocks, reports, this::loadProfile));
-            if (profile.name() != null && !profile.name().isBlank()) add(new Paragraph(profile.name()));
-            if (profile.bio() != null && !profile.bio().isBlank()) add(new Paragraph(profile.bio()));
-            if (profile.contactInformation() != null && !profile.contactInformation().isBlank()) {
-                add(new Paragraph(profile.contactInformation()));
+            add(new com.vaadin.flow.component.html.Anchor("", "← Back to marketplace"));
+            var header = new com.vaadin.flow.component.html.Div(); header.addClassNames("mw-panel", "profile-header");
+            if (profile.profilePictureUrl() != null) header.add(com.mavworks.dashboard.EditAccountDialog.picture(profile.userId()));
+            else {
+                var avatar = new com.vaadin.flow.component.avatar.Avatar(profile.username());
+                avatar.setWidth("88px"); avatar.setHeight("88px"); header.add(avatar);
             }
-
-            String ratingText;
+            var identity = new com.vaadin.flow.component.html.Div(new ViewTitle(profile.username()),
+                    new com.mavworks.base.ui.UserOptions(profile.userId(), "Account options", blocks, reports, this::loadProfile));
+            identity.addClassName("profile-identity");
+            if (profile.name() != null && !profile.name().isBlank()) identity.add(new Paragraph(profile.name()));
+            if (profile.bio() != null && !profile.bio().isBlank()) {
+                Paragraph bio = new Paragraph(profile.bio()); bio.addClassName("mw-prose"); identity.add(bio);
+            }
+            if (profile.contactInformation() != null && !profile.contactInformation().isBlank()) {
+                identity.add(new Paragraph(profile.contactInformation()));
+            }
+            String rating;
             if (data.reviewCount() == 0) {
-                ratingText = "No ratings yet · 0 reviews";
+                rating = "No ratings yet · 0 reviews";
             } else {
                 String reviewLabel = data.reviewCount() == 1 ? "review" : "reviews";
-                ratingText = String.format(
-                        Locale.US,
-                        "%.1f / 5 · %d %s",
+                rating = String.format(
+                        java.util.Locale.US,
+                        "★ %.1f / 5 · %d %s",
                         data.averageRating(),
                         data.reviewCount(),
                         reviewLabel);
             }
-            add(new Paragraph(ratingText));
-
-            add(new H2("Available listings"));
-            if (data.listings().isEmpty()) {
-                add(new Paragraph("This provider has no available listings."));
+            var summary = new com.vaadin.flow.component.html.Span(rating); summary.addClassName("review-score"); identity.add(summary);
+            header.add(identity); add(header);
+            add(new H2("Available listings (" + data.listings().size() + ")"));
+            var listingCards = new com.vaadin.flow.component.html.Div(); listingCards.addClassName("profile-listings");
+            data.listings().forEach(listing -> listingCards.add(com.mavworks.base.ui.ListingPreview.card(listing, images)));
+            if (data.listings().isEmpty()) listingCards.add(new Paragraph("No available listings right now."));
+            add(listingCards);
+            Button reviewButton = new Button("Review", event -> openReviewForm());
+            reviewButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.PRIMARY);
+            var reviewsHeader = new com.vaadin.flow.component.html.Div(new H2("Reviews"), reviewButton);
+            reviewsHeader.addClassName("mw-section-header");
+            add(reviewsHeader, feedback, form);
+            var reviewCards = new com.vaadin.flow.component.html.Div(); reviewCards.addClassName("profile-reviews"); add(reviewCards);
+            if (data.reviews().isEmpty()) {
+                reviewCards.add(new Paragraph(data.reviewCount() == 0
+                        ? "No reviews yet. Reviews appear after a completed sale."
+                        : "No reviews available to display."));
             }
-            for (var listing : data.listings()) {
-                VerticalLayout card = new VerticalLayout();
-                card.setPadding(false);
-                H3 title = new H3();
-                title.add(new Anchor("listings/" + listing.id(), listing.name()));
-                String price = NumberFormat.getCurrencyInstance(Locale.US)
-                        .format(listing.price());
-                card.add(
-                        title,
-                        new Paragraph(price),
-                        new Paragraph(listing.description()));
-                add(card);
-            }
-            add(new Button("Review", event -> openReviewForm()), feedback, form, new H2("Reviews"));
-            if (data.reviews().isEmpty()) add(new Paragraph(data.reviewCount() == 0 ? "No reviews yet." : "No reviews available to display."));
             for (var review : data.reviews()) {
                 VerticalLayout card = new VerticalLayout();
                 card.setPadding(false);
-                card.getStyle().set("border-bottom", "1px solid #d8dce2").set("padding-bottom", "1rem");
+                card.addClassNames("mw-panel", "review-card");
                 card.add(new com.mavworks.base.ui.UserOptions(review.authorId(), review.author(), blocks, reports, this::loadProfile),
-                        new Paragraph(review.rating() + "/5"),
+                        new Paragraph("★".repeat(review.rating()) + "☆".repeat(5 - review.rating()) + " · " + review.rating() + "/5"),
                         new Paragraph("Listing: " + review.listingName()));
                 if (review.comment() != null && !review.comment().isBlank()) {
                     Paragraph comment = new Paragraph(review.comment());
                     comment.getStyle().set("white-space", "pre-wrap");
                     card.add(comment);
                 }
-                add(card);
+                reviewCards.add(card);
             }
         } catch (DataAccessException ex) {
             add(new Paragraph("The profile could not be loaded."),

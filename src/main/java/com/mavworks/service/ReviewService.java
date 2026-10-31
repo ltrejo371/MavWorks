@@ -57,7 +57,8 @@ public class ReviewService {
                                     listing.getDescription(),
                                     listing.getPrice(),
                                     listing.getCategory(),
-                                    listing.getType()))
+                                    listing.getType(),
+                                    listing.getImages().isEmpty() ? null : listing.getImages().getFirst().getStorageReference()))
                             .toList();
             var allReviews = reviews.findPublicReviews(providerId);
 

@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class MessagingService {
-    public record ConversationSummary(Long id, Long listingId, String listingName, String otherUser, boolean closed) {}
+    public record ConversationSummary(Long id, Long listingId, String listingName, String otherUser, boolean closed,
+            String imageReference, java.time.Instant lastMessageAt) {}
     public record Chat(Long id, Long listingId, String listingName, Long providerId, String otherUser,
             boolean provider, boolean closed, List<MessageSummary> messages, Long otherUserId) {}
     private final CurrentUser current;
@@ -81,12 +82,20 @@ public class MessagingService {
     public List<ConversationSummary> getMyConversations() {
         var user = user(false);
         var hidden = blocks.findHiddenUserIds(user.getId());
+        var activity = messages.findLastActivityForParticipant(user.getId()).stream().collect(
+                java.util.stream.Collectors.toMap(MessageRepository.LastActivity::getConversationId,
+                        MessageRepository.LastActivity::getSentAt));
         return conversations.findForParticipant(user.getId()).stream()
                 .filter(c -> !hidden.contains(c.getBuyer().getId()) && !hidden.contains(c.getListing().getOwner().getId()))
                 .map(c -> new ConversationSummary(
                 c.getId(), c.getListing().getId(), c.getListing().getName(),
                 c.getBuyer().getId().equals(user.getId()) ? c.getListing().getOwner().getUsername() : c.getBuyer().getUsername(),
-                c.getClosedAt() != null)).toList();
+                c.getClosedAt() != null,
+                c.getListing().getImages().isEmpty() ? null : c.getListing().getImages().getFirst().getStorageReference(),
+                activity.get(c.getId())))
+                .sorted(Comparator.comparing(ConversationSummary::lastMessageAt,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(ConversationSummary::id, Comparator.reverseOrder())).toList();
     }
 
     public Chat getChat(Long id, Long afterId) {

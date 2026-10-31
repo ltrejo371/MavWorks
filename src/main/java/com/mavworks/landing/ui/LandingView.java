@@ -47,6 +47,7 @@ public class LandingView extends VerticalLayout {
     public LandingView(CurrentUser currentUser, ListingCatalogService catalog, LocalImageStorageService images) {
         this.catalog = catalog;
         this.images = images;
+        addClassNames("mw-page", "marketplace-page");
         add(new ViewTitle("Home"),
                 new Paragraph("Welcome, " + currentUser.username().orElse("there")
                         + "! Browse products and services from the MavWorks community."));

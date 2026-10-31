@@ -53,6 +53,62 @@ class MessagingWorkflowTest {
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 
+    @Test void profileShowsOnlyAvailableListingsAndHonorsBlocks() {
+        ListingImage preview = new ListingImage(); preview.setStorageReference("profile-preview.png");
+        listing.getImages().add(preview); listings.saveAndFlush(listing);
+        var visible = reviews.getProviderProfile(provider.getId()).orElseThrow().listings();
+        assertEquals(1, visible.size());
+        assertEquals(listing.getId(), visible.getFirst().id());
+        assertEquals("profile-preview.png", visible.getFirst().imageReference());
+        assertTrue(reviews.getProviderProfile(buyer.getId()).orElseThrow().listings().isEmpty());
+        listing.setStatus(ListingStatus.SOLD); listings.saveAndFlush(listing);
+        assertTrue(reviews.getProviderProfile(provider.getId()).orElseThrow().listings().isEmpty());
+        listing.setStatus(ListingStatus.REMOVED); listings.saveAndFlush(listing);
+        assertTrue(reviews.getProviderProfile(provider.getId()).orElseThrow().listings().isEmpty());
+        listing.setStatus(ListingStatus.ACTIVE); listings.saveAndFlush(listing);
+        blocking.blockUser(provider.getId());
+        assertTrue(reviews.getProviderProfile(provider.getId()).isEmpty());
+        assertEquals(1, catalog.search(new com.mavworks.dto.SearchFilter("", null), null).size());
+    }
+
+    @Test void inboxIncludesListingPreviewAndLatestMessageFromEitherParticipant() {
+        ListingImage image = new ListingImage(); image.setStorageReference("preview.png"); image.setDisplayOrder(0);
+        listing.getImages().add(image); listings.saveAndFlush(listing);
+        Long id = service.startConversation(listing.getId());
+        var empty = service.getMyConversations().getFirst();
+        assertEquals("Book", empty.listingName());
+        assertEquals("provider", empty.otherUser());
+        assertEquals("preview.png", empty.imageReference());
+        assertNull(empty.lastMessageAt());
+        Long first = service.sendMessage(id, "Is this available?");
+        assertEquals(messages.findById(first).orElseThrow().getSentAt(), service.getMyConversations().getFirst().lastMessageAt());
+        login(provider);
+        assertEquals("buyer", service.getMyConversations().getFirst().otherUser());
+        Long reply = service.sendMessage(id, "Yes, it is.");
+        var latest = messages.findById(reply).orElseThrow().getSentAt();
+        assertEquals(latest, service.getMyConversations().getFirst().lastMessageAt());
+        login(buyer);
+        assertEquals(latest, service.getMyConversations().getFirst().lastMessageAt());
+        login(outsider);
+        assertTrue(service.getMyConversations().isEmpty());
+    }
+
+    @Test void inboxOrdersByLastMessageAndHandlesListingsWithoutImages() {
+        Long first = service.startConversation(listing.getId());
+        Listing secondListing = new Listing(); secondListing.setOwner(provider); secondListing.setName("Chair");
+        secondListing.setDescription("Desk chair"); secondListing.setPrice(BigDecimal.TEN); secondListing.setType(ListingType.PRODUCT);
+        secondListing = listings.saveAndFlush(secondListing);
+        Long second = service.startConversation(secondListing.getId());
+        service.sendMessage(second, "Hello");
+        assertEquals(second, service.getMyConversations().getFirst().id());
+        assertNull(service.getMyConversations().getFirst().imageReference());
+        service.sendMessage(first, "Available?");
+        assertEquals(first, service.getMyConversations().getFirst().id());
+        login(provider);
+        sales.confirmSaleAndClose(first);
+        assertTrue(service.getMyConversations().getFirst().closed());
+    }
+
     @Test void blockingIsIdempotentAndRejectsSelfMissingAndAnonymousAccounts() {
         assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(buyer.getId()));
         assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(null));

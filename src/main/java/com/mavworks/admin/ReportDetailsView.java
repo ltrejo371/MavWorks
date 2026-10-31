@@ -26,6 +26,7 @@ public class ReportDetailsView extends VerticalLayout implements BeforeEnterObse
     public ReportDetailsView(ReportService reports, TermsOfServiceService terms) {
         this.reports = reports;
         this.terms = terms;
+        addClassNames("mw-page", "mw-form-page", "report-detail-page");
         setMaxWidth("52rem");
     }
     @Override public void beforeEnter(BeforeEnterEvent event) {
@@ -85,6 +86,7 @@ public class ReportDetailsView extends VerticalLayout implements BeforeEnterObse
             Paragraph error = new Paragraph();
             error.getElement().setAttribute("role", "alert");
             Button save = new Button("Save decision");
+            save.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.PRIMARY);
             save.setDisableOnClick(true);
             save.addClickListener(e -> {
                 try {
