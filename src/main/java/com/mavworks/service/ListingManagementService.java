@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 
 @Service
 public class ListingManagementService {
@@ -26,6 +27,50 @@ public class ListingManagementService {
         if (!listing.getOwner().getId().equals(user.getId())) throw new AccessDeniedException("Only the provider can change this listing.");
         if (listing.getStatus() == ListingStatus.REMOVED) throw new IllegalArgumentException("This listing was removed by an administrator.");
         return listing;
+    }
+    @Transactional
+    public void updateDetails(Long id, String name, String description, BigDecimal price, ListingCategory category) {
+        Listing listing = owned(id);
+
+        if (listing.getStatus() == ListingStatus.SOLD) {
+            throw new IllegalArgumentException("Sold listings cannot be edited.");
+        }
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Enter a listing name.");
+        }
+        if (name.trim().length() > 255) {
+            throw new IllegalArgumentException(
+                    "Name must be at most 255 characters.");
+        }
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException("Enter a description.");
+        }
+        if (description.trim().length() > 4000) {
+            throw new IllegalArgumentException(
+                    "Description must be at most 4000 characters.");
+        }
+        if (price == null || price.signum() < 0
+                || price.compareTo(new BigDecimal("999999.99")) > 0
+                || price.stripTrailingZeros().scale() > 2) {
+            throw new IllegalArgumentException(
+                    "Enter a price from 0 to 999,999.99 with at most two decimal places.");
+        }
+
+        listing.setName(name.trim());
+        listing.setDescription(description.trim());
+        listing.setPrice(price.setScale(2));
+        listing.setCategory(category == null ? ListingCategory.OTHER : category);
+    }
+
+    @Transactional
+    public void withdraw(Long id) {
+        Listing listing = owned(id);
+
+        if (listing.getStatus() == ListingStatus.SOLD) {
+            throw new IllegalArgumentException("Sold listings cannot be withdrawn.");
+        }
+
+        listing.setStatus(ListingStatus.WITHDRAWN);
     }
     @Transactional public void markSold(Long id) { owned(id).markSold(); }
     @Transactional public void renew(Long id) { owned(id).renew(); }
