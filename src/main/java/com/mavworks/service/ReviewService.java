@@ -12,20 +12,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class ReviewService {
-    public record ProviderProfile(PublicProfileData profile, List<ReviewSummary> reviews) {}
+    public record ProviderProfile(PublicProfileData profile, List<ReviewSummary> reviews, List<ListingSummary> listings, Double averageRating, int reviewCount) {}
     private final CurrentUser currentUser;
     private final UserRepository users;
     private final ConversationRepository conversations;
     private final ReviewRepository reviews;
     private final UserBlockRepository blocks;
+    private final ListingRepository listings;
 
     public ReviewService(CurrentUser currentUser, UserRepository users,
-            ConversationRepository conversations, ReviewRepository reviews, UserBlockRepository blocks) {
+            ConversationRepository conversations, ReviewRepository reviews, UserBlockRepository blocks, ListingRepository listings) {
         this.currentUser = currentUser;
         this.users = users;
         this.conversations = conversations;
         this.reviews = reviews;
         this.blocks = blocks;
+        this.listings = listings;
     }
 
     private User author(boolean lock) {
@@ -45,8 +47,38 @@ public class ReviewService {
             var publicData = new PublicProfileData(user.getId(), user.getUsername(),
                     p == null ? null : p.getName(), p == null ? null : p.getBio(),
                     p == null ? null : p.getProfilePictureUrl(), p == null ? null : p.getContactInformation());
-            return new ProviderProfile(publicData, reviews.findPublicReviews(providerId).stream()
-                    .filter(review -> !hidden.contains(review.authorId())).toList());
+            var availableListings =
+                    listings.findByOwnerIdAndStatusOrderByCreatedAtDescIdDesc(
+                                providerId, com.mavworks.model.ListingStatus.ACTIVE)
+                            .stream()
+                            .map(listing -> new ListingSummary(
+                                    listing.getId(),
+                                    listing.getName(),
+                                    listing.getDescription(),
+                                    listing.getPrice(),
+                                    listing.getCategory(),
+                                    listing.getType()))
+                            .toList();
+            var allReviews = reviews.findPublicReviews(providerId);
+
+            int reviewCount = allReviews.size();
+
+            Double averageRating = null;
+            if (reviewCount > 0) {
+                int totalRating = 0;
+
+                for (var review : allReviews) {
+                    totalRating += review.rating();
+                }
+
+                averageRating = (double) totalRating / reviewCount;
+            }
+
+            var visibleReviews = allReviews.stream()
+                    .filter(review -> !hidden.contains(review.authorId()))
+                    .toList();
+
+            return new ProviderProfile(publicData, visibleReviews, availableListings, averageRating, reviewCount);
         });
     }
 

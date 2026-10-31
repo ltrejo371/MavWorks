@@ -17,6 +17,10 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.access.AccessDeniedException;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.H3;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 @Route("profiles/:userId")
 @PageTitle("Public Profile")
@@ -71,8 +75,40 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             if (profile.contactInformation() != null && !profile.contactInformation().isBlank()) {
                 add(new Paragraph(profile.contactInformation()));
             }
+
+            String ratingText;
+            if (data.reviewCount() == 0) {
+                ratingText = "No ratings yet · 0 reviews";
+            } else {
+                String reviewLabel = data.reviewCount() == 1 ? "review" : "reviews";
+                ratingText = String.format(
+                        Locale.US,
+                        "%.1f / 5 · %d %s",
+                        data.averageRating(),
+                        data.reviewCount(),
+                        reviewLabel);
+            }
+            add(new Paragraph(ratingText));
+
+            add(new H2("Available listings"));
+            if (data.listings().isEmpty()) {
+                add(new Paragraph("This provider has no available listings."));
+            }
+            for (var listing : data.listings()) {
+                VerticalLayout card = new VerticalLayout();
+                card.setPadding(false);
+                H3 title = new H3();
+                title.add(new Anchor("listings/" + listing.id(), listing.name()));
+                String price = NumberFormat.getCurrencyInstance(Locale.US)
+                        .format(listing.price());
+                card.add(
+                        title,
+                        new Paragraph(price),
+                        new Paragraph(listing.description()));
+                add(card);
+            }
             add(new Button("Review", event -> openReviewForm()), feedback, form, new H2("Reviews"));
-            if (data.reviews().isEmpty()) add(new Paragraph("No reviews yet."));
+            if (data.reviews().isEmpty()) add(new Paragraph(data.reviewCount() == 0 ? "No reviews yet." : "No reviews available to display."));
             for (var review : data.reviews()) {
                 VerticalLayout card = new VerticalLayout();
                 card.setPadding(false);
