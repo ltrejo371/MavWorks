@@ -1,0 +1,12 @@
+ALTER TABLE listings ADD COLUMN expires_at TIMESTAMP WITH TIME ZONE;
+UPDATE listings SET expires_at = created_at + INTERVAL '30' DAY;
+ALTER TABLE listings ALTER COLUMN expires_at SET NOT NULL;
+ALTER TABLE listings ADD COLUMN view_count BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE listings ADD COLUMN style VARCHAR(255) NOT NULL DEFAULT 'CLASSIC' CHECK (style IN ('CLASSIC', 'MAVERICK_BLUE', 'CAMPUS_ORANGE'));
+ALTER TABLE listings DROP CONSTRAINT listings_category_check;
+ALTER TABLE listings ADD CONSTRAINT listings_category_check CHECK (category IN ('ART', 'BEAUTY', 'CLOTHING', 'JEWELRY', 'TUTORING', 'GRAPHIC_DESIGN', 'PHOTOGRAPHY', 'CRAFTS', 'OTHER'));
+CREATE INDEX idx_listing_expiration ON listings(status, expires_at);
+ALTER TABLE conversations ADD COLUMN buyer_read_through BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE conversations ADD COLUMN provider_read_through BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE reports ADD COLUMN listing_id BIGINT REFERENCES listings(id) ON DELETE SET NULL;
+ALTER TABLE reports ADD COLUMN listing_title VARCHAR(255);

@@ -30,6 +30,20 @@ public class Listing {
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+    @Column(nullable = false)
+    private Instant expiresAt = Instant.now().plus(java.time.Duration.ofDays(30));
+    @Column(nullable = false)
+    private long viewCount;
+    @Enumerated(EnumType.STRING) @Column(nullable = false)
+    private ListingStyle style = ListingStyle.CLASSIC;
+
+    public Instant getExpiresAt() { return expiresAt; }
+    public long getViewCount() { return viewCount; }
+    public ListingStyle getStyle() { return style; }
+    public void setStyle(ListingStyle style) {
+        if (style == null) throw new IllegalArgumentException("Select a listing style.");
+        this.style = style;
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -53,11 +67,15 @@ public class Listing {
     }
 
     public void markSold() {
-        // TODO: Implement.
+        if (status == ListingStatus.REMOVED) throw new IllegalArgumentException("A removed listing cannot be changed.");
+        status = ListingStatus.SOLD;
     }
 
     public void renew() {
-        // TODO: Implement.
+        if (status == ListingStatus.SOLD || status == ListingStatus.REMOVED)
+            throw new IllegalArgumentException("Sold or removed listings cannot be renewed.");
+        status = ListingStatus.ACTIVE;
+        expiresAt = Instant.now().plus(java.time.Duration.ofDays(30));
     }
 
     public Long getId() {
@@ -121,7 +139,7 @@ public class Listing {
     }
 
     public ListingStatus getStatus() {
-        return status;
+        return status == ListingStatus.ACTIVE && !expiresAt.isAfter(Instant.now()) ? ListingStatus.EXPIRED : status;
     }
 
     public void setStatus(ListingStatus status) {

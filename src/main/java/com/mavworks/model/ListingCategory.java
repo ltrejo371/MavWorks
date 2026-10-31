@@ -7,5 +7,7 @@ public enum ListingCategory {
     JEWELRY,
     TUTORING,
     GRAPHIC_DESIGN,
+    PHOTOGRAPHY,
+    CRAFTS,
     OTHER
 }
