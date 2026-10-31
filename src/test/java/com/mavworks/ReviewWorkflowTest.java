@@ -207,6 +207,8 @@ class ReviewWorkflowTest {
                 .orElseThrow();
 
         assertTrue(result.listings().isEmpty());
+        assertEquals(0, result.reviewCount());
+        assertNull(result.averageRating());
     }
 
     @Test
@@ -237,6 +239,35 @@ class ReviewWorkflowTest {
         assertTrue(after.reviews().isEmpty());
         assertEquals(1, after.reviewCount());
         assertEquals(4.0, after.averageRating().doubleValue(), 0.001);
+    }
+
+    @Test
+    void profileCalculatesAverageAcrossMultipleReviews() {
+        // The original buyer leaves a 4-star review.
+        completeSale();
+        service.leaveReview(provider.getId(), request(4, "Good"));
+
+        // A second buyer completes a sale for the same listing.
+        login(stranger);
+        Long secondConversationId =
+                messaging.startConversation(listing.getId());
+
+        messaging.sendMessage(secondConversationId, "Thanks for the tutoring.");
+
+        login(provider);
+        sales.confirmSaleAndClose(secondConversationId);
+
+        login(stranger);
+        service.leaveReview(provider.getId(), request(5, "Excellent"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = service.getProviderProfile(provider.getId())
+                .orElseThrow();
+
+        assertEquals(2, result.reviewCount());
+        assertEquals(4.5, result.averageRating().doubleValue(), 0.001);
     }
 
     private void assertDenied() {
