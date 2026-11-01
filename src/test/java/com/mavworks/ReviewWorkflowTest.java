@@ -33,6 +33,7 @@ class ReviewWorkflowTest {
     @Autowired ConversationService sales;
     @Autowired MessagingService messaging;
     @Autowired EntityManager entityManager;
+    @Autowired BlockService blocks;
     User buyer, provider, stranger;
     Listing listing;
     Conversation conversation;
@@ -167,6 +168,106 @@ class ReviewWorkflowTest {
         assertEquals(0, reviews.count());
         assertEquals(0, conversations.count());
         assertTrue(users.existsById(buyer.getId()));
+    }
+
+    @Test
+    void publicProfileReturnsOnlyItsProvidersActiveListings() {
+        listing(stranger, "Someone else's listing");
+
+        var soldListing = listing(provider, "Sold item");
+        soldListing.setStatus(ListingStatus.SOLD);
+
+        var expiredListing = listing(provider, "Expired item");
+        expiredListing.setStatus(ListingStatus.EXPIRED);
+
+        var removedListing = listing(provider, "Removed item");
+        removedListing.setStatus(ListingStatus.REMOVED);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = service.getProviderProfile(provider.getId())
+                .orElseThrow();
+
+        var actualIds = result.listings().stream()
+                .map(item -> item.id())
+                .toList();
+
+        assertEquals(List.of(listing.getId()), actualIds);
+    }
+
+    @Test
+    void publicProfileWithNoActiveListingsReturnsAnEmptyList() {
+        listing.setStatus(ListingStatus.SOLD);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = service.getProviderProfile(provider.getId())
+                .orElseThrow();
+
+        assertTrue(result.listings().isEmpty());
+        assertEquals(0, result.reviewCount());
+        assertNull(result.averageRating());
+    }
+
+    @Test
+    void blockingReviewerHidesReviewButPreservesRating() {
+        // The buyer completes a sale and leaves a review.
+        completeSale();
+        service.leaveReview(provider.getId(), request(4, "Helpful tutor"));
+
+        // Another user views the provider before blocking the reviewer.
+        login(stranger);
+
+        var before = service.getProviderProfile(provider.getId())
+                .orElseThrow();
+
+        assertEquals(1, before.reviews().size());
+        assertEquals(1, before.reviewCount());
+        assertEquals(4.0, before.averageRating().doubleValue(), 0.001);
+
+        // Block the reviewer, not the provider.
+        blocks.blockUser(buyer.getId());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var after = service.getProviderProfile(provider.getId())
+                .orElseThrow();
+
+        assertTrue(after.reviews().isEmpty());
+        assertEquals(1, after.reviewCount());
+        assertEquals(4.0, after.averageRating().doubleValue(), 0.001);
+    }
+
+    @Test
+    void profileCalculatesAverageAcrossMultipleReviews() {
+        // The original buyer leaves a 4-star review.
+        completeSale();
+        service.leaveReview(provider.getId(), request(4, "Good"));
+
+        // A second buyer completes a sale for the same listing.
+        login(stranger);
+        Long secondConversationId =
+                messaging.startConversation(listing.getId());
+
+        messaging.sendMessage(secondConversationId, "Thanks for the tutoring.");
+
+        login(provider);
+        sales.confirmSaleAndClose(secondConversationId);
+
+        login(stranger);
+        service.leaveReview(provider.getId(), request(5, "Excellent"));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        var result = service.getProviderProfile(provider.getId())
+                .orElseThrow();
+
+        assertEquals(2, result.reviewCount());
+        assertEquals(4.5, result.averageRating().doubleValue(), 0.001);
     }
 
     private void assertDenied() {

@@ -22,9 +22,12 @@ public class DashboardView extends VerticalLayout {
     private final Div account = new Div();
     private final AccountEditingService editing;
     private final LocalImageStorageService storage;
+    private final ListingManagementService listingManagement;
 
-    public DashboardView(AccountDashboardService service, AccountEditingService editing, LocalImageStorageService storage) {
-        this.editing = editing; this.storage = storage;
+    public DashboardView(AccountDashboardService service, AccountEditingService editing, LocalImageStorageService storage, ListingManagementService listingManagement) {
+        this.editing = editing;
+        this.storage = storage;
+        this.listingManagement = listingManagement;
         addClassName("dashboard"); setPadding(false);
         Div heading = new Div(new ViewTitle("Dashboard"), new Paragraph("Manage your profile and marketplace activity."));
         Button addListing = new Button("Add listing", e -> getUI().ifPresent(ui -> ui.navigate(com.mavworks.listing.CreateListingView.class)));
@@ -68,9 +71,24 @@ public class DashboardView extends VerticalLayout {
             Div listings = card("Your listings", data.listings().size());
             if (data.listings().isEmpty()) listings.add(empty("Your listings will appear here once you add one."));
             data.listings().forEach(listing -> {
-                Anchor link = new Anchor("listings/" + listing.id(), listing.name());
-                Span price = new Span(NumberFormat.getCurrencyInstance(Locale.US).format(listing.price()));
-                price.addClassName("dashboard-price"); listings.add(row(link, price));
+                Anchor link = new Anchor(
+                        "listings/" + listing.id(), listing.name());
+                Span status = new Span(listing.status().name());
+                status.addClassName("dashboard-status");
+                Div listingInfo = new Div(link, status);
+                Span price = new Span(
+                        NumberFormat.getCurrencyInstance(Locale.US)
+                                .format(listing.price()));
+                price.addClassName("dashboard-price");
+                Button manage = new Button("Manage", event ->
+                        new ManageListingDialog(
+                                listing,
+                                listingManagement,
+                                () -> loadAccount(service))
+                                .open());
+                Div actions = new Div(price, manage);
+                actions.addClassName("dashboard-actions");
+                listings.add(row(listingInfo, actions));
             });
             Div reports = card("Your reports", data.submittedReports().size());
             if (data.submittedReports().isEmpty()) reports.add(empty("You haven't submitted any reports."));

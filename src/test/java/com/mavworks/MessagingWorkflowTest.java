@@ -34,6 +34,9 @@ class MessagingWorkflowTest {
     @Autowired BlockService blocking;
     @Autowired ListingService listingService;
     @Autowired ListingCatalogService catalog;
+    @Autowired ListingManagementService management;
+    @Autowired AccountDashboardService dashboard;
+
     User buyer, provider, outsider;
     Listing listing;
 
@@ -121,6 +124,8 @@ class MessagingWorkflowTest {
     }
 
     @Test void blockHidesAccountsReviewsAndConversationsButRetainsListingsAndHistory() {
+        listing.setType(ListingType.SERVICE);
+        listings.saveAndFlush(listing);
         Long id = service.startConversation(listing.getId());
         service.sendMessage(id, "Agreed");
         login(provider);
@@ -329,6 +334,376 @@ class MessagingWorkflowTest {
         assertEquals(0, conversations.count());
         assertEquals(0, blocks.count());
         assertTrue(users.existsById(buyer.getId()));
+    }
+
+    @Test
+    void confirmingProductSaleRemovesItFromAvailableListings() {
+        // The setup already creates a PRODUCT listing.
+        Long conversationId = service.startConversation(listing.getId());
+        service.sendMessage(conversationId, "Agreed on the sale.");
+
+        login(provider);
+        sales.confirmSaleAndClose(conversationId);
+
+        var savedListing = listings.findById(listing.getId()).orElseThrow();
+        assertEquals(ListingStatus.SOLD, savedListing.getStatus());
+
+        login(buyer);
+
+        assertTrue(catalog.search(
+                new com.mavworks.dto.SearchFilter("", null), null).isEmpty());
+
+        assertTrue(reviews.getProviderProfile(provider.getId())
+                .orElseThrow().listings().isEmpty());
+
+        assertTrue(service.getChat(conversationId, null).closed());
+
+        assertEquals(
+                List.of(listing.getId()),
+                reviews.getReviewableListings(provider.getId()).stream()
+                        .map(item -> item.id())
+                        .toList());
+    }
+
+    @Test
+    void confirmingServiceSaleKeepsItAvailable() {
+        listing.setType(ListingType.SERVICE);
+        listings.saveAndFlush(listing);
+
+        Long conversationId = service.startConversation(listing.getId());
+        service.sendMessage(conversationId, "Thanks for the service.");
+
+        login(provider);
+        sales.confirmSaleAndClose(conversationId);
+
+        var savedListing = listings.findById(listing.getId()).orElseThrow();
+        assertEquals(ListingStatus.ACTIVE, savedListing.getStatus());
+
+        login(outsider);
+
+        var available = catalog.search(
+                new com.mavworks.dto.SearchFilter("", null), null);
+
+        assertEquals(
+                List.of(listing.getId()),
+                available.stream().map(item -> item.id()).toList());
+
+        Long newConversationId = service.startConversation(listing.getId());
+        assertNotEquals(conversationId, newConversationId);
+    }
+
+    @Test
+    void soldProductCannotBeConfirmedForAnotherBuyer() {
+        Long firstConversationId = service.startConversation(listing.getId());
+        service.sendMessage(firstConversationId, "I will buy it.");
+
+        login(outsider);
+        Long secondConversationId = service.startConversation(listing.getId());
+        service.sendMessage(secondConversationId, "Is it available?");
+
+        login(provider);
+        sales.confirmSaleAndClose(firstConversationId);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> sales.confirmSaleAndClose(secondConversationId));
+
+        var secondConversation = conversations.findById(secondConversationId)
+                .orElseThrow();
+
+        assertNull(secondConversation.getSaleConfirmedAt());
+        assertNull(secondConversation.getClosedAt());
+
+        login(outsider);
+        assertTrue(reviews.getReviewableListings(provider.getId()).isEmpty());
+
+        // The unsuccessful buyer can still read their conversation.
+        assertEquals(1, service.getChat(secondConversationId, null).messages().size());
+    }
+
+    @Test
+    void concurrentProductSalesAllowOnlyOneBuyer() throws Exception {
+        Long firstId = service.startConversation(listing.getId());
+        service.sendMessage(firstId, "I will buy it.");
+
+        login(outsider);
+        Long secondId = service.startConversation(listing.getId());
+        service.sendMessage(secondId, "I will buy it too.");
+
+        var start = new CountDownLatch(1);
+        var ready = new CountDownLatch(2);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var attempts = new java.util.ArrayList<Future<Boolean>>();
+
+            for (Long conversationId : List.of(firstId, secondId)) {
+                attempts.add(executor.submit(() -> {
+                    login(provider);
+                    try {
+                        ready.countDown();
+
+                        if (!start.await(5, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("Start timed out");
+                        }
+
+                        try {
+                            sales.confirmSaleAndClose(conversationId);
+                            return true;
+                        } catch (IllegalArgumentException ex) {
+                            assertEquals(
+                                    "This listing has already been sold.",
+                                    ex.getMessage());
+                            return false;
+                        }
+                    } finally {
+                        SecurityContextHolder.clearContext();
+                    }
+                }));
+            }
+
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+
+            int successfulSales = 0;
+            for (var attempt : attempts) {
+                if (attempt.get(10, TimeUnit.SECONDS)) {
+                    successfulSales++;
+                }
+            }
+
+            assertEquals(1, successfulSales);
+        }
+
+        assertEquals(
+                ListingStatus.SOLD,
+                listings.findById(listing.getId()).orElseThrow().getStatus());
+
+        var first = conversations.findById(firstId).orElseThrow();
+        var second = conversations.findById(secondId).orElseThrow();
+
+        int confirmedCount =
+                (first.getSaleConfirmedAt() != null ? 1 : 0)
+                        + (second.getSaleConfirmedAt() != null ? 1 : 0);
+
+        int closedCount =
+                (first.getClosedAt() != null ? 1 : 0)
+                        + (second.getClosedAt() != null ? 1 : 0);
+
+        assertEquals(1, confirmedCount);
+        assertEquals(1, closedCount);
+    }
+
+    @Test
+    void removedListingCannotHaveSaleConfirmed() {
+        Long conversationId = service.startConversation(listing.getId());
+        service.sendMessage(conversationId, "We agreed on the sale.");
+
+        listing.setStatus(ListingStatus.REMOVED);
+        listings.saveAndFlush(listing);
+
+        login(provider);
+
+        var error = assertThrows(
+                IllegalArgumentException.class,
+                () -> sales.confirmSaleAndClose(conversationId));
+
+        assertEquals(
+                "A removed listing cannot have a sale confirmed.",
+                error.getMessage());
+
+        var savedConversation = conversations.findById(conversationId)
+                .orElseThrow();
+
+        assertNull(savedConversation.getSaleConfirmedAt());
+        assertNull(savedConversation.getClosedAt());
+
+        assertEquals(
+                ListingStatus.REMOVED,
+                listings.findById(listing.getId()).orElseThrow().getStatus());
+    }
+    @Test
+    void ownerCanEditListingWithoutChangingTypeStatusOrExpiration() {
+        login(provider);
+        var originalExpiration = listings.findById(listing.getId())
+                .orElseThrow().getExpiresAt();
+
+        management.updateDetails(
+                listing.getId(),
+                " Updated book ",
+                " Revised description ",
+                new BigDecimal("25.50"),
+                ListingCategory.ART);
+
+        var saved = listings.findById(listing.getId()).orElseThrow();
+        assertEquals("Updated book", saved.getName());
+        assertEquals("Revised description", saved.getDescription());
+        assertEquals(new BigDecimal("25.50"), saved.getPrice());
+        assertEquals(ListingCategory.ART, saved.getCategory());
+        assertEquals(ListingType.PRODUCT, saved.getType());
+        assertEquals(ListingStatus.ACTIVE, saved.getStatus());
+        assertEquals(originalExpiration, saved.getExpiresAt());
+    }
+
+    @Test
+    void invalidEditsLeaveListingUnchanged() {
+        login(provider);
+
+        for (String invalidPrice : List.of("-1", "1.001", "1000000")) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> management.updateDetails(
+                            listing.getId(), "Changed", "Changed",
+                            new BigDecimal(invalidPrice), ListingCategory.ART));
+        }
+
+        for (String invalidName : List.of("", " ", "x".repeat(256))) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> management.updateDetails(
+                            listing.getId(), invalidName, "Valid description",
+                            BigDecimal.TEN, ListingCategory.OTHER));
+        }
+
+        for (String invalidDescription : List.of("", " ", "x".repeat(4001))) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> management.updateDetails(
+                            listing.getId(), "Valid name", invalidDescription,
+                            BigDecimal.TEN, ListingCategory.OTHER));
+        }
+
+        assertThrows(IllegalArgumentException.class,
+                () -> management.updateDetails(
+                        listing.getId(), "Changed", "Changed",
+                        null, ListingCategory.OTHER));
+
+        var saved = listings.findById(listing.getId()).orElseThrow();
+        assertEquals("Book", saved.getName());
+        assertEquals("A textbook", saved.getDescription());
+        assertEquals(0, BigDecimal.TEN.compareTo(saved.getPrice()));
+        assertEquals(ListingCategory.OTHER, saved.getCategory());
+    }
+
+    @Test
+    void onlyOwnerCanManageListing() {
+        // The setup signs in as the buyer, who does not own this listing.
+        assertThrows(AccessDeniedException.class,
+                () -> management.updateDetails(
+                        listing.getId(), "Changed", "Changed",
+                        BigDecimal.ONE, ListingCategory.ART));
+        assertThrows(AccessDeniedException.class,
+                () -> management.withdraw(listing.getId()));
+        assertThrows(AccessDeniedException.class,
+                () -> management.renew(listing.getId()));
+
+        SecurityContextHolder.clearContext();
+
+        assertThrows(AccessDeniedException.class,
+                () -> management.updateDetails(
+                        listing.getId(), "Changed", "Changed",
+                        BigDecimal.ONE, ListingCategory.ART));
+        assertThrows(AccessDeniedException.class,
+                () -> management.withdraw(listing.getId()));
+        assertThrows(AccessDeniedException.class,
+                () -> management.renew(listing.getId()));
+
+        var saved = listings.findById(listing.getId()).orElseThrow();
+        assertEquals("Book", saved.getName());
+        assertEquals(ListingStatus.ACTIVE, saved.getStatus());
+    }
+
+    @Test
+    void withdrawalHidesListingButPreservesDashboardAndConversation() {
+        Long conversationId = service.startConversation(listing.getId());
+        service.sendMessage(conversationId, "Is this available?");
+
+        login(provider);
+        management.withdraw(listing.getId());
+
+        var ownedListing = dashboard.load().listings().getFirst();
+        assertEquals(listing.getId(), ownedListing.id());
+        assertEquals(ListingStatus.WITHDRAWN, ownedListing.status());
+        assertNotNull(ownedListing.expiresAt());
+
+        login(outsider);
+        assertTrue(catalog.search(
+                new com.mavworks.dto.SearchFilter("", null), null).isEmpty());
+        assertTrue(reviews.getProviderProfile(provider.getId())
+                .orElseThrow().listings().isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.startConversation(listing.getId()));
+
+        login(buyer);
+        assertEquals(conversationId, service.startConversation(listing.getId()));
+        assertEquals(1, service.getChat(conversationId, null).messages().size());
+        service.sendMessage(conversationId, "Following up on our conversation.");
+        assertEquals(2, service.getChat(conversationId, null).messages().size());
+    }
+
+    @Test
+    void withdrawnListingCanBeEditedAndRenewed() {
+        login(provider);
+        management.withdraw(listing.getId());
+
+        management.updateDetails(
+                listing.getId(), "Updated book", "Updated description",
+                BigDecimal.TEN, ListingCategory.OTHER);
+
+        assertEquals(ListingStatus.WITHDRAWN,
+                listings.findById(listing.getId()).orElseThrow().getStatus());
+
+        var before = java.time.Instant.now();
+        management.renew(listing.getId());
+        var after = java.time.Instant.now();
+
+        var saved = listings.findById(listing.getId()).orElseThrow();
+        var thirtyDays = java.time.Duration.ofDays(30);
+        var tolerance = java.time.Duration.ofMillis(1);
+        assertEquals(ListingStatus.ACTIVE, saved.getStatus());
+        assertFalse(saved.getExpiresAt().isBefore(before.plus(thirtyDays).minus(tolerance)));
+        assertFalse(saved.getExpiresAt().isAfter(after.plus(thirtyDays).plus(tolerance)));
+
+        login(buyer);
+        assertEquals(listing.getId(), catalog.search(
+                new com.mavworks.dto.SearchFilter("", null), null).getFirst().id());
+        assertEquals(listing.getId(), reviews.getProviderProfile(provider.getId())
+                .orElseThrow().listings().getFirst().id());
+    }
+
+    @Test
+    void soldAndRemovedListingsCannotBeEditedWithdrawnOrRenewed() {
+        login(provider);
+
+        for (ListingStatus status :
+                List.of(ListingStatus.SOLD, ListingStatus.REMOVED)) {
+            var existing = listings.findById(listing.getId()).orElseThrow();
+            existing.setStatus(status);
+            listings.saveAndFlush(existing);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> management.updateDetails(
+                            listing.getId(), "Changed", "Changed",
+                            BigDecimal.ONE, ListingCategory.ART));
+            assertThrows(IllegalArgumentException.class,
+                    () -> management.withdraw(listing.getId()));
+            assertThrows(IllegalArgumentException.class,
+                    () -> management.renew(listing.getId()));
+
+            var saved = listings.findById(listing.getId()).orElseThrow();
+            assertEquals(status, saved.getStatus());
+            assertEquals("Book", saved.getName());
+        }
+    }
+
+    @Test
+    void existingSaleCanBeCompletedAfterWithdrawal() {
+        Long conversationId = service.startConversation(listing.getId());
+        service.sendMessage(conversationId, "I'll take it.");
+
+        login(provider);
+        management.withdraw(listing.getId());
+        sales.confirmSaleAndClose(conversationId);
+
+        assertEquals(ListingStatus.SOLD,
+                listings.findById(listing.getId()).orElseThrow().getStatus());
+        assertNotNull(conversations.findById(conversationId)
+                .orElseThrow().getSaleConfirmedAt());
     }
 
     private User account(String name) {

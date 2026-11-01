@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class ReviewService {
-    public record ProviderProfile(PublicProfileData profile, List<ReviewSummary> reviews, List<ListingSummary> listings) {}
+    public record ProviderProfile(PublicProfileData profile, List<ReviewSummary> reviews, List<ListingSummary> listings, Double averageRating, int reviewCount) {}
     private final CurrentUser currentUser;
     private final UserRepository users;
     private final ConversationRepository conversations;
@@ -47,11 +47,39 @@ public class ReviewService {
             var publicData = new PublicProfileData(user.getId(), user.getUsername(),
                     p == null ? null : p.getName(), p == null ? null : p.getBio(),
                     p == null ? null : p.getProfilePictureUrl(), p == null ? null : p.getContactInformation());
-            return new ProviderProfile(publicData, reviews.findPublicReviews(providerId).stream()
-                    .filter(review -> !hidden.contains(review.authorId())).toList(),
-                    listings.findByOwnerIdAndStatusOrderByCreatedAtDescIdDesc(providerId, com.mavworks.model.ListingStatus.ACTIVE)
-                            .stream().map(l -> new ListingSummary(l.getId(), l.getName(), l.getDescription(), l.getPrice(),
-                                    l.getCategory(), l.getType(), l.getImages().isEmpty() ? null : l.getImages().getFirst().getStorageReference())).toList());
+            var availableListings =
+                    listings.findByOwnerIdAndStatusOrderByCreatedAtDescIdDesc(
+                                providerId, com.mavworks.model.ListingStatus.ACTIVE)
+                            .stream()
+                            .map(listing -> new ListingSummary(
+                                    listing.getId(),
+                                    listing.getName(),
+                                    listing.getDescription(),
+                                    listing.getPrice(),
+                                    listing.getCategory(),
+                                    listing.getType(),
+                                    listing.getImages().isEmpty() ? null : listing.getImages().getFirst().getStorageReference()))
+                            .toList();
+            var allReviews = reviews.findPublicReviews(providerId);
+
+            int reviewCount = allReviews.size();
+
+            Double averageRating = null;
+            if (reviewCount > 0) {
+                int totalRating = 0;
+
+                for (var review : allReviews) {
+                    totalRating += review.rating();
+                }
+
+                averageRating = (double) totalRating / reviewCount;
+            }
+
+            var visibleReviews = allReviews.stream()
+                    .filter(review -> !hidden.contains(review.authorId()))
+                    .toList();
+
+            return new ProviderProfile(publicData, visibleReviews, availableListings, averageRating, reviewCount);
         });
     }
 

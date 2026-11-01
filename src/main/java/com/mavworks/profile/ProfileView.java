@@ -17,6 +17,10 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.access.AccessDeniedException;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.H3;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 @Route("profiles/:userId")
 @PageTitle("Public Profile")
@@ -83,8 +87,18 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             if (profile.contactInformation() != null && !profile.contactInformation().isBlank()) {
                 identity.add(new Paragraph(profile.contactInformation()));
             }
-            String rating = data.reviews().isEmpty() ? "No reviews yet" : String.format(java.util.Locale.US,
-                    "★ %.1f / 5 · %d reviews", data.reviews().stream().mapToInt(r -> r.rating()).average().orElse(0), data.reviews().size());
+            String rating;
+            if (data.reviewCount() == 0) {
+                rating = "No ratings yet · 0 reviews";
+            } else {
+                String reviewLabel = data.reviewCount() == 1 ? "review" : "reviews";
+                rating = String.format(
+                        java.util.Locale.US,
+                        "★ %.1f / 5 · %d %s",
+                        data.averageRating(),
+                        data.reviewCount(),
+                        reviewLabel);
+            }
             var summary = new com.vaadin.flow.component.html.Span(rating); summary.addClassName("review-score"); identity.add(summary);
             header.add(identity); add(header);
             add(new H2("Available listings (" + data.listings().size() + ")"));
@@ -98,7 +112,11 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             reviewsHeader.addClassName("mw-section-header");
             add(reviewsHeader, feedback, form);
             var reviewCards = new com.vaadin.flow.component.html.Div(); reviewCards.addClassName("profile-reviews"); add(reviewCards);
-            if (data.reviews().isEmpty()) reviewCards.add(new Paragraph("No reviews yet. Reviews appear after a completed sale."));
+            if (data.reviews().isEmpty()) {
+                reviewCards.add(new Paragraph(data.reviewCount() == 0
+                        ? "No reviews yet. Reviews appear after a completed sale."
+                        : "No reviews available to display."));
+            }
             for (var review : data.reviews()) {
                 VerticalLayout card = new VerticalLayout();
                 card.setPadding(false);

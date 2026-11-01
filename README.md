@@ -100,7 +100,7 @@ Open http://localhost:8080/create-account. Enter a unique username, a
 accept the displayed development terms. Registration signs you in automatically.
 
 The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
-Accounts are saved in data/mavworks and survive restarts. Always run from the
+With the default H2 profile, accounts are saved in data/mavworks and survive restarts. Always run from the
 project root, and do not run two instances against the same database.
 Email ownership verification and password reset are not implemented yet.
 Development terms are placeholders for testing; replace them before public use.
@@ -113,11 +113,47 @@ then appears on your dashboard and Home, with links to its details and images.
 
 Current defaults for the use case's open questions: images are optional, with
 up to five JPEG/PNG files, each at most 5 MB and 20 megapixels. Category is
-optional (defaults to Other). Prices may be zero through 9,999,999,999.99 with
-at most two decimal places, matching the database's price column.
+optional (defaults to Other). Prices may be zero through 999,999.99 with
+at most two decimal places, as enforced by listing creation and editing.
 Images are validated by content and stored under `data/listing-images`.
 Set `mavworks.images-directory` to change that directory; deployments need a
 persistent volume shared by application instances and included in backups.
+
+## Manage your listings
+
+Open **Dashboard** and select **Manage** beside one of your listings. The dialog
+shows its status and expiration date. Edit the title, description, price, or
+category, then select **Save changes**. Product/service type and images cannot
+be changed in this dialog. Editing does not renew or republish a listing.
+
+New product and service listings expire after 30 days. Select **Renew for 30 days**
+to make an active, expired, or withdrawn listing available until 30 days from
+renewal. Services can be renewed without creating another listing.
+
+Select **Withdraw listing** to hide it from marketplace search and the provider's
+public profile. It remains on the owner's dashboard with status WITHDRAWN.
+Withdrawal preserves the listing, messages, and reviews; it does not delete them.
+Direct listing links still display its details and status. New buyers cannot
+start conversations, but existing participants can continue their conversations
+and complete an agreed sale. Save edits before withdrawing or renewing;
+those buttons do not save changes entered in the form.
+
+Sold listings and listings removed by an administrator are read-only in this
+dialog. Ownership and status checks are enforced by the service, not just the UI.
+Flyway V9 adds WITHDRAWN to the allowed database statuses. Restart with the
+Supabase profile to apply it.
+
+## Public profiles
+
+Public profiles show available listings, reviews, the average rating, and the
+review count without exposing university email addresses. Available listings
+must be ACTIVE and unexpired. Sold, withdrawn, expired, and administrator-removed
+listings are excluded.
+
+The average rating and review count use all reviews. Mutual blocking hides
+individual reviews from the affected viewer without changing those totals.
+A profile can therefore show a rating and review count while having no reviews
+available for that viewer to read.
 
 ## Provider reviews
 
@@ -138,6 +174,13 @@ merely closing a conversation or marking a listing sold does not qualify a revie
 Without a qualifying persisted conversation, the Review button explains that a
 completed sale is required. Flyway V4 adds conversation and review tables on
 Supabase; local H2 adds them through the existing Hibernate schema-update setting.
+
+Confirming a product sale also marks the listing SOLD, removing it from search
+and available listings on the provider's profile. Another buyer's conversation
+cannot confirm a second sale for that product. Confirming a service sale leaves
+the service's status and expiration unchanged, so an active, unexpired service
+remains available to other buyers. Both flows close the selected conversation
+and allow its buyer to leave a review. Money changes hands outside the app.
 
 ## Messaging
 
@@ -180,7 +223,7 @@ Response-time targets have not yet been defined or benchmarked.
 
 ## Reporting accounts
 
-The dashboard's **Edit account information** button lets the signed-in user update
+The dashboard's **Edit profile** button lets the signed-in user update
 their username, bio, and profile picture. Usernames follow registration rules:
 3–30 lowercase letters, numbers, dots, underscores, or hyphens (input is trimmed
 and normalized to lowercase). Bios allow 2000 characters. Pictures accept JPEG
