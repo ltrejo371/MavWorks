@@ -7,7 +7,7 @@ import com.mavworks.model.ListingCategory;
 import com.mavworks.model.ListingType;
 import com.mavworks.security.CurrentUser;
 import com.mavworks.service.ListingCatalogService;
-import com.mavworks.service.LocalImageStorageService;
+import com.mavworks.service.ImageStorageService;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
@@ -42,9 +42,9 @@ public class LandingView extends VerticalLayout {
     private final Paragraph status = new Paragraph();
     private final Div results = new Div();
     private final ListingCatalogService catalog;
-    private final LocalImageStorageService images;
+    private final ImageStorageService images;
 
-    public LandingView(CurrentUser currentUser, ListingCatalogService catalog, LocalImageStorageService images) {
+    public LandingView(CurrentUser currentUser, ListingCatalogService catalog, ImageStorageService images) {
         this.catalog = catalog;
         this.images = images;
         addClassNames("mw-page", "marketplace-page");

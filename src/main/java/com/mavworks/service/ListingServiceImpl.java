@@ -17,10 +17,10 @@ public class ListingServiceImpl implements ListingService {
     private final ListingRepository listings;
     private final UserRepository users;
     private final CurrentUser currentUser;
-    private final LocalImageStorageService images;
+    private final ImageStorageService images;
 
     public ListingServiceImpl(ListingRepository listings, UserRepository users,
-            CurrentUser currentUser, LocalImageStorageService images) {
+            CurrentUser currentUser, ImageStorageService images) {
         this.listings = listings;
         this.users = users;
         this.currentUser = currentUser;

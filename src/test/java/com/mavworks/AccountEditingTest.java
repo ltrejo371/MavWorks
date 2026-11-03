@@ -102,8 +102,8 @@ class AccountEditingTest {
             editing.save("owner", "New bio", null);
             assertTrue(dashboard.load().hasPicture());
         } finally { login(owner, "USER"); images.delete(reference); }
-        assertThrows(IllegalArgumentException.class, () -> LocalImageStorageService.validate("not an image".getBytes()));
-        assertThrows(IllegalArgumentException.class, () -> LocalImageStorageService.validate(new byte[LocalImageStorageService.MAX_BYTES + 1]));
+        assertThrows(IllegalArgumentException.class, () -> ImageValidationService.validate("not an image".getBytes()));
+        assertThrows(IllegalArgumentException.class, () -> ImageValidationService.validate(new byte[ImageValidationService.MAX_BYTES + 1]));
     }
 
     @Test void pictureLoadsThroughAuthenticatedHttpAndBlocksOtherViewers() throws Exception {

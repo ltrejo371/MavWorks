@@ -115,9 +115,18 @@ Current defaults for the use case's open questions: images are optional, with
 up to five JPEG/PNG files, each at most 5 MB and 20 megapixels. Category is
 optional (defaults to Other). Prices may be zero through 999,999.99 with
 at most two decimal places, as enforced by listing creation and editing.
-Images are validated by content and stored under `data/listing-images`.
-Set `mavworks.images-directory` to change that directory; deployments need a
-persistent volume shared by application instances and included in backups.
+Images are validated by content. The default profile stores listing and profile
+images under `data/listing-images`; set `mavworks.images-directory` to change that
+local directory. The `supabase` profile uses the private `mavworks-images` bucket
+so separate app instances can retrieve the same files. See
+[Supabase setup](docs/supabase-setup.md) for the bucket and required environment
+variables. Database rows store image references, not the image files themselves.
+
+Existing local images are not uploaded automatically. Preserve their filenames
+when transferring them to the bucket, or create new test listings with fresh
+uploads. Older app versions using local storage cannot display bucket-only images.
+Automated storage tests pass; live bucket upload/download and verification from
+two separate app instances are still pending.
 
 ## Manage your listings
 
@@ -227,8 +236,8 @@ The dashboard's **Edit profile** button lets the signed-in user update
 their username, bio, and profile picture. Usernames follow registration rules:
 3–30 lowercase letters, numbers, dots, underscores, or hyphens (input is trimmed
 and normalized to lowercase). Bios allow 2000 characters. Pictures accept JPEG
-and PNG up to 5 MB and 20 megapixels, using the same persistent image directory
-as listing images. No username-change frequency limit is imposed. Cancel leaves
+and PNG up to 5 MB and 20 megapixels, using the same image storage
+as listing images for the active profile. No username-change frequency limit is imposed. Cancel leaves
 the account unchanged; failed saves retain the form for retry. Active sessions
 use permanent account IDs so renaming does not change account ownership.
 

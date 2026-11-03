@@ -12,13 +12,13 @@ import jakarta.annotation.security.PermitAll;
 @PermitAll
 public class ListingDetailsView extends VerticalLayout implements com.vaadin.flow.router.BeforeEnterObserver {
     private final com.mavworks.service.ListingService listings;
-    private final com.mavworks.service.LocalImageStorageService storage;
+    private final com.mavworks.service.ImageStorageService storage;
     private final com.mavworks.service.MessagingService messages;
     private final com.mavworks.service.BlockService blocks;
     private final com.mavworks.service.ReportService reports;
 
     public ListingDetailsView(com.mavworks.service.ListingService listings,
-            com.mavworks.service.LocalImageStorageService storage, com.mavworks.service.MessagingService messages,
+            com.mavworks.service.ImageStorageService storage, com.mavworks.service.MessagingService messages,
             com.mavworks.service.BlockService blocks, com.mavworks.service.ReportService reports) {
         this.listings = listings;
         this.storage = storage;

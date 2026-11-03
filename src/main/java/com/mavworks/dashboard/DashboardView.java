@@ -21,10 +21,10 @@ import org.springframework.dao.DataAccessException;
 public class DashboardView extends VerticalLayout {
     private final Div account = new Div();
     private final AccountEditingService editing;
-    private final LocalImageStorageService storage;
+    private final ImageStorageService storage;
     private final ListingManagementService listingManagement;
 
-    public DashboardView(AccountDashboardService service, AccountEditingService editing, LocalImageStorageService storage, ListingManagementService listingManagement) {
+    public DashboardView(AccountDashboardService service, AccountEditingService editing, ImageStorageService storage, ListingManagementService listingManagement) {
         this.editing = editing;
         this.storage = storage;
         this.listingManagement = listingManagement;

@@ -5,6 +5,7 @@ import com.mavworks.model.*;
 import com.mavworks.repository.UserRepository;
 import com.mavworks.security.CurrentUser;
 import com.mavworks.service.LocalImageStorageService;
+import com.mavworks.service.ImageValidationService;
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.file.Path;
@@ -36,7 +37,7 @@ class CreateListingTest {
         assertThrows(IllegalArgumentException.class, () -> storage.store(
                 new ByteArrayInputStream("not an image".getBytes()), "fake.png", "image/png"));
         assertThrows(IllegalArgumentException.class,
-                () -> LocalImageStorageService.validate(new byte[LocalImageStorageService.MAX_BYTES + 1]));
+                () -> ImageValidationService.validate(new byte[ImageValidationService.MAX_BYTES + 1]));
         assertThrows(IllegalArgumentException.class, () -> storage.validateOwnedReference("../secret.png"));
         org.springframework.test.util.ReflectionTestUtils.setField(user, "id", 2L);
         assertThrows(IllegalArgumentException.class, () -> storage.validateOwnedReference(reference));

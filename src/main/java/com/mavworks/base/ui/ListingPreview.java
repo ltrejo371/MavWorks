@@ -1,14 +1,14 @@
 package com.mavworks.base.ui;
 
 import com.mavworks.dto.ListingSummary;
-import com.mavworks.service.LocalImageStorageService;
+import com.mavworks.service.ImageStorageService;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.server.streams.*;
 
 /** Consistent image presentation with a usable fallback for absent or missing files. */
 public final class ListingPreview {
     private ListingPreview() {}
-    public static Div image(String reference, String title, LocalImageStorageService storage) {
+    public static Div image(String reference, String title, ImageStorageService storage) {
         Div frame = new Div(new Span("No image available")); frame.addClassName("listing-picture");
         if (reference != null && !reference.isBlank()) {
             Image image = new Image(DownloadHandler.fromInputStream(e -> {
@@ -25,7 +25,7 @@ public final class ListingPreview {
         }
         return frame;
     }
-    public static Anchor card(ListingSummary listing, LocalImageStorageService storage) {
+    public static Anchor card(ListingSummary listing, ImageStorageService storage) {
         Anchor card = new Anchor("listings/" + listing.id(), ""); card.addClassName("profile-listing-card");
         Span price = new Span(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.price()));
         price.addClassName("listing-price-small");

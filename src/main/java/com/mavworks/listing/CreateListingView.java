@@ -25,7 +25,7 @@ import java.util.List;
 @PageTitle("Create Listing")
 @PermitAll
 public class CreateListingView extends VerticalLayout {
-    public CreateListingView(ListingService listings, LocalImageStorageService storage) {
+    public CreateListingView(ListingService listings, ImageStorageService storage) {
         addClassNames("mw-page", "mw-form-page");
         TextField name = new TextField("Name");
         TextField price = new TextField("Price ($)");
@@ -63,8 +63,8 @@ public class CreateListingView extends VerticalLayout {
             uploadsInProgress.incrementAndGet();
             try {
                 event.getUI().accessSynchronously(() -> done.setEnabled(false));
-                byte[] bytes = event.getInputStream().readNBytes(LocalImageStorageService.MAX_BYTES + 1);
-                LocalImageStorageService.validate(bytes);
+                byte[] bytes = event.getInputStream().readNBytes(ImageValidationService.MAX_BYTES + 1);
+                ImageValidationService.validate(bytes);
                 event.getUI().accessSynchronously(() -> {
                     if (selected.size() >= 5) {
                         errors.setText("Select at most five images. Remove one before adding another.");
@@ -94,7 +94,7 @@ public class CreateListingView extends VerticalLayout {
 
         upload.setMaxFiles(5);
         upload.setAcceptedFileTypes("image/jpeg", "image/png", ".jpg", ".jpeg", ".png");
-        upload.setMaxFileSize(LocalImageStorageService.MAX_BYTES);
+        upload.setMaxFileSize(ImageValidationService.MAX_BYTES);
         upload.addFileRejectedListener(event -> errors.setText(event.getErrorMessage()));
         upload.addAllFinishedListener(event -> { done.setEnabled(true); upload.clearFileList(); });
 
