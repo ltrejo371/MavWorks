@@ -45,6 +45,9 @@ public class User implements UserActions {
         else if (request.description().trim().length() > 4000) errors.add("Description must be at most 4000 characters.");
 
         if (request.type() == null) errors.add("Select Product or Service.");
+        if (request.appointmentDurationMinutes() < 5 || request.appointmentDurationMinutes() > 480) {
+            errors.add("Appointment length must be between 5 and 480 minutes.");
+        }
         if (request.price() == null || request.price().signum() < 0
                 || request.price().compareTo(new java.math.BigDecimal("999999.99")) > 0
                 || request.price().stripTrailingZeros().scale() > 2) {
@@ -64,6 +67,8 @@ public class User implements UserActions {
         listing.setDescription(request.description().trim());
         listing.setPrice(request.price().setScale(2));
         listing.setType(request.type());
+        listing.setAppointmentDurationMinutes(request.type() == ListingType.SERVICE
+                ? request.appointmentDurationMinutes() : 30);
         listing.setCategory(request.category() == null ? ListingCategory.OTHER : request.category());
         listing.setStatus(ListingStatus.ACTIVE);
 
