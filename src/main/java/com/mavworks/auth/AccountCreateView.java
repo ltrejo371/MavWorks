@@ -30,7 +30,7 @@ public class AccountCreateView extends Main {
     private final EmailField email = new EmailField("University email");
     private final PasswordField password = new PasswordField("Password");
     private final PasswordField confirmation = new PasswordField("Confirm password");
-    private final Checkbox acceptance = new Checkbox("I have read and accept the terms shown above.");
+    private final Checkbox acceptance = new Checkbox("I am at least 18 years old and agree to the Terms of Service shown above.");
     private final Paragraph feedback = new Paragraph();
     private final AccountService accounts;
     private final RegistrationLogin registrationLogin;
@@ -61,23 +61,18 @@ public class AccountCreateView extends Main {
         if (currentTerms.isPresent()) {
             var terms = currentTerms.get();
             termsId = terms.getId();
-            String content = terms.getContent();
-            // Older databases still contain this internal note in the demo terms.
-            if ("development-v1".equals(terms.getVersion())) {
-                content = content.replace("The team must replace this text before a public release.", "").strip();
-            }
-            termsText.setText("Terms (" + terms.getVersion() + ")\n" + content);
+            termsText.setText("Version " + terms.getVersion() + "\n" + terms.getContent());
         } else {
             termsText.setText("Registration is temporarily unavailable: no terms have been published.");
             create.setEnabled(false);
         }
         VerticalLayout form = new VerticalLayout(new H1("Create Account"), username, email,
-                password, confirmation, termsText, acceptance, feedback, create,
+                password, confirmation, termsText, new RouterLink("Read Terms of Service full page", TermsView.class), acceptance, feedback, create,
                 new RouterLink("Back to login", LoginView.class));
         form.setMaxWidth("36rem");
         form.addClassName("auth-card");
         form.getStyle().set("margin", "auto");
-        add(form);
+        add(new com.mavworks.base.ui.UtaBrand(), form);
     }
 
     private void register() {

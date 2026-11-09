@@ -97,7 +97,21 @@ Restart the app after pulling account changes. In Git Bash, run:
 
 Open http://localhost:8080/create-account. Enter a unique username, a
 @mavs.uta.edu email and matching passwords (at least 8 characters), then read and
-accept the displayed development terms. Registration signs you in automatically.
+accept the displayed Terms of Service. Registration signs you in automatically.
+
+The bundled terms are maintained in `src/main/resources/legal/terms-of-service.txt`
+and are available at `/terms`. With `mavworks.seed-development-terms=true`, startup
+publishes version `2026-11-09-v1` for an empty database or one containing only the
+original `development-v1` demo. Existing terms and acceptance records are retained;
+custom or already published terms are never overwritten. Changing the text file
+after publication does not change the database document: publish a new version
+for subsequent revisions. Existing users are not automatically recorded as having
+accepted a newer version; a separate notice and reacceptance flow is needed before
+applying material changes to their agreements.
+
+Before public launch, have legal counsel review the terms and confirm the legal
+operator's identity, a working support/legal contact, the 18+ eligibility policy,
+the liability provisions, and a separate privacy notice reflecting actual practices.
 
 The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
 With the default H2 profile, accounts are saved in data/mavworks and survive restarts. Always run from the

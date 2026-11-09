@@ -2,24 +2,28 @@
 :root { --mw-border: #e1e7ef; --mw-muted: #5f6d80; --mw-surface: var(--vaadin-background-color, #fff); }
 .mav-shell { --vaadin-app-layout-drawer-overlay: false; }
 .mav-shell::part(navbar) { display: none; }
-.mobile-navigation { display: none; }
+.mobile-navigation, .mobile-brand { display: none; }
 .listing-info vaadin-drawer-toggle, .profile-identity vaadin-drawer-toggle { display: none; }
 .dashboard-card h3 a { color: inherit; text-decoration: none; }
 .dashboard-card h3 a:hover { text-decoration: underline; }
 @media (max-width: 800px) {
     .mav-shell vaadin-drawer-toggle { display: none; }
-    .mav-shell { --vaadin-app-layout-drawer-offset-left: 0px !important; --vaadin-app-layout-drawer-offset-right: 0px !important; --vaadin-app-layout-navbar-offset-top: 0px !important; }
+    .mav-shell { --vaadin-app-layout-drawer-offset-left: 0px !important; --vaadin-app-layout-drawer-offset-right: 0px !important; --vaadin-app-layout-navbar-offset-top: 84px !important; }
     .mav-shell::part(drawer), .mav-shell::part(backdrop) { display: none !important; }
-    .mav-shell::part(navbar) { display: flex; position: fixed; inset: auto 0 0; z-index: 200; padding: 0; background: var(--mw-surface); border-top: 1px solid var(--mw-border); box-shadow: 0 -2px 12px #18304f08; }
+    .mav-shell::part(navbar) { display: flex; position: fixed; inset: 0 0 auto; height: 84px; z-index: 200; padding: 0; background: var(--mw-surface); border-bottom: 1px solid var(--mw-border); }
+    .mav-shell .mobile-brand { display: flex; width: 100%; }
     .mav-shell::part(content) { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
-    .mobile-navigation { display: flex; width: 100%; justify-content: space-around; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+    .mobile-navigation { display: flex; position: fixed; inset: auto 0 0; background: var(--mw-surface); border-top: 1px solid var(--mw-border); width: 100%; justify-content: space-around; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
     .mobile-navigation a { display: flex; flex: 1; min-height: 46px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #586574; text-decoration: none; border-radius: 10px; font-size: 10px; font-weight: 600; }
     .mobile-navigation vaadin-icon { width: 25px; height: 25px; }
     .mobile-navigation a[aria-current="page"] { color: #235bb7; background: #edf3fd; }
-    .mav-shell .mav-chat { height: calc(100dvh - 84px - env(safe-area-inset-bottom, 0px)); min-height: 0; margin: 6px auto; }
+    .mav-shell .mav-chat { height: calc(100dvh - 168px - env(safe-area-inset-bottom, 0px)); min-height: 0; margin: 6px auto; }
 }
 body { background: #f6f8fb; }
-.app-logo { border-radius: 12px; }
+.uta-brand { display: flex; align-items: center; gap: 12px; padding: 15px 16px; box-sizing: border-box; border-top: 4px solid #f58025; background: #fff; color: #0064b1; flex-shrink: 0; }
+.uta-brand-logo { object-fit: contain; flex-shrink: 0; }
+.uta-brand-text { display: flex; flex-direction: column; gap: 2px; }
+.uta-brand-campus { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; color: #46576b; }
 .app-name { font-weight: 750; font-size: 21px; letter-spacing: -0.5px; }
 .app-footer { color: var(--mw-muted); font-size: 12px; padding: 20px; }
 vaadin-side-nav { padding: 12px; }
@@ -77,13 +81,16 @@ a:focus-visible, button:focus-visible { outline: 3px solid #3267b4; outline-offs
 .report-card h2 a { text-decoration: none; }
 .report-card p { margin: 8px 0; overflow-wrap: anywhere; }
 .report-detail-page > p { margin: 0; overflow-wrap: anywhere; }
-.auth-page { min-height: 100dvh; display: grid; place-items: center; padding: 28px 16px; box-sizing: border-box; background: radial-gradient(ellipse at top, #e8effb, #f6f8fb 70%); }
+.auth-page { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; place-items: center; gap: 28px; padding: 0 16px 28px; box-sizing: border-box; background: radial-gradient(ellipse at top, #e8effb, #f6f8fb 70%); }
+.auth-page > .uta-brand { justify-self: stretch; margin: 0 -16px; }
 .auth-card { width: 100%; max-width: 460px; padding: 32px; background: var(--mw-surface); border: 1px solid var(--mw-border); border-radius: 20px; box-shadow: 0 12px 45px #243e6510; box-sizing: border-box; }
 .auth-card h1 { margin: 0; letter-spacing: -0.04em; }
 .auth-card > p { color: var(--mw-muted); line-height: 1.6; }
 .auth-card vaadin-login-form { width: 100%; max-width: 100%; }
 .auth-card > p:empty { display: none; }
 .registration-terms { max-height: 220px; overflow-y: auto; padding: 16px; border: 1px solid var(--mw-border); border-radius: 10px; font-size: 13px; box-sizing: border-box; width: 100%; }
+.terms-document { max-width: 900px; }
+.terms-document > a { display: inline-block; margin-top: 24px; }
 .mav-chat { border-radius: 16px; box-shadow: 0 4px 20px #18304f08; }
 @media (max-width: 720px) {
     .listing-overview, .profile-listings, .profile-reviews { grid-template-columns: minmax(0, 1fr); }
