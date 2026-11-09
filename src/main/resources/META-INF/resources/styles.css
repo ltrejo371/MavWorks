@@ -91,6 +91,31 @@ a:focus-visible, button:focus-visible { outline: 3px solid #3267b4; outline-offs
 .registration-terms { max-height: 220px; overflow-y: auto; padding: 16px; border: 1px solid var(--mw-border); border-radius: 10px; font-size: 13px; box-sizing: border-box; width: 100%; }
 .terms-document { max-width: 900px; }
 .terms-document > a { display: inline-block; margin-top: 24px; }
+.listing-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.listing-actions > vaadin-button { flex: 1 1 180px; }
+.appointment-page { max-width: 1100px; }
+.appointment-page h1 { font-size: clamp(24px, 4vw, 34px); }
+.appointment-page > div > p { color: var(--mw-muted); margin-bottom: 0; }
+.appointment-notice { width: 100%; box-sizing: border-box; background: #fff4e8; border-left: 4px solid #f58025; color: #704413; border-radius: 8px; padding: 14px 18px; margin: 0; }
+.appointment-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; width: 100%; }
+.appointment-month { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 20px 0 12px; }
+.appointment-month h2 { font-size: 19px; text-align: center; }
+.appointment-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.appointment-weekday { text-align: center; color: var(--mw-muted); font-size: 12px; padding-bottom: 8px; }
+.appointment-day { width: 100%; min-width: 0; margin: 0; padding: 0; height: 44px; border: 1px solid #9abbd9; background: #f0f7ff; color: #00599e; }
+.appointment-day[disabled] { border-color: transparent; background: #f1f3f5; color: #8a94a1; }
+.appointment-day[aria-pressed="true"] { background: #0064b1; color: white; border-color: #0064b1; }
+.appointment-day[aria-current="date"] { text-decoration: underline; text-underline-offset: 4px; }
+.appointment-legend { font-size: 12px; color: var(--mw-muted); margin-bottom: 0; }
+.appointment-time-panel h2 { font-size: 21px; }
+.appointment-time-panel > p { color: var(--mw-muted); font-size: 14px; }
+.appointment-times { display: flex; flex-direction: column; gap: 10px; max-height: 230px; overflow-y: auto; padding: 4px; }
+.appointment-times vaadin-button { flex-shrink: 0; min-height: 48px; margin: 0; }
+.appointment-time-panel > vaadin-button { width: 100%; }
+.appointment-time-panel > p:empty { display: none; }
+@media (max-width: 850px) {
+    .appointment-grid { grid-template-columns: minmax(0, 1fr); }
+}
 .mav-chat { border-radius: 16px; box-shadow: 0 4px 20px #18304f08; }
 @media (max-width: 720px) {
     .listing-overview, .profile-listings, .profile-reviews { grid-template-columns: minmax(0, 1fr); }
