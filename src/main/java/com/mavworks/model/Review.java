@@ -27,6 +27,8 @@ public class Review {
     private String comment;
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+    @Column(length = 2000, updatable = false)
+    private String reply;
 
     protected Review() {}
 
@@ -43,6 +45,7 @@ public class Review {
         this.listing = conversation.getListing();
         this.rating = rating;
         this.comment = text;
+        this.reply = null;
     }
 
     public Long getId() { return id; }
@@ -51,4 +54,5 @@ public class Review {
     public int getRating() { return rating; }
     public String getComment() { return comment; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getReply() { return reply; }
 }
