@@ -34,11 +34,20 @@ public class Listing {
     private Instant expiresAt = Instant.now().plus(java.time.Duration.ofDays(30));
     @Column(nullable = false)
     private long viewCount;
+    @Column(nullable = false)
+    private int appointmentDurationMinutes = 30;
     @Enumerated(EnumType.STRING) @Column(nullable = false)
     private ListingStyle style = ListingStyle.CLASSIC;
 
     public Instant getExpiresAt() { return expiresAt; }
     public long getViewCount() { return viewCount; }
+    public int getAppointmentDurationMinutes() { return appointmentDurationMinutes; }
+    public void setAppointmentDurationMinutes(int minutes) {
+        if (minutes < 5 || minutes > 480) {
+            throw new IllegalArgumentException("Appointment length must be between 5 and 480 minutes.");
+        }
+        this.appointmentDurationMinutes = minutes;
+    }
     public ListingStyle getStyle() { return style; }
     public void setStyle(ListingStyle style) {
         if (style == null) throw new IllegalArgumentException("Select a listing style.");

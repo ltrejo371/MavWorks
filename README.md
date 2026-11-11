@@ -97,7 +97,21 @@ Restart the app after pulling account changes. In Git Bash, run:
 
 Open http://localhost:8080/create-account. Enter a unique username, a
 @mavs.uta.edu email and matching passwords (at least 8 characters), then read and
-accept the displayed development terms. Registration signs you in automatically.
+accept the displayed Terms of Service. Registration signs you in automatically.
+
+The bundled terms are maintained in `src/main/resources/legal/terms-of-service.txt`
+and are available at `/terms`. With `mavworks.seed-development-terms=true`, startup
+publishes version `2026-11-09-v1` for an empty database or one containing only the
+original `development-v1` demo. Existing terms and acceptance records are retained;
+custom or already published terms are never overwritten. Changing the text file
+after publication does not change the database document: publish a new version
+for subsequent revisions. Existing users are not automatically recorded as having
+accepted a newer version; a separate notice and reacceptance flow is needed before
+applying material changes to their agreements.
+
+Before public launch, have legal counsel review the terms and confirm the legal
+operator's identity, a working support/legal contact, the 18+ eligibility policy,
+the liability provisions, and a separate privacy notice reflecting actual practices.
 
 The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
 With the default H2 profile, accounts are saved in data/mavworks and survive restarts. Always run from the
@@ -149,8 +163,22 @@ those buttons do not save changes entered in the form.
 
 Sold listings and listings removed by an administrator are read-only in this
 dialog. Ownership and status checks are enforced by the service, not just the UI.
-Flyway V9 adds WITHDRAWN to the allowed database statuses. Restart with the
-Supabase profile to apply it.
+Flyway V9 adds WITHDRAWN to the allowed database statuses; V10 adds booking
+support. Restart with the Supabase profile to apply pending migrations.
+
+## Service bookings
+
+Open **Bookings** from the Dashboard to request an appointment for an active
+service listing. Providers choose an appointment length of 5–480 minutes when
+creating or managing a service; the default is 30 minutes. Times are entered
+and displayed in the UTA/Arlington Central time zone.
+
+Providers can approve or decline pending requests. Approval reserves that time;
+overlapping approved bookings are rejected, including when two requests are
+approved at nearly the same time. Pending requests do not reserve a slot.
+Buyers can cancel pending or future approved bookings. Flyway V10 adds the
+appointment duration and booking tables for Supabase; the local H2 schema is
+updated automatically.
 
 ## Public profiles
 

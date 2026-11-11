@@ -1,0 +1,57 @@
+MavWorks Terms of Service
+
+1. Agreement and acceptance
+These Terms of Service ("Terms") govern your access to and use of the MavWorks website, accounts, marketplace, messaging, and related features (the "Service"). "MavWorks," "we," and "us" refer to the student project team operating the Service; "you" means the person using it. These Terms are intended to form a legally binding agreement between you and MavWorks. By selecting the acceptance checkbox and creating an account, you agree to the version of these Terms presented to you. If you do not agree, do not create an account or use account-only features. You may retain a copy of these Terms for your records.
+
+2. Eligibility and account responsibilities
+You must be at least 18 years old, legally able to enter this agreement, and use your own valid @mavs.uta.edu email address to register. Provide accurate account information, keep your credentials secure, and do not share, sell, or transfer your account. You are responsible for activity you authorize through your account. Do not use another person's credentials or evade account restrictions by creating another account. If you suspect unauthorized access, stop using compromised credentials and notify a MavWorks administrator through an available support channel.
+
+3. Campus marketplace and transactions
+MavWorks helps members of the UT Arlington community discover listings, communicate, and arrange exchanges of products and services. MavWorks is operated by a student project team and is not represented as an official university service. Campus branding does not make UT Arlington a party to this agreement or to transactions between users, and does not by itself imply university endorsement or a university guarantee.
+Unless expressly stated for a particular feature, MavWorks is not the seller, buyer, employer, agent, payment processor, insurer, or guarantor of a user transaction. Users independently agree on prices, payment, delivery, services, cancellations, and refunds. Sellers must have the right to offer their listings, describe condition and material limitations accurately, honor agreed commitments, and comply with applicable tax, licensing, consumer protection, and campus requirements. Buyers must honor their agreed obligations. Verify listings and counterparties, inspect goods, and use reasonable precautions when meeting or paying. We do not guarantee a user's identity, qualifications, reliability, or the safety or legality of a listing.
+
+4. Acceptable use and report categories
+These rules apply to listings, profiles, images, messages, reviews, reports, and all other use of the Service. The following conduct is prohibited:
+
+Scam or fraud: Deceptive listings, counterfeit goods, stolen property, payment scams, phishing, false claims about ownership or condition, taking payment with no intention to perform, and fabricated transactions or reviews. Disclose material defects and do not manipulate ratings or mislead others for financial or personal gain.
+
+Harassment or threats: Threats of violence, stalking, bullying, discriminatory harassment, extortion, sexual harassment, publishing private identifying information without permission, or repeated unwanted contact. Do not retaliate against someone for declining a transaction, blocking you, submitting a good-faith report, or posting an honest review.
+
+Spam: Unsolicited bulk messages, repetitive or misleading listings, irrelevant advertising, abusive promotions, automated account creation, and attempts to overwhelm or manipulate search, messaging, or reporting features.
+
+Inappropriate content: Sexual exploitation or abuse content, sexual content involving minors, nonconsensual intimate images, pornographic listings, graphic violence posted to shock or intimidate, hateful attacks, or content that unlawfully invades privacy or infringes another person's rights. Do not post confidential information or another person's personal information without authorization.
+
+Prohibited products or services: Illegal, stolen, recalled, or counterfeit goods; firearms, ammunition, explosives, or weapon-making services; controlled substances, prescription medicines, alcohol, tobacco, or vaping products; sexual services; stolen credentials or personal data; and products or services that facilitate fraud, harm, or unlawful activity. Academic misconduct services, including completing graded work or selling unauthorized exam materials, are prohibited. Listings must also comply with applicable campus rules.
+
+Impersonation: Pretending to be another person, business, university representative, or MavWorks administrator; using another person's identity or images deceptively; or falsely claiming affiliation, authorization, or endorsement.
+
+Other terms-of-service violation: Conduct prohibited elsewhere in these Terms, including intellectual property infringement, unauthorized access, malware, exploiting security vulnerabilities, bypassing restrictions, collecting user information without authorization, interference with the Service, and knowingly false or malicious reports. This category is for a specific violation, not merely disagreement with another user.
+
+5. Reports, reviews, and enforcement
+Use the report feature on an account to select the best matching category and provide truthful, relevant details. Reporting an account does not automatically block it or establish that misconduct occurred. You may use the separate blocking feature to limit contact. Reports are reviewed by administrators; a confirmed violation may result in a warning or account ban. We may restrict access or remove content as reasonably necessary to address violations, legal requirements, or risks to users or the Service. Serious violations may justify immediate action without a prior warning. We do not promise that all content will be monitored or that every report will result in enforcement.
+Reviews must reflect genuine experiences and comply with these Terms. Honest criticism and lawful negative reviews are permitted; a negative opinion alone is not grounds for a violation. Do not fabricate reviews, threaten users to obtain favorable reviews, or abuse reports to silence legitimate feedback. Reporting is not an emergency service; contact appropriate emergency services for immediate danger.
+
+6. Our intellectual property and your permission to use the Service
+The Service's software, design, text, and other materials supplied by MavWorks are owned by MavWorks or its licensors and are protected by applicable intellectual property laws. Subject to these Terms, we grant you a limited, nonexclusive, nontransferable, revocable permission to use the Service for its intended marketplace purposes. You may not copy, distribute, sell, modify, or exploit protected Service materials without authorization, except as allowed by law or an applicable open-source license. University names, logos, and other third-party marks remain the property of their respective owners. These Terms do not grant rights to use those marks or imply that MavWorks owns them.
+
+7. Your content
+You retain ownership of content you submit. You grant MavWorks a nonexclusive, worldwide, royalty-free license to host, store, reproduce, format, and display that content only as needed to operate, maintain, secure, and provide the Service, including displaying listings and reviews to users and delivering messages to intended recipients. You confirm that you have the necessary rights and permissions to submit your content. This license does not transfer ownership of your reviews to us or authorize unrelated advertising uses of private messages.
+The license ends when your content is removed from the Service, except to the extent retention is reasonably necessary for backups, legal obligations, fraud prevention, or resolving disputes. Copies already delivered to other users may remain with those users. Do not submit content you lack permission to share.
+
+8. Privacy and communications
+Account information, listings, messages, reviews, and reports are processed to provide the corresponding features and administer the Service. Content you make public may be viewed by other users. Do not publish sensitive personal or financial information in listings or send passwords through messages. These Terms do not replace a separate privacy notice and do not constitute consent to sell personal information. Any privacy notice provided with the Service explains the applicable data practices; mandatory privacy rights remain unaffected.
+
+9. Availability and warranty disclaimer
+TO THE EXTENT PERMITTED BY LAW, THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. WE DO NOT PROMISE UNINTERRUPTED OR ERROR-FREE ACCESS, THAT EVERY DEFECT WILL BE CORRECTED, OR THAT USER CONTENT IS ACCURATE. Features may change or become unavailable. These limitations do not exclude an express commitment we make or any warranty or right that cannot lawfully be excluded.
+
+10. Limits of liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, MAVWORKS AND ITS OPERATORS ARE NOT LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOST PROFITS ARISING FROM YOUR USE OF THE SERVICE. OUR TOTAL LIABILITY FOR CLAIMS ARISING FROM THE SERVICE OR THESE TERMS WILL NOT EXCEED THE GREATER OF US $100 OR THE AMOUNT YOU PAID DIRECTLY TO MAVWORKS FOR THE SERVICE IN THE TWELVE MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM. Payments to other users are not payments to MavWorks.
+These exclusions and limits apply only where legally permitted. They do not limit liability for fraud, willful misconduct, gross negligence, death or personal injury where liability cannot be limited, or any other liability or consumer remedy that applicable law does not allow us to exclude or limit. Nothing here releases another user from their obligations to you.
+
+11. Ending use and changes to these Terms
+You may stop using the Service at any time and use available account deletion controls to close your account. Ending access does not cancel obligations from existing transactions or resolve pending disputes. Provisions concerning accrued obligations, intellectual property, liability, and disputes survive to the extent needed to give them effect.
+We may publish revised Terms with a new version and effective date. Material changes require notice and acceptance before they bind you where required by law. Publishing new Terms alone does not record your acceptance or retroactively change an earlier agreement. If you do not agree to revised Terms, stop using the features to which those changes apply.
+
+12. General provisions and questions
+Applicable law governs these Terms, including mandatory consumer protections. These Terms do not require arbitration or waive your right to pursue an eligible claim in court. If a provision is unenforceable, the remaining provisions continue to apply to the extent permitted by law. A failure to enforce a provision on one occasion is not a waiver of future enforcement. These Terms govern use of the Service together with any express feature-specific terms you separately accept.
+For account misconduct, use the in-app reporting feature. For other questions about these Terms, contact the MavWorks operators through the support contact provided with the Service.

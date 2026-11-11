@@ -120,6 +120,9 @@ the application initializes it to 30 days after creation.
 V9 adds WITHDRAWN to the listing status constraint for owner withdrawal and
 renewal. It preserves existing listings and their history. Start the updated
 branch with the Supabase profile to apply pending migrations automatically.
+V10 adds service appointment durations and the bookings table for service
+appointment requests. Start the updated branch with the Supabase profile to
+apply it automatically; no manual database changes are needed.
 When sharing the database, keep the team's application code and migrations in
 sync; a schema ahead of an older checkout can cause validation or insert errors.
 The existing development terms initializer adds demo terms if the table is empty.

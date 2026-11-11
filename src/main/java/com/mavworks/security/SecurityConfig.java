@@ -17,7 +17,9 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users) throws Exception {
-        http.authorizeHttpRequests(auth -> auth.requestMatchers("/profile-pictures/**").authenticated());
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers("/images/uta-maverick.png").permitAll()
+                .requestMatchers("/profile-pictures/**").authenticated());
         http.with(VaadinSecurityConfigurer.vaadin(), config -> config.loginView(LoginView.class).defaultSuccessUrl("/", true));
         http.addFilterAfter(new BannedAccountFilter(users),
                 org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class);

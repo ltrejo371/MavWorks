@@ -53,7 +53,11 @@ public class ReportDialog extends Dialog {
                 submit.setText("Try again");
             } finally { submit.setEnabled(category.getValue() != null); }
         });
+        var termsLink = new com.vaadin.flow.component.html.Anchor("terms", "Read the Terms of Service");
+        termsLink.setTarget("_blank");
+        termsLink.getElement().setAttribute("rel", "noopener");
         add(new Paragraph("Choose the category that best describes the issue. Reporting does not block the account."),
+                termsLink,
                 category, reason, error);
         getFooter().add(new Button("Cancel", e -> close()), submit);
         addOpenedChangeListener(e -> {

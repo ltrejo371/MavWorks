@@ -39,7 +39,8 @@ public class LoginView extends Main implements BeforeEnterObserver{
         layout.add(new com.vaadin.flow.component.html.H1("MavWorks"),
                 new com.vaadin.flow.component.html.Paragraph("Your campus marketplace. Sign in to get started."), accountStatus, login, createBtn);
 
-        add(layout);
+        layout.add(new com.vaadin.flow.router.RouterLink("Terms of Service", TermsView.class));
+        add(new com.mavworks.base.ui.UtaBrand(), layout);
     }
 
     public void gotoCreateAccount(){

@@ -1,5 +1,7 @@
 package com.mavworks.listing;
 
+import java.text.DateFormat;
+
 import com.mavworks.base.ui.ViewTitle;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -57,13 +59,21 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                 gallery.add(thumbnails);
             }
             var info = new com.vaadin.flow.component.html.Div(); info.addClassNames("mw-panel", "listing-info");
+            var date = new com.vaadin.flow.component.html.H4((java.text.DateFormat.getDateInstance(DateFormat.SHORT, java.util.Locale.US).format(java.util.Date.from(listing.getCreatedAt()))));
+            date.addClassNames("listing-date");
             var price = new Paragraph(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.getPrice()));
             price.addClassName("listing-price");
             var tags = new com.vaadin.flow.component.html.Div(); tags.addClassName("listing-tags");
             for (String tag : java.util.List.of(listing.getType().name(), listing.getCategory().name(), listing.getStatus().name())) {
                 var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
             }
-            info.add(tags, new ViewTitle(listing.getName()), price);
+            info.add(tags, new ViewTitle(listing.getName()), date, price);
+            if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
+                info.add(new Paragraph("Suggested appointment length: "
+                        + listing.getAppointmentDurationMinutes() + " minutes"));
+            } else {
+                info.add(new Paragraph("Arrange a pickup appointment in 30-minute slots. Start a conversation using Message, then select Request Appointment."));
+            }
             var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
             providerCard.addClassName("listing-provider");
             blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
@@ -87,7 +97,17 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                     messageStatus.setText("The conversation could not be opened. Select Message to try again.");
                 } finally { messageButton.setEnabled(true); }
             });
-            info.add(messageButton, messageStatus);
+            var appointmentButton = new com.vaadin.flow.component.button.Button("Request Appointment",
+                    click -> getUI().ifPresent(ui -> ui.navigate("listings/" + id + "/appointment")));
+            appointmentButton.setWidthFull();
+            var actions = new com.vaadin.flow.component.html.Div(appointmentButton, messageButton);
+            actions.addClassName("listing-actions");
+            info.add(actions, messageStatus);
+            if (listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
+                appointmentButton.setVisible(true);
+            } else {
+                appointmentButton.setVisible(false);
+            }
             var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
             var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
             var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);

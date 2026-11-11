@@ -14,6 +14,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.server.streams.UploadHandler;
 import java.io.ByteArrayInputStream;
@@ -32,6 +33,7 @@ public class CreateListingView extends VerticalLayout {
 
         ComboBox<ListingType> type = new ComboBox<>("Product or service");
         ComboBox<ListingCategory> category = new ComboBox<>("Category (optional)");
+        IntegerField appointmentDuration = new IntegerField("Appointment length (minutes)");
 
         TextArea description = new TextArea("Description");
         Paragraph errors = new Paragraph();
@@ -45,6 +47,13 @@ public class CreateListingView extends VerticalLayout {
 
         type.setItems(ListingType.values());
         category.setItems(ListingCategory.values());
+        appointmentDuration.setValue(30);
+        appointmentDuration.setMin(5);
+        appointmentDuration.setMax(480);
+        appointmentDuration.setStep(5);
+        appointmentDuration.setHelperText("For services only. Choose 5–480 minutes; defaults to 30.");
+        appointmentDuration.setVisible(false);
+        type.addValueChangeListener(event -> appointmentDuration.setVisible(event.getValue() == ListingType.SERVICE));
 
         category.setValue(ListingCategory.OTHER);
 
@@ -117,12 +126,12 @@ public class CreateListingView extends VerticalLayout {
             try {
                 // Validate before writing any image files; authentication is enforced by the service.
                 new User().createListing(new CreateListingRequest(name.getValue(), description.getValue(),
-                        amount, type.getValue(), category.getValue(), List.of()));
+                        amount, type.getValue(), category.getValue(), List.of(), appointmentDuration.getValue()));
                 for (byte[] bytes : selected) {
                     references.add(storage.store(new ByteArrayInputStream(bytes), "image", null));
                 }
                 listings.createListing(new CreateListingRequest(name.getValue(), description.getValue(),
-                        amount, type.getValue(), category.getValue(), references));
+                        amount, type.getValue(), category.getValue(), references, appointmentDuration.getValue()));
                 published = true;
                 getUI().ifPresent(ui -> ui.navigate(DashboardView.class));
             } catch (IllegalArgumentException ex) {
@@ -145,7 +154,7 @@ public class CreateListingView extends VerticalLayout {
             }
         });
         setMaxWidth("48rem");
-        add(new ViewTitle("Create Listing"), name, price, type, category, description,
+        add(new ViewTitle("Create Listing"), name, price, type, category, appointmentDuration, description,
                 new Paragraph("Images (optional): up to five JPEG or PNG files (5 MB and 20 megapixels each limit)"),
                 upload, previews, errors, done);
     }
