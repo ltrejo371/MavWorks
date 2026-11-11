@@ -1,5 +1,7 @@
 package com.mavworks.listing;
 
+import java.text.DateFormat;
+
 import com.mavworks.base.ui.ViewTitle;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -57,13 +59,15 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                 gallery.add(thumbnails);
             }
             var info = new com.vaadin.flow.component.html.Div(); info.addClassNames("mw-panel", "listing-info");
+            var date = new com.vaadin.flow.component.html.H4((java.text.DateFormat.getDateInstance(DateFormat.SHORT, java.util.Locale.US).format(java.util.Date.from(listing.getCreatedAt()))));
+            date.addClassNames("listing-date");
             var price = new Paragraph(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.getPrice()));
             price.addClassName("listing-price");
             var tags = new com.vaadin.flow.component.html.Div(); tags.addClassName("listing-tags");
             for (String tag : java.util.List.of(listing.getType().name(), listing.getCategory().name(), listing.getStatus().name())) {
                 var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
             }
-            info.add(tags, new ViewTitle(listing.getName()), price);
+            info.add(tags, new ViewTitle(listing.getName()), date, price);
             if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
                 info.add(new Paragraph("Appointment length: "
                         + listing.getAppointmentDurationMinutes() + " minutes"));
