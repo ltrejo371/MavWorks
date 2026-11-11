@@ -36,6 +36,17 @@ class AccountWorkflowTest {
         registry.add("spring.datasource.url", () -> DATABASE);
     }
     @Autowired AccountService accounts;
+    @Autowired EmailVerificationRepository verifications;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.mavworks.service.VerificationEmailSender verificationMail;
+
+    private void register(String username, String email, String password, String confirmation, Long termsId) {
+        var token = accounts.requestVerification(username, email, password, confirmation, termsId);
+        var code = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(verificationMail, org.mockito.Mockito.atLeastOnce()).send(
+                org.mockito.ArgumentMatchers.eq(email.trim().toLowerCase(java.util.Locale.ROOT)), code.capture());
+        accounts.register(username, email, password, confirmation, termsId, token, code.getValue());
+    }
     @Autowired com.mavworks.security.RegistrationLogin registrationLogin;
     @Autowired UserRepository users;
     @Autowired TermsOfServiceRepository terms;
@@ -53,7 +64,7 @@ class AccountWorkflowTest {
         version.setContent("Test terms");
         version.setEffectiveAt(Instant.now().minusSeconds(60));
         terms.saveAndFlush(version);
-        accounts.register(" Student ", " Student@MAVS.UTA.EDU ", PASSWORD, PASSWORD, version.getId());
+        register(" Student ", " Student@MAVS.UTA.EDU ", PASSWORD, PASSWORD, version.getId());
         var user = users.findByUsername("student").orElseThrow();
         assertEquals("student@mavs.uta.edu", user.getEmail());
         assertNotEquals(PASSWORD, user.getHashedPassword());
@@ -80,19 +91,19 @@ class AccountWorkflowTest {
         Long version = terms.findFirstByEffectiveAtLessThanEqualOrderByEffectiveAtDesc(Instant.now())
                 .orElseThrow().getId();
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("student", "other@mavs.uta.edu", PASSWORD, PASSWORD, version));
+                register("student", "other@mavs.uta.edu", PASSWORD, PASSWORD, version));
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("another", "STUDENT@mavs.uta.edu", PASSWORD, PASSWORD, version));
+                register("another", "STUDENT@mavs.uta.edu", PASSWORD, PASSWORD, version));
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("another", "other@example.com", PASSWORD, PASSWORD, version));
+                register("another", "other@example.com", PASSWORD, PASSWORD, version));
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("another", "other@mavs.uta.edu", PASSWORD, "mismatch", version));
+                register("another", "other@mavs.uta.edu", PASSWORD, "mismatch", version));
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("another", "other@mavs.uta.edu", "short", "short", version));
+                register("another", "other@mavs.uta.edu", "short", "short", version));
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("another", "other@mavs.uta.edu", PASSWORD, PASSWORD, null));
+                register("another", "other@mavs.uta.edu", PASSWORD, PASSWORD, null));
         assertThrows(IllegalArgumentException.class, () ->
-                accounts.register("another", "other@mavs.uta.edu", PASSWORD, PASSWORD, -1L));
+                register("another", "other@mavs.uta.edu", PASSWORD, PASSWORD, -1L));
         assertEquals(1, users.count());
         assertEquals(1, agreements.count());
     }
@@ -140,5 +151,25 @@ class AccountWorkflowTest {
                 updated.getAttribute("SPRING_SECURITY_CONTEXT");
         assertNotNull(context);
         assertEquals("student", context.getAuthentication().getName());
+    }
+
+    @Test @Order(6)
+    void logoutInvalidatesSessionAndRedirectsToLogin() throws Exception {
+        Filter terminal = (request, response, chain) -> ((jakarta.servlet.http.HttpServletResponse) response).setStatus(204);
+        var mvc = MockMvcBuilders.webAppContextSetup(webContext).addFilters(security, terminal).build();
+        var session = new org.springframework.mock.web.MockHttpSession();
+        var context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication.getAuthenticationManager().authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated("student", PASSWORD)));
+        session.setAttribute("SPRING_SECURITY_CONTEXT", context);
+        var page = mvc.perform(get("/login").session(session)).andReturn();
+        var csrf = (org.springframework.security.web.csrf.CsrfToken) page.getRequest()
+                .getAttribute(org.springframework.security.web.csrf.CsrfToken.class.getName());
+        assertNotNull(csrf);
+        var result = mvc.perform(post("/logout").session(session).param(csrf.getParameterName(), csrf.getToken())).andReturn();
+        assertEquals(302, result.getResponse().getStatus());
+        assertEquals("/login", result.getResponse().getRedirectedUrl());
+        assertTrue(session.isInvalid());
+        assertNull(org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
     }
 }

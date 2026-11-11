@@ -35,6 +35,11 @@ public class AccountCreateView extends Main {
     private final AccountService accounts;
     private final RegistrationLogin registrationLogin;
     private Long termsId;
+    private java.util.UUID verificationToken;
+    private final TextField verificationCode = new TextField("Email verification code");
+    private final Button sendCode = new Button("Send verification code", event -> sendVerification());
+    private final Button verify = new Button("Verify email and create account", event -> register());
+    private final Button edit = new Button("Edit registration details", event -> editDetails());
 
     public AccountCreateView(AccountService accounts, TermsOfServiceService termsService, RegistrationLogin registrationLogin) {
         this.accounts = accounts;
@@ -55,8 +60,19 @@ public class AccountCreateView extends Main {
         Paragraph termsText = new Paragraph();
         termsText.addClassName("registration-terms");
         termsText.getStyle().set("white-space", "pre-wrap");
-        Button create = new Button("Create account", event -> register());
-        create.addThemeVariants(ButtonVariant.PRIMARY);
+        sendCode.addThemeVariants(ButtonVariant.PRIMARY);
+        sendCode.setDisableOnClick(true);
+        verify.addThemeVariants(ButtonVariant.PRIMARY);
+        verify.setDisableOnClick(true);
+        verify.setVisible(false); edit.setVisible(false);
+        verificationCode.setVisible(false);
+        verificationCode.setWidthFull();
+        verificationCode.setMinLength(6); verificationCode.setMaxLength(6);
+        verificationCode.setPattern("[0-9]{6}");
+        verificationCode.setAllowedCharPattern("[0-9]");
+        verificationCode.setHelperText("Enter the 6-digit code sent to your university email. It expires in 10 minutes.");
+        verificationCode.getElement().setAttribute("inputmode", "numeric");
+        verificationCode.getElement().setAttribute("autocomplete", "one-time-code");
         var currentTerms = termsService.getCurrentTerms();
         if (currentTerms.isPresent()) {
             var terms = currentTerms.get();
@@ -64,10 +80,10 @@ public class AccountCreateView extends Main {
             termsText.setText("Version " + terms.getVersion() + "\n" + terms.getContent());
         } else {
             termsText.setText("Registration is temporarily unavailable: no terms have been published.");
-            create.setEnabled(false);
+            sendCode.setEnabled(false);
         }
         VerticalLayout form = new VerticalLayout(new H1("Create Account"), username, email,
-                password, confirmation, termsText, new RouterLink("Read Terms of Service full page", TermsView.class), acceptance, feedback, create,
+                password, confirmation, termsText, new RouterLink("Read Terms of Service full page", TermsView.class), acceptance, feedback, sendCode, verificationCode, verify, edit,
                 new RouterLink("Back to login", LoginView.class));
         form.setMaxWidth("36rem");
         form.addClassName("auth-card");
@@ -75,7 +91,45 @@ public class AccountCreateView extends Main {
         add(new com.mavworks.base.ui.UtaBrand(), form);
     }
 
+    private void sendVerification() {
+        feedback.setVisible(false);
+        if (!acceptance.getValue()) {
+            showError("Please read and accept the terms before creating an account.");
+            sendCode.setEnabled(termsId != null);
+            return;
+        }
+        try {
+            verificationToken = accounts.requestVerification(username.getValue(), email.getValue(), password.getValue(),
+                    confirmation.getValue(), termsId);
+            setDetailsEnabled(false);
+            verificationCode.clear(); verificationCode.setVisible(true);
+            verify.setVisible(true); edit.setVisible(true);
+            sendCode.setText("Resend verification code");
+            showError("A verification code was sent to " + email.getValue().trim() + ". Your account will be created after verification.");
+            verificationCode.focus();
+        } catch (IllegalArgumentException | com.mavworks.service.VerificationEmailSender.DeliveryException ex) {
+            showError(ex.getMessage());
+        } catch (DataAccessException ex) {
+            showError("Unable to start email verification. Please try again later.");
+        } finally { sendCode.setEnabled(termsId != null); }
+    }
+
+    private void setDetailsEnabled(boolean enabled) {
+        username.setEnabled(enabled); email.setEnabled(enabled); password.setEnabled(enabled);
+        confirmation.setEnabled(enabled); acceptance.setEnabled(enabled);
+    }
+    private void editDetails() {
+        verificationToken = null; verificationCode.clear(); verificationCode.setVisible(false);
+        verify.setVisible(false); edit.setVisible(false); setDetailsEnabled(true);
+        sendCode.setText("Send verification code"); feedback.setVisible(false);
+    }
+    @Override protected void onDetach(com.vaadin.flow.component.DetachEvent event) {
+        password.clear(); confirmation.clear(); verificationCode.clear(); verificationToken = null;
+        super.onDetach(event);
+    }
+
     private void register() {
+        verify.setEnabled(true);
         feedback.setVisible(false);
         if (!acceptance.getValue()) {
             showError("Please read and accept the terms before creating an account.");
@@ -83,7 +137,7 @@ public class AccountCreateView extends Main {
         }
         try {
             accounts.register(username.getValue(), email.getValue(), password.getValue(),
-                    confirmation.getValue(), termsId);
+                    confirmation.getValue(), termsId, verificationToken, verificationCode.getValue().trim());
         } catch (IllegalArgumentException ex) {
             showError(ex.getMessage());
             return;
@@ -91,6 +145,7 @@ public class AccountCreateView extends Main {
             showError("Your account could not be saved. The username or email may already be taken. Please try again.");
             return;
         }
+        verify.setEnabled(false); sendCode.setEnabled(false); edit.setEnabled(false); verificationCode.clear();
         try {
             var request = VaadinServletRequest.getCurrent().getHttpServletRequest();
             registrationLogin.signIn(request, username.getValue().trim().toLowerCase(Locale.ROOT), password.getValue());

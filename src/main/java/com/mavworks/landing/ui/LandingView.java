@@ -32,7 +32,7 @@ import org.springframework.dao.DataAccessException;
 @Route("")
 @RouteAlias("market")
 @PageTitle("Home")
-@Menu(order = 0, icon = "icons/clipboard-check.svg", title = "Home")
+@Menu(order = 0, icon = "vaadin:home", title = "Home")
 @PermitAll
 @CssImport("./styles/marketplace.css")
 public class LandingView extends VerticalLayout {
