@@ -91,13 +91,17 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                     messageStatus.setText("The conversation could not be opened. Select Message to try again.");
                 } finally { messageButton.setEnabled(true); }
             });
-            info.add(messageButton, messageStatus);
+            var appointmentButton = new com.vaadin.flow.component.button.Button("Request Appointment",
+                    click -> getUI().ifPresent(ui -> ui.navigate("listings/" + id + "/appointment")));
+            appointmentButton.setWidthFull();
+            var actions = new com.vaadin.flow.component.html.Div(appointmentButton, messageButton);
+            actions.addClassName("listing-actions");
+            info.add(actions, messageStatus);
             if (listing.getType() == com.mavworks.model.ListingType.SERVICE
                     && listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
-                var book = new com.vaadin.flow.component.button.Button("Book this service",
-                        click -> getUI().ifPresent(ui -> ui.navigate("bookings")));
-                book.setWidthFull();
-                info.add(book);
+                appointmentButton.setVisible(true);
+            } else {
+                appointmentButton.setVisible(false);
             }
             var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
             var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");

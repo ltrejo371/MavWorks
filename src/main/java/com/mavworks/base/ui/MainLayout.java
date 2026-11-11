@@ -3,8 +3,6 @@ package com.mavworks.base.ui;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.applayout.AppLayout;
-import com.vaadin.flow.component.avatar.Avatar;
-import com.vaadin.flow.component.avatar.AvatarVariant;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.SvgIcon;
@@ -39,7 +37,9 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
         if (MenuConfiguration.getMenuEntries().stream().anyMatch(e -> e.menuClass() == com.mavworks.admin.ReportsView.class)) {
             mobile.add(mobileLink("admin/reports", "Reports", com.vaadin.flow.component.icon.VaadinIcon.FLAG));
         }
-        addToNavbar(mobile);
+        var mobileBrand = new UtaBrand();
+        mobileBrand.addClassName("mobile-brand");
+        addToNavbar(mobileBrand, mobile);
     }
 
     private com.vaadin.flow.component.html.Anchor mobileLink(String path, String label, com.vaadin.flow.component.icon.VaadinIcon symbol) {
@@ -61,17 +61,7 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
     }
 
     private Component createApplicationHeader() {
-        var appLogo = new Avatar("MavWorks");
-        appLogo.addClassName("app-logo");
-        appLogo.addThemeVariants(AvatarVariant.AURA_FILLED, AvatarVariant.XSMALL);
-
-        var appName = new Span("MavWorks");
-        appName.addClassName("app-name");
-
-        var header = new HorizontalLayout(appLogo, appName);
-        header.setAlignItems(FlexComponent.Alignment.CENTER);
-        header.setPadding(true);
-        return header;
+        return new UtaBrand();
     }
 
     private Component createApplicationDrawer() {
@@ -82,6 +72,7 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
 
     private Component createApplicationFooter() {
         var footer = new VerticalLayout(new Span("MavWorks · Campus marketplace"));
+        footer.add(new com.vaadin.flow.router.RouterLink("Terms of Service", com.mavworks.auth.TermsView.class));
         footer.setAlignItems(FlexComponent.Alignment.CENTER);
         footer.addClassName("app-footer");
         return footer;
