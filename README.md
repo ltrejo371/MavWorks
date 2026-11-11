@@ -154,8 +154,22 @@ those buttons do not save changes entered in the form.
 
 Sold listings and listings removed by an administrator are read-only in this
 dialog. Ownership and status checks are enforced by the service, not just the UI.
-Flyway V9 adds WITHDRAWN to the allowed database statuses. Restart with the
-Supabase profile to apply it.
+Flyway V9 adds WITHDRAWN to the allowed database statuses; V10 adds booking
+support. Restart with the Supabase profile to apply pending migrations.
+
+## Service bookings
+
+Open **Bookings** from the Dashboard to request an appointment for an active
+service listing. Providers choose an appointment length of 5–480 minutes when
+creating or managing a service; the default is 30 minutes. Times are entered
+and displayed in the UTA/Arlington Central time zone.
+
+Providers can approve or decline pending requests. Approval reserves that time;
+overlapping approved bookings are rejected, including when two requests are
+approved at nearly the same time. Pending requests do not reserve a slot.
+Buyers can cancel pending or future approved bookings. Flyway V10 adds the
+appointment duration and booking tables for Supabase; the local H2 schema is
+updated automatically.
 
 ## Public profiles
 

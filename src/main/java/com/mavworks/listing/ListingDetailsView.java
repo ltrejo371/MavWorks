@@ -64,6 +64,10 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                 var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
             }
             info.add(tags, new ViewTitle(listing.getName()), price);
+            if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
+                info.add(new Paragraph("Appointment length: "
+                        + listing.getAppointmentDurationMinutes() + " minutes"));
+            }
             var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
             providerCard.addClassName("listing-provider");
             blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
@@ -93,6 +97,12 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             var actions = new com.vaadin.flow.component.html.Div(appointmentButton, messageButton);
             actions.addClassName("listing-actions");
             info.add(actions, messageStatus);
+            if (listing.getType() == com.mavworks.model.ListingType.SERVICE
+                    && listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
+                appointmentButton.setVisible(true);
+            } else {
+                appointmentButton.setVisible(false);
+            }
             var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
             var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
             var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);

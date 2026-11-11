@@ -12,6 +12,7 @@ import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.textfield.IntegerField;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import org.springframework.dao.DataAccessException;
@@ -60,6 +61,15 @@ public class ManageListingDialog extends Dialog {
         category.setValue(listing.category());
         category.setWidthFull();
 
+        IntegerField appointmentDuration = new IntegerField("Appointment length (minutes)");
+        appointmentDuration.setValue(listing.appointmentDurationMinutes());
+        appointmentDuration.setMin(5);
+        appointmentDuration.setMax(480);
+        appointmentDuration.setStep(5);
+        appointmentDuration.setHelperText("Choose 5–480 minutes for this service.");
+        appointmentDuration.setWidthFull();
+        appointmentDuration.setVisible(listing.type() == com.mavworks.model.ListingType.SERVICE);
+
         boolean editable = listing.status() != ListingStatus.SOLD
                 && listing.status() != ListingStatus.REMOVED;
 
@@ -67,6 +77,7 @@ public class ManageListingDialog extends Dialog {
         description.setReadOnly(!editable);
         price.setReadOnly(!editable);
         category.setReadOnly(!editable);
+        appointmentDuration.setReadOnly(!editable);
 
         error.getElement().setAttribute("role", "alert");
 
@@ -76,7 +87,8 @@ public class ManageListingDialog extends Dialog {
                         name.getValue(),
                         description.getValue(),
                         price.getValue(),
-                        category.getValue()), refreshed));
+                        category.getValue(),
+                        appointmentDuration.getValue()), refreshed));
         save.addThemeVariants(ButtonVariant.PRIMARY);
         save.setVisible(editable);
 
@@ -95,7 +107,7 @@ public class ManageListingDialog extends Dialog {
                 + "Save any edits before withdrawing or renewing."
                 : "Sold listings and listings removed by an administrator cannot be changed.");
 
-        add(status, name, description, price, category, explanation, error);
+        add(status, name, description, price, category, appointmentDuration, explanation, error);
         getFooter().add(new Button("Close", event -> close()),
                 withdraw, renew, save);
     }

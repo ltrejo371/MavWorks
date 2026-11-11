@@ -30,6 +30,12 @@ public class ListingManagementService {
     }
     @Transactional
     public void updateDetails(Long id, String name, String description, BigDecimal price, ListingCategory category) {
+        updateDetails(id, name, description, price, category, null);
+    }
+
+    @Transactional
+    public void updateDetails(Long id, String name, String description, BigDecimal price,
+            ListingCategory category, Integer appointmentDurationMinutes) {
         Listing listing = owned(id);
 
         if (listing.getStatus() == ListingStatus.SOLD) {
@@ -60,6 +66,9 @@ public class ListingManagementService {
         listing.setDescription(description.trim());
         listing.setPrice(price.setScale(2));
         listing.setCategory(category == null ? ListingCategory.OTHER : category);
+        if (listing.getType() == ListingType.SERVICE && appointmentDurationMinutes != null) {
+            listing.setAppointmentDurationMinutes(appointmentDurationMinutes);
+        }
     }
 
     @Transactional

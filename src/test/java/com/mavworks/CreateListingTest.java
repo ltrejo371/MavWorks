@@ -56,5 +56,9 @@ class CreateListingTest {
         assertThrows(IllegalArgumentException.class, () -> owner.createListing(new CreateListingRequest(
                 "Tutoring", "Math help", BigDecimal.ONE, ListingType.SERVICE, null,
                 Collections.nCopies(6, "image"))));
+
+        var customized = owner.createListing(new CreateListingRequest("Tutoring", "Math help", BigDecimal.ONE,
+                ListingType.SERVICE, null, List.of(), 75));
+        assertEquals(75, customized.getAppointmentDurationMinutes());
     }
 }
