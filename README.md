@@ -97,7 +97,10 @@ Restart the app after pulling account changes. In Git Bash, run:
 
 Open http://localhost:8080/create-account. Enter a unique username, a
 @mavs.uta.edu email and matching passwords (at least 8 characters), then read and
-accept the displayed Terms of Service. Registration signs you in automatically.
+accept the displayed Terms of Service. Enter the six-digit code sent to your
+email to finish registration and sign in automatically. Registration requires
+SMTP configuration; see [Email verification](docs/email-verification.md).
+Existing accounts can sign in without SMTP configuration.
 
 The bundled terms are maintained in `src/main/resources/legal/terms-of-service.txt`
 and are available at `/terms`. With `mavworks.seed-development-terms=true`, startup
@@ -116,8 +119,7 @@ the liability provisions, and a separate privacy notice reflecting actual practi
 The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
 With the default H2 profile, accounts are saved in data/mavworks and survive restarts. Always run from the
 project root, and do not run two instances against the same database.
-Email ownership verification and password reset are not implemented yet.
-Development terms are placeholders for testing; replace them before public use.
+Password reset is not implemented yet. Live email delivery still needs verification.
 
 ## Create a listing
 
@@ -166,19 +168,21 @@ dialog. Ownership and status checks are enforced by the service, not just the UI
 Flyway V9 adds WITHDRAWN to the allowed database statuses; V10 adds booking
 support. Restart with the Supabase profile to apply pending migrations.
 
-## Service bookings
+## Calendar and appointments
 
-Open **Bookings** from the Dashboard to request an appointment for an active
-service listing. Providers choose an appointment length of 5–480 minutes when
-creating or managing a service; the default is 30 minutes. Times are entered
-and displayed in the UTA/Arlington Central time zone.
+Open **Calendar** from the sidebar to mark availability in 30-minute slots.
+Request an appointment for a product or service through its listing page or
+conversation; an open conversation is required. Select consecutive slots on
+the requesting user's calendar. Times use the UTA/Arlington Central time zone.
 
-Providers can approve or decline pending requests. Approval reserves that time;
-overlapping approved bookings are rejected, including when two requests are
-approved at nearly the same time. Pending requests do not reserve a slot.
-Buyers can cancel pending or future approved bookings. Flyway V10 adds the
-appointment duration and booking tables for Supabase; the local H2 schema is
-updated automatically.
+The other participant accepts or declines the request in the conversation.
+Confirmation reserves both participants across listings; conflicting confirmed
+appointments are rejected. Declining deletes the request. Unanswered requests
+expire after 48 hours or at their start time, whichever comes first.
+
+Completed appointments close the conversation and mark product listings Sold.
+Service listings keep their existing status. See [Calendar workflow](docs/calendar.md)
+for migration details and current limitations.
 
 ## Public profiles
 

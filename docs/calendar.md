@@ -8,6 +8,13 @@ Calendar edits save immediately. The scheduling use cases also require Back to d
 
 Requests expire at the earlier of their start time and 48 hours after creation. Expired requests cannot be accepted even before the background task runs. Every 15 seconds, a background task persists expirations and completes confirmed appointments whose end time has passed. Completion marks product listings Sold and preserves the existing status of service listings. Active services remain available for future appointments. Completion posts a message in the appointment’s conversation and closes that conversation using the existing sale/review flow. Removed listings remain removed and their appointments are cancelled. Jobs resume after application restarts.
 
+## Current limitations
+
+Confirmed appointments do not clear the underlying availability selections.
+The calendar does not yet distinguish booked time clearly from availability.
+After a service conversation closes, the same buyer's Message action returns
+to that closed conversation instead of starting a new transaction.
+
 ## Database upgrade
 
 Flyway migration V11 upgrades old Pending/Approved bookings to Requested/Confirmed, associates legacy bookings with conversations (creating missing conversations), and adds availability storage and query indexes. Cancelled and formerly declined bookings remain cancelled history. V12 converts saved availability to 30-minute slots, keeping a half hour only when both old quarter hours were available. Existing appointment timestamps are preserved. The Supabase profile applies these migrations through Flyway.

@@ -31,6 +31,10 @@ Use existing team credentials without rotating or revoking keys used by other
 app instances. All instances using shared images need this implementation and
 the same project and bucket configuration.
 
+New account registration also requires SMTP configuration; see
+[Email verification](email-verification.md). Existing accounts can sign in
+without email delivery configured.
+
 ## Start from PowerShell
 
 Stop the existing app with Ctrl+C, then run these commands from the project root:
@@ -123,9 +127,14 @@ branch with the Supabase profile to apply pending migrations automatically.
 V10 adds service appointment durations and the bookings table for service
 appointment requests. Start the updated branch with the Supabase profile to
 apply it automatically; no manual database changes are needed.
+V11 updates appointment statuses, links bookings to conversations, and adds
+user availability. V12 converts availability to 30-minute slots.
+V13 adds registration email verification records. V14 adds the optional reply
+column to reviews without changing existing review data.
 When sharing the database, keep the team's application code and migrations in
 sync; a schema ahead of an older checkout can cause validation or insert errors.
-The existing development terms initializer adds demo terms if the table is empty.
+With development terms seeding enabled, startup publishes the bundled terms for
+an empty table or the original development demo; other published terms are retained.
 Existing H2 accounts and listings are not transferred; register a new test account
 on Supabase. H2 files are preserved.
 

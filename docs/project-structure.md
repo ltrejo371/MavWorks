@@ -92,9 +92,9 @@ See [Supabase setup](supabase-setup.md) for configuration and transition steps.
 
 ## Remaining work
 
-1. Email ownership verification, password reset and email delivery.
-2. Replace development terms with team-approved content and complete use-case
-   validation for the student pilot.
+1. Add password reset and verify live registration email delivery.
+2. Review the bundled terms for public use and complete use-case validation
+   for the student pilot.
 3. Add pagination for large catalogs and refine marketplace navigation.
 4. Extend owner listing editing to images if included in the next iteration.
 5. Complete live shared-image storage verification from two app instances and
