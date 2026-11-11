@@ -1,0 +1,1 @@
+ALTER TABLE reviews ADD COLUMN reply VARCHAR(2000);
