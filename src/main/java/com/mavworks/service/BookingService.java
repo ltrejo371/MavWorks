@@ -15,22 +15,27 @@ public class BookingService {
     public static final ZoneId BOOKING_ZONE = ZoneId.of("America/Chicago");
 
     public record ServiceOption(Long id, String name, String provider, int durationMinutes) {}
+    public record AvailabilityOption(Long id, Instant startAt, Instant endAt) {}
+    public record AvailabilitySummary(Long id, Long listingId, String listingName,
+            Instant startAt, Instant endAt, boolean reserved) {}
     public record BookingSummary(Long id, Long listingId, String listingName,
             String buyer, String provider, boolean currentUserIsProvider,
-            Instant startAt, Instant endAt, BookingStatus status) {}
+            Instant startAt, Instant endAt, BookingStatus status, boolean buyerConfirmed) {}
     public record BusySlot(Instant startAt, Instant endAt) {}
 
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
     private final BookingRepository bookings;
+    private final AvailabilitySlotRepository availability;
 
     public BookingService(CurrentUser current, UserRepository users, ListingRepository listings,
-            BookingRepository bookings) {
+            BookingRepository bookings, AvailabilitySlotRepository availability) {
         this.current = current;
         this.users = users;
         this.listings = listings;
         this.bookings = bookings;
+        this.availability = availability;
     }
 
     private User user() {
@@ -44,6 +49,89 @@ public class BookingService {
                 .filter(listing -> !listing.getOwner().getId().equals(viewer.getId()))
                 .map(listing -> new ServiceOption(listing.getId(), listing.getName(),
                         listing.getOwner().getUsername(), listing.getAppointmentDurationMinutes()))
+                .toList();
+    }
+
+    public List<ServiceOption> myServices() {
+        User provider = user();
+        return listings.findByOwnerId(provider.getId()).stream()
+                .filter(listing -> listing.getType() == ListingType.SERVICE
+                        && listing.getStatus() == ListingStatus.ACTIVE)
+                .map(listing -> new ServiceOption(listing.getId(), listing.getName(),
+                        provider.getUsername(), listing.getAppointmentDurationMinutes()))
+                .toList();
+    }
+
+    public List<AvailabilitySummary> myAvailability() {
+        User provider = user();
+        return availability.findForProvider(provider.getId(), Instant.now()).stream()
+                .filter(slot -> slot.getListing().getStatus() == ListingStatus.ACTIVE)
+                .map(slot -> new AvailabilitySummary(slot.getId(), slot.getListing().getId(),
+                        slot.getListing().getName(), slot.getStartAt(), slot.getEndAt(),
+                        hasActiveBooking(slot.getListing().getId(), slot.getStartAt(), slot.getEndAt())))
+                .toList();
+    }
+
+    @Transactional
+    public Long addAvailability(Long listingId, LocalDate date, LocalTime time) {
+        User provider = user();
+        Listing listing = managedService(listingId, provider);
+        if (date == null || time == null) {
+            throw new IllegalArgumentException("Choose an available date and start time.");
+        }
+        LocalDateTime localStart = LocalDateTime.of(date, time);
+        if (!localStart.isAfter(LocalDateTime.now(BOOKING_ZONE))) {
+            throw new IllegalArgumentException("Availability must start in the future.");
+        }
+        LocalDateTime localEnd = localStart.plusMinutes(listing.getAppointmentDurationMinutes());
+        if (!localEnd.toLocalDate().equals(date)) {
+            throw new IllegalArgumentException("The appointment must end before midnight.");
+        }
+        Instant start = toInstant(localStart);
+        Instant end = toInstant(localEnd);
+        if (availability.findOverlapping(listingId, start, end).stream()
+                .anyMatch(slot -> start.isBefore(slot.getEndAt()) && end.isAfter(slot.getStartAt()))) {
+            throw new IllegalArgumentException("This time overlaps availability already on your calendar.");
+        }
+        return availability.saveAndFlush(new AvailabilitySlot(listing, start, end)).getId();
+    }
+
+    @Transactional
+    public void removeAvailability(Long slotId) {
+        User provider = user();
+        if (slotId == null) throw new IllegalArgumentException("Select an availability slot.");
+        AvailabilitySlot slot = availability.findForUpdate(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Availability not found."));
+        if (!slot.getListing().getOwner().getId().equals(provider.getId())) {
+            throw new AccessDeniedException("Only the service provider can edit availability.");
+        }
+        if (hasActiveBooking(slot.getListing().getId(), slot.getStartAt(), slot.getEndAt())) {
+            throw new IllegalArgumentException("This time has a booking request or confirmation and cannot be removed.");
+        }
+        availability.delete(slot);
+    }
+
+    public List<AvailabilityOption> availableSlots(Long listingId, LocalDate date) {
+        if (date == null || date.isBefore(LocalDate.now(BOOKING_ZONE))) {
+            throw new IllegalArgumentException("Choose today or a future date.");
+        }
+        return availableSlots(listingId, date.atStartOfDay(BOOKING_ZONE).toInstant(),
+                date.plusDays(1).atStartOfDay(BOOKING_ZONE).toInstant());
+    }
+
+    public List<AvailabilityOption> availableSlots(Long listingId, YearMonth month) {
+        if (month == null) throw new IllegalArgumentException("Choose a calendar month.");
+        return availableSlots(listingId, month.atDay(1).atStartOfDay(BOOKING_ZONE).toInstant(),
+                month.plusMonths(1).atDay(1).atStartOfDay(BOOKING_ZONE).toInstant());
+    }
+
+    private List<AvailabilityOption> availableSlots(Long listingId, Instant from, Instant to) {
+        user();
+        activeService(listingId);
+        return availability.findForListingAndRange(listingId, from, to).stream()
+                .filter(slot -> slot.getStartAt().isAfter(Instant.now()))
+                .filter(slot -> !hasActiveBooking(listingId, slot.getStartAt(), slot.getEndAt()))
+                .map(slot -> new AvailabilityOption(slot.getId(), slot.getStartAt(), slot.getEndAt()))
                 .toList();
     }
 
@@ -79,16 +167,14 @@ public class BookingService {
         if (!localStart.isAfter(LocalDateTime.now(BOOKING_ZONE))) {
             throw new IllegalArgumentException("Choose a future appointment time.");
         }
-        LocalDateTime localEnd = localStart.plusMinutes(listing.getAppointmentDurationMinutes());
-        if (!localEnd.toLocalDate().equals(date)) {
-            throw new IllegalArgumentException("The appointment must end before midnight.");
-        }
         Instant start = toInstant(localStart);
-        Instant end = toInstant(localEnd);
-        if (!bookings.findOverlapping(listing.getId(), BookingStatus.APPROVED, start, end).isEmpty()) {
-            throw new IllegalArgumentException("That time overlaps an approved booking. Choose another time.");
+        AvailabilitySlot slot = availability.findForUpdateByListingAndStart(listing.getId(), start)
+                .orElseThrow(() -> new IllegalArgumentException("That time is not on the provider's availability calendar."));
+        if (hasActiveBooking(listing.getId(), slot.getStartAt(), slot.getEndAt())) {
+            throw new IllegalArgumentException("That time already has a booking request. Choose another time.");
         }
-        return bookings.saveAndFlush(new Booking(buyer, listing, start, end)).getId();
+        return bookings.saveAndFlush(new Booking(buyer, listing,
+                slot.getStartAt(), slot.getEndAt())).getId();
     }
 
     @Transactional
@@ -110,6 +196,16 @@ public class BookingService {
             throw new IllegalArgumentException("This time is already reserved by another approved booking.");
         }
         booking.approve();
+    }
+
+    @Transactional
+    public void confirmByBuyer(Long bookingId) {
+        User buyer = user();
+        Booking booking = bookingForUpdate(bookingId);
+        if (!booking.getStartAt().isAfter(Instant.now())) {
+            throw new IllegalArgumentException("Past booking appointments cannot be confirmed.");
+        }
+        booking.confirmByBuyer(buyer);
     }
 
     @Transactional
@@ -144,6 +240,23 @@ public class BookingService {
         return listing;
     }
 
+    private Listing managedService(Long listingId, User provider) {
+        if (listingId == null) throw new IllegalArgumentException("Select a service.");
+        Listing listing = listings.findForManagement(listingId)
+                .orElseThrow(() -> new IllegalArgumentException("Service not found."));
+        if (!listing.getOwner().getId().equals(provider.getId())) {
+            throw new AccessDeniedException("Only the service provider can edit availability.");
+        }
+        if (listing.getType() != ListingType.SERVICE || listing.getStatus() != ListingStatus.ACTIVE) {
+            throw new IllegalArgumentException("Availability can only be set for an active service.");
+        }
+        return listing;
+    }
+
+    private boolean hasActiveBooking(Long listingId, Instant start, Instant end) {
+        return availability.countActiveBookingsOverlappingForSlot(listingId, start, end) > 0;
+    }
+
     private Booking bookingForUpdate(Long bookingId) {
         if (bookingId == null) throw new IllegalArgumentException("Select a booking.");
         return bookings.findForUpdate(bookingId)
@@ -168,6 +281,6 @@ public class BookingService {
                 booking.getListing().getName(), booking.getBuyer().getUsername(),
                 booking.getListing().getOwner().getUsername(),
                 booking.getListing().getOwner().getId().equals(viewerId),
-                booking.getStartAt(), booking.getEndAt(), booking.getStatus());
+                booking.getStartAt(), booking.getEndAt(), booking.getStatus(), booking.isBuyerConfirmed());
     }
 }

@@ -35,6 +35,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private Long lastId;
     private Long providerId;
     private boolean viewerIsProvider;
+    private boolean serviceListing;
     private record MessageTime(java.time.Instant sentAt, Span timestamp) {}
     private final NavigableMap<Long, MessageTime> messageTimes = new TreeMap<>();
     private final VerticalLayout history = new VerticalLayout();
@@ -43,6 +44,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private final Paragraph state = new Paragraph();
     private final Button send = new Button("Send");
     private final Button confirm = new Button("Confirm sale and close");
+    private final Anchor bookAppointment = new Anchor();
     private final Button older = new Button("Load older messages");
     private Registration poll;
     private int previousPollInterval;
@@ -106,6 +108,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             var chat = service.getChat(conversationId, null);
             providerId = chat.providerId();
             viewerIsProvider = chat.provider();
+            serviceListing = chat.serviceListing();
             Span avatar = new Span(chat.otherUser().substring(0, 1).toUpperCase(java.util.Locale.ROOT));
             avatar.addClassName("mav-chat-avatar");
             var person = new com.mavworks.base.ui.UserOptions(chat.otherUserId(), chat.otherUser(), blocks, reports, () -> {
@@ -125,7 +128,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             header.addClassName("mav-chat-header");
             Div composer = new Div(draft, send);
             composer.addClassName("mav-chat-composer");
-            Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"), confirm);
+            bookAppointment.setHref("listings/" + chat.listingId() + "/appointment");
+            bookAppointment.setText("Book appointment");
+            Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"),
+                    bookAppointment, confirm);
             actions.addClassName("mav-chat-actions");
             add(header, state, older, history, feedback, composer, actions);
             append(chat.messages());
@@ -164,6 +170,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         send.setEnabled(!chat.closed());
         confirm.setVisible(chat.provider() && !chat.closed());
         confirm.setEnabled(!chat.closed());
+        bookAppointment.setVisible(serviceListing && !chat.closed() && !chat.provider());
     }
 
     private void refresh() {

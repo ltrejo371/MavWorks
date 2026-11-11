@@ -30,6 +30,7 @@ class BookingWorkflowTest {
     @Autowired UserRepository users;
     @Autowired ListingRepository listings;
     @Autowired BookingRepository bookings;
+    @Autowired AvailabilitySlotRepository availability;
     @Autowired BookingService service;
     @Autowired ListingManagementService listingManagement;
 
@@ -41,6 +42,7 @@ class BookingWorkflowTest {
     @BeforeEach
     void setUp() {
         bookings.deleteAll();
+        availability.deleteAll();
         listings.deleteAll();
         users.deleteAll();
         buyer = account("booking-buyer");
@@ -58,6 +60,8 @@ class BookingWorkflowTest {
     @Test
     void requestUsesProviderConfiguredDurationAndProviderCanApprove() {
         LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
+        addAvailability(date, LocalTime.NOON);
+        addAvailability(date, LocalTime.of(12, 30));
         Long id = service.requestBooking(listing.getId(), date, LocalTime.NOON);
 
         var saved = bookings.findById(id).orElseThrow();
@@ -76,22 +80,27 @@ class BookingWorkflowTest {
     }
 
     @Test
-    void concurrentRequestsCanBePendingButOnlyOneOverlappingRequestCanBeApproved() {
+    void aPendingRequestReservesItsAvailabilityUntilDeclined() {
         LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(3);
+        addAvailability(date, LocalTime.of(10, 0));
+        addAvailability(date, LocalTime.of(10, 30));
         Long first = service.requestBooking(listing.getId(), date, LocalTime.of(10, 0));
-        Long second = service.requestBooking(listing.getId(), date, LocalTime.of(10, 15));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.requestBooking(listing.getId(), date, LocalTime.of(10, 0)));
+        Long second = service.requestBooking(listing.getId(), date, LocalTime.of(10, 30));
 
         login(provider);
         service.approve(first);
-        assertThrows(IllegalArgumentException.class, () -> service.approve(second));
-        assertEquals(BookingStatus.PENDING, bookings.findById(second).orElseThrow().getStatus());
         service.decline(second);
         assertEquals(BookingStatus.DECLINED, bookings.findById(second).orElseThrow().getStatus());
+        login(buyer);
+        assertDoesNotThrow(() -> service.requestBooking(listing.getId(), date, LocalTime.of(10, 30)));
     }
 
     @Test
     void onlyProviderCanApproveAndOnlyBuyerCanCancel() {
         LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
+        addAvailability(date, LocalTime.of(14, 0));
         Long id = service.requestBooking(listing.getId(), date, LocalTime.of(14, 0));
         login(stranger);
         assertThrows(AccessDeniedException.class, () -> service.approve(id));
@@ -107,6 +116,23 @@ class BookingWorkflowTest {
     }
 
     @Test
+    void providerApprovalAndBuyerConfirmationAreBothRequiredForCalendarBooking() {
+        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
+        addAvailability(date, LocalTime.of(15, 0));
+        Long id = service.requestBooking(listing.getId(), date, LocalTime.of(15, 0));
+        login(provider);
+        service.approve(id);
+        assertFalse(bookings.findById(id).orElseThrow().isBuyerConfirmed());
+        assertThrows(AccessDeniedException.class, () -> service.confirmByBuyer(id));
+        login(buyer);
+        service.confirmByBuyer(id);
+        assertTrue(bookings.findById(id).orElseThrow().isBuyerConfirmed());
+        assertTrue(service.getMyBookings().stream().filter(item -> item.id().equals(id))
+                .findFirst().orElseThrow().buyerConfirmed());
+        assertThrows(IllegalArgumentException.class, () -> service.confirmByBuyer(id));
+    }
+
+    @Test
     void providerCanChangeServiceDurationAndCannotBookTheirOwnService() {
         login(provider);
         listingManagement.updateDetails(listing.getId(), listing.getName(), listing.getDescription(),
@@ -116,6 +142,9 @@ class BookingWorkflowTest {
 
         login(buyer);
         LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
+        login(provider);
+        service.addAvailability(listing.getId(), date, LocalTime.of(11, 0));
+        login(buyer);
         Long id = service.requestBooking(listing.getId(), date, LocalTime.of(11, 0));
         var saved = bookings.findById(id).orElseThrow();
         assertEquals(Duration.ofMinutes(75), Duration.between(saved.getStartAt(), saved.getEndAt()));
@@ -151,8 +180,21 @@ class BookingWorkflowTest {
         listing.setAppointmentDurationMinutes(90);
         listings.saveAndFlush(listing);
         LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
+        login(provider);
         assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(listing.getId(), date, LocalTime.of(23, 0)));
+                () -> service.addAvailability(listing.getId(), date, LocalTime.of(23, 0)));
+    }
+
+    @Test
+    void providerCanAddAndRemoveAvailabilityButCannotRemoveRequestedSlot() {
+        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
+        login(provider);
+        Long slot = service.addAvailability(listing.getId(), date, LocalTime.of(13, 0));
+        assertEquals(1, service.myAvailability().size());
+        login(buyer);
+        service.requestBooking(listing.getId(), date, LocalTime.of(13, 0));
+        login(provider);
+        assertThrows(IllegalArgumentException.class, () -> service.removeAvailability(slot));
     }
 
     private User account(String username) {
@@ -172,6 +214,12 @@ class BookingWorkflowTest {
         serviceListing.setType(ListingType.SERVICE);
         serviceListing.setAppointmentDurationMinutes(minutes);
         return listings.saveAndFlush(serviceListing);
+    }
+
+    private void addAvailability(LocalDate date, LocalTime time) {
+        login(provider);
+        service.addAvailability(listing.getId(), date, time);
+        login(buyer);
     }
 
     private void login(User user) {

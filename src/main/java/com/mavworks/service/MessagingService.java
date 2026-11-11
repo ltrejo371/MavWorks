@@ -16,7 +16,7 @@ public class MessagingService {
     public record ConversationSummary(Long id, Long listingId, String listingName, String otherUser, boolean closed,
             String imageReference, java.time.Instant lastMessageAt) {}
     public record Chat(Long id, Long listingId, String listingName, Long providerId, String otherUser,
-            boolean provider, boolean closed, List<MessageSummary> messages, Long otherUserId) {}
+            boolean provider, boolean closed, boolean serviceListing, List<MessageSummary> messages, Long otherUserId) {}
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
@@ -105,7 +105,8 @@ public class MessagingService {
         boolean provider = c.getListing().getOwner().getId().equals(user.getId());
         return new Chat(c.getId(), c.getListing().getId(), c.getListing().getName(), c.getListing().getOwner().getId(),
                 provider ? c.getBuyer().getUsername() : c.getListing().getOwner().getUsername(), provider,
-                c.getClosedAt() != null, items, provider ? c.getBuyer().getId() : c.getListing().getOwner().getId());
+                c.getClosedAt() != null, c.getListing().getType() == ListingType.SERVICE,
+                items, provider ? c.getBuyer().getId() : c.getListing().getOwner().getId());
     }
 
     public List<MessageSummary> getOlderMessages(Long id, Long beforeId) {

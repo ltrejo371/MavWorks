@@ -80,6 +80,11 @@ branch with the Supabase profile to apply pending migrations automatically.
 V10 adds service appointment durations and the bookings table for service
 appointment requests. Start the updated branch with the Supabase profile to
 apply it automatically; no manual database changes are needed.
+V11 adds provider-defined availability slots and buyer confirmation state.
+Providers manage service availability from Bookings in the dashboard; buyers
+can request those times from a listing or its conversation. Provider approval
+and buyer confirmation are both required before an appointment appears on the
+confirmed monthly calendar. Restart with the Supabase profile to apply it.
 When sharing the database, keep the team's application code and migrations in
 sync; a schema ahead of an older checkout can cause validation or insert errors.
 The existing development terms initializer adds demo terms if the table is empty.

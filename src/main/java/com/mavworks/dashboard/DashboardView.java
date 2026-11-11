@@ -32,7 +32,7 @@ public class DashboardView extends VerticalLayout {
         Div heading = new Div(new ViewTitle("Dashboard"), new Paragraph("Manage your profile and marketplace activity."));
         Button addListing = new Button("Add listing", e -> getUI().ifPresent(ui -> ui.navigate(com.mavworks.listing.CreateListingView.class)));
         addListing.addThemeVariants(ButtonVariant.PRIMARY);
-        Button bookings = new Button("Bookings", e -> getUI().ifPresent(ui -> ui.navigate("bookings")));
+        Button bookings = new Button("Bookings & availability", e -> getUI().ifPresent(ui -> ui.navigate("bookings")));
         Div actions = new Div(new Button("Refresh", e -> loadAccount(service)), bookings, addListing);
         actions.addClassName("dashboard-actions");
         Div header = new Div(heading, actions); header.addClassName("dashboard-header");

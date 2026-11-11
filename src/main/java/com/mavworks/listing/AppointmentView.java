@@ -10,12 +10,8 @@ import com.vaadin.flow.router.*;
 import jakarta.annotation.security.PermitAll;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -26,16 +22,13 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US);
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.US);
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
-    private static final List<LocalTime> START_TIMES =
-            List.of(LocalTime.of(10, 0), LocalTime.of(11, 0), LocalTime.of(15, 0));
     private final ListingService listings;
     private final BookingService bookings;
     private LocalDate today = LocalDate.now(BookingService.BOOKING_ZONE);
     private YearMonth month = YearMonth.from(today);
     private Long listingId;
     private int durationMinutes;
-    private List<BookingService.BusySlot> busySlots = List.of();
-    private final Map<LocalDate, Set<LocalTime>> requestedTimes = new HashMap<>();
+    private List<BookingService.AvailabilityOption> monthSlots = List.of();
     private String availabilityError;
     private LocalDate selectedDate;
     private LocalTime selectedTime;
@@ -70,8 +63,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         selectedDate = null;
         selectedTime = null;
         listingId = null;
-        busySlots = List.of();
-        requestedTimes.clear();
+        monthSlots = List.of();
         availabilityError = null;
         month = YearMonth.from(today);
         feedback.setText("");
@@ -104,7 +96,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
             next.setAriaLabel("Next month");
             var navigation = new Div(previous, monthTitle, next);
             navigation.addClassName("appointment-month");
-            var legend = new Paragraph("Select a weekday to see available appointment times.");
+            var legend = new Paragraph("Select a date with availability to see appointment times.");
             legend.addClassName("appointment-legend");
             var calendarPanel = new Div(new H2("Availability"), navigation, calendar, legend);
             calendarPanel.addClassNames("mw-panel", "appointment-calendar-panel");
@@ -115,6 +107,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
             var grid = new Div(calendarPanel, timePanel);
             grid.addClassName("appointment-grid");
             add(grid);
+            loadMonthAvailability();
             renderCalendar();
             renderTimes();
         } catch (NumberFormatException ex) {
@@ -130,9 +123,9 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         month = month.plusMonths(amount);
         selectedDate = null;
         selectedTime = null;
-        busySlots = List.of();
         availabilityError = null;
         feedback.setText("");
+        loadMonthAvailability();
         renderCalendar();
         renderTimes();
     }
@@ -151,7 +144,8 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         }
         for (int day = 1; day <= month.lengthOfMonth(); day++) {
             LocalDate date = month.atDay(day);
-            boolean available = !date.isBefore(today) && date.getDayOfWeek().getValue() <= 5;
+            boolean available = !date.isBefore(today) && monthSlots.stream()
+                    .anyMatch(slot -> slot.startAt().atZone(BookingService.BOOKING_ZONE).toLocalDate().equals(date));
             var button = new Button(String.valueOf(day), event -> {
                 selectDate(date);
             });
@@ -172,6 +166,10 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         summary.setText(selectedTime == null ? "Select an available date and time."
                 : "Selected: " + selectedDate.format(DATE) + " · "
                         + TIME.format(selectedTime) + " · Central time");
+        if (availabilityError != null) {
+            times.add(new Paragraph(availabilityError));
+            return;
+        }
         if (selectedDate == null) {
             times.add(new Paragraph("Select a weekday to see available appointment times."));
             return;
@@ -180,30 +178,22 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
             times.add(new Paragraph(availabilityError));
             return;
         }
-        int availableCount = 0;
-        for (LocalTime time : START_TIMES) {
-            LocalDateTime start = LocalDateTime.of(selectedDate, time);
-            LocalDateTime end = start.plusMinutes(durationMinutes);
-            if (requestedTimes.getOrDefault(selectedDate, Set.of()).contains(time)) {
-                times.add(new Paragraph(TIME.format(time) + " – " + TIME.format(end) + " · Request sent"));
-                continue;
-            }
-            if (!start.isAfter(LocalDateTime.now(BookingService.BOOKING_ZONE))
-                    || !end.toLocalDate().equals(selectedDate)
-                    || overlapsApprovedBooking(start, end)) {
-                continue;
-            }
-            availableCount++;
-            var slot = new Button(TIME.format(time) + " – " + TIME.format(end.toLocalTime()), event -> {
-                selectedTime = time;
+        List<BookingService.AvailabilityOption> dailySlots = monthSlots.stream()
+                .filter(slot -> slot.startAt().atZone(BookingService.BOOKING_ZONE).toLocalDate().equals(selectedDate))
+                .toList();
+        for (var option : dailySlots) {
+            LocalTime start = option.startAt().atZone(BookingService.BOOKING_ZONE).toLocalTime();
+            LocalTime end = option.endAt().atZone(BookingService.BOOKING_ZONE).toLocalTime();
+            var slot = new Button(TIME.format(start) + " – " + TIME.format(end), event -> {
+                selectedTime = start;
                 feedback.setText("");
                 renderTimes();
             });
-            slot.getElement().setAttribute("aria-pressed", String.valueOf(time.equals(selectedTime)));
-            if (time.equals(selectedTime)) slot.addThemeVariants(ButtonVariant.PRIMARY);
+            slot.getElement().setAttribute("aria-pressed", String.valueOf(start.equals(selectedTime)));
+            if (start.equals(selectedTime)) slot.addThemeVariants(ButtonVariant.PRIMARY);
             times.add(slot);
         }
-        if (availableCount == 0) {
+        if (dailySlots.isEmpty()) {
             times.add(new Paragraph("No appointment times are available on this date. Choose another date."));
         }
     }
@@ -211,26 +201,23 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private void selectDate(LocalDate date) {
         selectedDate = date;
         selectedTime = null;
-        busySlots = List.of();
         availabilityError = null;
         feedback.setText("");
-        try {
-            busySlots = bookings.getApprovedSlots(listingId, date);
-        } catch (IllegalArgumentException | AccessDeniedException ex) {
-            availabilityError = ex.getMessage();
-        } catch (DataAccessException ex) {
-            availabilityError = "Availability could not be loaded. Select another date to try again.";
-        }
-        feedback.setText(availabilityError == null ? "" : availabilityError);
         renderCalendar();
         renderTimes();
     }
 
-    private boolean overlapsApprovedBooking(LocalDateTime start, LocalDateTime end) {
-        Instant startAt = start.atZone(BookingService.BOOKING_ZONE).toInstant();
-        Instant endAt = end.atZone(BookingService.BOOKING_ZONE).toInstant();
-        return busySlots.stream().anyMatch(slot ->
-                startAt.isBefore(slot.endAt()) && endAt.isAfter(slot.startAt()));
+    private void loadMonthAvailability() {
+        try {
+            monthSlots = bookings.availableSlots(listingId, month);
+            availabilityError = null;
+        } catch (IllegalArgumentException | AccessDeniedException ex) {
+            monthSlots = List.of();
+            availabilityError = ex.getMessage();
+        } catch (DataAccessException ex) {
+            monthSlots = List.of();
+            availabilityError = "Availability could not be loaded. Try again.";
+        }
     }
 
     private void requestAppointment() {
@@ -240,9 +227,10 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         feedback.setText("");
         try {
             bookings.requestBooking(listingId, selectedDate, requestedTime);
-            requestedTimes.computeIfAbsent(selectedDate, ignored -> new HashSet<>()).add(requestedTime);
             selectedTime = null;
             feedback.setText("Your request was sent to the provider. Track its status on the Bookings page.");
+            loadMonthAvailability();
+            renderCalendar();
             renderTimes();
         } catch (IllegalArgumentException | AccessDeniedException ex) {
             feedback.setText(ex.getMessage());

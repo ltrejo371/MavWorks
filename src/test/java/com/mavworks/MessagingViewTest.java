@@ -7,6 +7,7 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.*;
 import java.time.Instant;
@@ -106,8 +107,21 @@ class MessagingViewTest {
         assertFalse(components(denied).anyMatch(TextArea.class::isInstance));
     }
 
+    @Test void serviceConversationOffersBookingLink() {
+        var service = mock(MessagingService.class);
+        when(service.getChat(3L, null)).thenReturn(chat(false, true, List.of()));
+        var view = view(service);
+        assertTrue(components(view).anyMatch(c -> c instanceof Anchor a
+                && a.getText().equals("Book appointment")
+                && a.getHref().contains("listings/10/appointment")));
+    }
+
     private MessagingService.Chat chat(boolean closed, List<MessageSummary> messages) {
-        return new MessagingService.Chat(3L, 10L, "Book", 2L, "provider", false, closed, messages, 2L);
+        return chat(closed, false, messages);
+    }
+    private MessagingService.Chat chat(boolean closed, boolean serviceListing, List<MessageSummary> messages) {
+        return new MessagingService.Chat(3L, 10L, "Book", 2L, "provider", false, closed,
+                serviceListing, messages, 2L);
     }
     private ConversationView view(MessagingService service) {
         var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class), mock(ReportService.class));

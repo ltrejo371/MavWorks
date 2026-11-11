@@ -33,6 +33,9 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus status = BookingStatus.PENDING;
 
+    @Column(nullable = false)
+    private boolean buyerConfirmed;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -65,6 +68,20 @@ public class Booking {
         status = BookingStatus.DECLINED;
     }
 
+    public void confirmByBuyer(User buyer) {
+        if (buyer == null || !this.buyer.getId().equals(buyer.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only the person who requested this booking can confirm it.");
+        }
+        if (status != BookingStatus.APPROVED) {
+            throw new IllegalArgumentException("The provider must confirm this booking first.");
+        }
+        if (buyerConfirmed) {
+            throw new IllegalArgumentException("You have already confirmed this appointment.");
+        }
+        buyerConfirmed = true;
+    }
+
     public void cancel() {
         if (status != BookingStatus.PENDING && status != BookingStatus.APPROVED) {
             throw new IllegalArgumentException("This booking can no longer be cancelled.");
@@ -84,4 +101,5 @@ public class Booking {
     public Instant getStartAt() { return startAt; }
     public Instant getEndAt() { return endAt; }
     public BookingStatus getStatus() { return status; }
+    public boolean isBuyerConfirmed() { return buyerConfirmed; }
 }
