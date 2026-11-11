@@ -29,6 +29,17 @@ public class UserOptions extends Button {
                         options.close();
                         confirmation(userId, blocks, afterBlock).open();
                     }));
+            if(blocks.isNotVisible(userId)){
+                options.getFooter().add(new Button("Unblock", click -> {
+                        options.close();
+                        blocks.unblockUser(userId);
+                    }));
+            }else{
+                options.getFooter().add(new Button("Block", click -> {
+                        options.close();
+                        confirmation(userId, blocks, afterBlock).open();
+                    }));
+            }
             options.open();
         });
     }

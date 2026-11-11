@@ -132,11 +132,16 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
                     card.add(comment);
                 }
                 if (review.reply() != null && !review.reply().isBlank()) {
-                    H5 divider = new H5("Provider replied to review: ");
-                    card.add(divider);
-                    Paragraph reply = new Paragraph(review.reply());
-                    reply.getStyle().set("white-space","pre-wrap");
-                    card.add(reply);
+                    if(review.reply().contentEquals("Provided declined to review")){
+                        H5 footer = new H5("Provider declined to review");
+                        card.add(footer);
+                    }else{
+                        H5 divider = new H5("Provider replied to review: ");
+                        card.add(divider);
+                        Paragraph reply = new Paragraph(review.reply());
+                        reply.getStyle().set("white-space","pre-wrap");
+                        card.add(reply);
+                    }
                 }
                 reviewCards.add(card);
             }

@@ -42,4 +42,23 @@ public class BlockService {
         if (id == null || blocks.findHiddenUserIds(viewer.getId()).contains(id)) return Optional.empty();
         return users.findById(id).map(user -> new VisibleUser(user.getId(), user.getUsername()));
     }
+
+    public boolean isNotVisible(Long targetId){
+        var viewer = current.username().flatMap(users::findByUsername)
+            .orElseThrow(() -> new AccessDeniedException("Failed to load options. Sign in to load"));
+        return blocks.existsByBlockerIdAndBlockedId(viewer.getId(), targetId);
+    }
+
+    public void unblockUser(Long targetId) {
+        var actor = current.username().flatMap(users::findForBlock)
+                .orElseThrow(() -> new AccessDeniedException("Sign in to unblock an account."));
+        if (targetId == null || targetId.equals(actor.getId())) {
+            throw new IllegalArgumentException("Select another user to unblock.");
+        }
+
+        if (blocks.existsByBlockerIdAndBlockedId(actor.getId(), targetId)){
+            var target = users.findById(targetId).orElseThrow(() -> new IllegalArgumentException("Account not available."));
+            blocks.deleteById()
+        }
+    }
 }

@@ -100,7 +100,7 @@ public class User implements UserActions {
     public UserBlock blockUser(User target) {
         return new UserBlock(this, target);
     }
-
+    
     @Override
     public Report reportUser(User target, ReportCategory category, String reason) {
         return new Report(this, target, category, reason);
