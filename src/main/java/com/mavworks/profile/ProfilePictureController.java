@@ -1,6 +1,6 @@
 package com.mavworks.profile;
 
-import com.mavworks.service.LocalImageStorageService;
+import com.mavworks.service.ImageStorageService;
 import com.mavworks.service.ReviewService;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 public class ProfilePictureController {
     private final ReviewService profiles;
-    private final LocalImageStorageService images;
-    public ProfilePictureController(ReviewService profiles, LocalImageStorageService images) {
+    private final ImageStorageService images;
+    public ProfilePictureController(ReviewService profiles, ImageStorageService images) {
         this.profiles = profiles; this.images = images;
     }
     @GetMapping("/profile-pictures/{id}")

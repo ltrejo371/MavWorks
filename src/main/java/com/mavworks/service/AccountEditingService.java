@@ -11,8 +11,8 @@ import org.springframework.security.access.AccessDeniedException;
 public class AccountEditingService {
     private final CurrentUser current;
     private final UserRepository users;
-    private final LocalImageStorageService images;
-    public AccountEditingService(CurrentUser current, UserRepository users, LocalImageStorageService images) {
+    private final ImageStorageService images;
+    public AccountEditingService(CurrentUser current, UserRepository users, ImageStorageService images) {
         this.current = current; this.users = users; this.images = images;
     }
     /** Null picture retains the current picture. Identity always comes from the session. */

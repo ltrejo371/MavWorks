@@ -6,7 +6,14 @@ Listing appointment requests require an existing conversation. Either participan
 
 Calendar edits save immediately. The scheduling use cases also require Back to discard all changes, so availability edits made on the scheduling screen are drafts: they save in the same transaction as the appointment. Failed requests roll back those edits, and Back discards them. The screen explains this behavior.
 
-Requests expire at the earlier of their start time and 48 hours after creation. Expired requests cannot be accepted even before the background task runs. Every 15 seconds, a background task persists expirations and completes confirmed appointments whose end time has passed. Completion marks the listing Sold, posts a completion message in its conversation, and closes that conversation using the existing sale/review flow. Removed listings remain removed and their appointments are cancelled. Jobs resume after application restarts.
+Requests expire at the earlier of their start time and 48 hours after creation. Expired requests cannot be accepted even before the background task runs. Every 15 seconds, a background task persists expirations and completes confirmed appointments whose end time has passed. Completion marks product listings Sold and preserves the existing status of service listings. Active services remain available for future appointments. Completion posts a message in the appointment’s conversation and closes that conversation using the existing sale/review flow. Removed listings remain removed and their appointments are cancelled. Jobs resume after application restarts.
+
+## Current limitations
+
+Confirmed appointments do not clear the underlying availability selections.
+The calendar does not yet distinguish booked time clearly from availability.
+After a service conversation closes, the same buyer's Message action returns
+to that closed conversation instead of starting a new transaction.
 
 ## Database upgrade
 

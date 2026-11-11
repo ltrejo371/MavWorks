@@ -71,13 +71,34 @@ ReviewService supplies public-profile listings and reviews. Rating averages and
 counts include all reviews, while individual review visibility follows mutual
 blocking rules. University email addresses are excluded from public profiles.
 
+## Image storage
+
+Views and application services depend on ImageStorageService for storing,
+opening, validating ownership of, and deleting images. Spring selects
+LocalImageStorageService when the supabase profile is inactive and
+SupabaseImageStorageService when it is active.
+
+Local storage uses `data/listing-images` by default. Supabase storage uses Java's
+HttpClient to access the private `mavworks-images` bucket through the backend.
+The project URL and secret key come from environment variables. The database
+continues to store image references using generated filenames with an owner ID
+prefix. Both implementations check the signed-in user; attaching or deleting an
+image also checks its ownership. Public listing images can be read by other
+signed-in users, while ProfilePictureController checks profile visibility first.
+
+ImageValidationService provides shared content validation: JPEG or PNG, at most
+5 MB and 20 megapixels. Existing local files are not migrated automatically.
+See [Supabase setup](supabase-setup.md) for configuration and transition steps.
+
 ## Remaining work
 
-1. Email ownership verification, password reset and email delivery.
-2. Replace development terms with team-approved content and complete use-case
-   validation for the student pilot.
+1. Add password reset and verify live registration email delivery.
+2. Review the bundled terms for public use and complete use-case validation
+   for the student pilot.
 3. Add pagination for large catalogs and refine marketplace navigation.
 4. Extend owner listing editing to images if included in the next iteration.
+5. Complete live profile-picture and blocked profile access checks, and decide
+   whether existing local test images need transferring.
 
 Listing creation, public profiles, account editing, owner listing management,
 messaging, reviews, blocking, reports and administrator report decisions are
@@ -96,3 +117,9 @@ editing, validation, withdrawal, renewal and preservation of existing conversati
 It runs Flyway against an isolated H2 database in PostgreSQL mode. For manual
 verification, use two test accounts to edit, withdraw and renew listings, confirm
 product and service sales, and check marketplace and profile visibility.
+
+SupabaseImageStorageTest checks upload/download requests, ownership, validation,
+missing files and network errors with a mock HTTP client. These tests do not
+contact Supabase. Automated tests passed. Live bucket uploads were verified,
+and teammates confirmed the branch works on their app instances. Live profile-picture
+and blocked profile access checks remain to be verified explicitly.

@@ -31,13 +31,13 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
     private final ReviewService service;
     private final com.mavworks.service.BlockService blocks;
     private final com.mavworks.service.ReportService reports;
-    private final com.mavworks.service.LocalImageStorageService images;
+    private final com.mavworks.service.ImageStorageService images;
     private Long providerId;
     private final VerticalLayout form = new VerticalLayout();
     private final Paragraph feedback = new Paragraph();
 
     public ProfileView(ReviewService service, com.mavworks.service.BlockService blocks,
-            com.mavworks.service.ReportService reports, com.mavworks.service.LocalImageStorageService images) {
+            com.mavworks.service.ReportService reports, com.mavworks.service.ImageStorageService images) {
         this.service = service;
         this.blocks = blocks;
         this.reports = reports;

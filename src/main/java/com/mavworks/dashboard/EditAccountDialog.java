@@ -14,7 +14,7 @@ public class EditAccountDialog extends Dialog {
     private final java.util.concurrent.atomic.AtomicInteger uploading = new java.util.concurrent.atomic.AtomicInteger();
 
     public EditAccountDialog(AccountDashboardService.DashboardData data, AccountEditingService service,
-            LocalImageStorageService storage, Runnable saved) {
+            ImageStorageService storage, Runnable saved) {
         setHeaderTitle("Edit account information");
         setWidth("32rem");
         TextField username = new TextField("Username");
@@ -38,8 +38,8 @@ public class EditAccountDialog extends Dialog {
             uploading.incrementAndGet();
             try {
                 event.getUI().accessSynchronously(() -> save.setEnabled(false));
-                byte[] bytes = event.getInputStream().readNBytes(LocalImageStorageService.MAX_BYTES + 1);
-                String extension = LocalImageStorageService.validate(bytes);
+                byte[] bytes = event.getInputStream().readNBytes(ImageValidationService.MAX_BYTES + 1);
+                String extension = ImageValidationService.validate(bytes);
                 event.getUI().accessSynchronously(() -> {
                     selectedPicture = bytes;
                     selected.setText("New profile picture selected.");
@@ -56,7 +56,7 @@ public class EditAccountDialog extends Dialog {
             } finally { uploading.decrementAndGet(); }
         });
         upload.setMaxFiles(1);
-        upload.setMaxFileSize(LocalImageStorageService.MAX_BYTES);
+        upload.setMaxFileSize(ImageValidationService.MAX_BYTES);
         upload.setAcceptedFileTypes("image/jpeg", "image/png", ".jpg", ".jpeg", ".png");
         upload.addFileRejectedListener(e -> error.setText(e.getErrorMessage()));
         upload.addAllFinishedListener(e -> { save.setEnabled(true); upload.clearFileList(); });
