@@ -69,8 +69,10 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             }
             info.add(tags, new ViewTitle(listing.getName()), date, price);
             if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
-                info.add(new Paragraph("Appointment length: "
+                info.add(new Paragraph("Suggested appointment length: "
                         + listing.getAppointmentDurationMinutes() + " minutes"));
+            } else {
+                info.add(new Paragraph("Arrange a pickup appointment in 30-minute slots. Start a conversation using Message, then select Request Appointment."));
             }
             var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
             providerCard.addClassName("listing-provider");
@@ -101,8 +103,7 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             var actions = new com.vaadin.flow.component.html.Div(appointmentButton, messageButton);
             actions.addClassName("listing-actions");
             info.add(actions, messageStatus);
-            if (listing.getType() == com.mavworks.model.ListingType.SERVICE
-                    && listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
+            if (listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
                 appointmentButton.setVisible(true);
             } else {
                 appointmentButton.setVisible(false);

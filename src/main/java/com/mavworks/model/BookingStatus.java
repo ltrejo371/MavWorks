@@ -1,8 +1,3 @@
 package com.mavworks.model;
 
-public enum BookingStatus {
-    PENDING,
-    APPROVED,
-    DECLINED,
-    CANCELLED
-}
+public enum BookingStatus { REQUESTED, CONFIRMED, EXPIRED, COMPLETED, CANCELLED }

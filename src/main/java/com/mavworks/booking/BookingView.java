@@ -1,205 +1,71 @@
 package com.mavworks.booking;
 
-import com.mavworks.base.ui.ViewTitle;
-import com.mavworks.model.BookingStatus;
-import com.mavworks.service.BookingService;
+import com.mavworks.service.*;
+import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.datepicker.DatePicker;
-import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.Paragraph;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.timepicker.TimePicker;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.*;
 import jakarta.annotation.security.PermitAll;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
-import java.util.Locale;
-import org.springframework.dao.DataAccessException;
-import org.springframework.security.access.AccessDeniedException;
+import java.util.*;
 
-@Route("bookings")
-@PageTitle("Bookings")
+@Route("calendar")
+@RouteAlias("bookings")
+@PageTitle("Calendar")
+@Menu(title = "Calendar", icon = "vaadin:calendar", order = 4)
 @PermitAll
 public class BookingView extends VerticalLayout {
-    private static final DateTimeFormatter SLOT_FORMAT =
-            DateTimeFormatter.ofPattern("MMM d, yyyy · h:mm a", Locale.US)
-                    .withZone(BookingService.BOOKING_ZONE);
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("h:mm a", Locale.US).withZone(BookingService.BOOKING_ZONE);
-
-    private final BookingService service;
-    private final ComboBox<BookingService.ServiceOption> servicePicker = new ComboBox<>("Service");
-    private final DatePicker datePicker = new DatePicker("Date");
-    private final TimePicker timePicker = new TimePicker("Start time");
-    private final Paragraph availability = new Paragraph();
-    private final Paragraph feedback = new Paragraph();
-    private final Div requestList = new Div();
-    private final Div incomingList = new Div();
-
-    public BookingView(BookingService service) {
-        this.service = service;
+    private final AvailabilityService availability;
+    private final BookingService bookings;
+    private AvailabilityCalendar calendar;
+    private LocalDate date;
+    private Set<Integer> marked = Set.of();
+    private final Div times = new Div();
+    private final Div appointments = new Div();
+    private final AvailabilityCalendar.PeriodPicker period = new AvailabilityCalendar.PeriodPicker();
+    public BookingView(AvailabilityService availability, BookingService bookings) {
+        this.availability = availability; this.bookings = bookings;
+        period.addValueChangeListener(e -> { if (date != null) renderTimes(); });
         addClassName("mw-page");
-        setMaxWidth("68rem");
-
-        servicePicker.setItemLabelGenerator(option -> option.name() + " · " + option.provider()
-                + " · " + option.durationMinutes() + " min");
-        servicePicker.setPlaceholder("Choose a service");
-        servicePicker.setClearButtonVisible(true);
-        servicePicker.setWidthFull();
-
-        datePicker.setMin(LocalDate.now(BookingService.BOOKING_ZONE));
-        datePicker.setValue(LocalDate.now(BookingService.BOOKING_ZONE).plusDays(1));
-        timePicker.setStep(Duration.ofMinutes(15));
-        timePicker.setWidthFull();
-
-        availability.getElement().setAttribute("role", "status");
-        feedback.getElement().setAttribute("role", "status");
-        requestList.setWidthFull();
-        incomingList.setWidthFull();
-
-        servicePicker.addValueChangeListener(event -> refreshAvailability());
-        datePicker.addValueChangeListener(event -> refreshAvailability());
-
-        Button submit = new Button("Request booking", event -> requestBooking());
-        submit.addThemeVariants(ButtonVariant.PRIMARY);
-        Button refresh = new Button("Refresh", event -> refreshAll());
-        HorizontalLayout formActions = new HorizontalLayout(submit, refresh);
-        formActions.setAlignItems(Alignment.END);
-
-        add(new ViewTitle("Bookings"),
-                new Paragraph("Choose a service and request a future appointment. Times are shown in Central Time."),
-                servicePicker, datePicker, timePicker, availability, formActions, feedback,
-                new H2("Requests for your services"), incomingList,
-                new H2("Your booking requests"), requestList);
-
-        refreshAll();
-    }
-
-    private void requestBooking() {
-        feedback.setText("");
-        servicePicker.setInvalid(servicePicker.getValue() == null);
-        servicePicker.setErrorMessage("Choose a service.");
-        datePicker.setInvalid(datePicker.getValue() == null);
-        datePicker.setErrorMessage("Choose a date.");
-        timePicker.setInvalid(timePicker.getValue() == null);
-        timePicker.setErrorMessage("Choose a start time.");
-        if (servicePicker.isInvalid() || datePicker.isInvalid() || timePicker.isInvalid()) return;
-
+        times.setWidthFull();
+        add(new H1("Calendar"), new Paragraph("Mark your availability in 30-minute increments. Times are Central Time. Highlighted dates have availability."));
         try {
-            service.requestBooking(servicePicker.getValue().id(), datePicker.getValue(), timePicker.getValue());
-            feedback.setText("Your request was sent to the provider.");
-            timePicker.clear();
-            refreshAvailability();
-            refreshBookings();
-        } catch (IllegalArgumentException | AccessDeniedException ex) {
-            feedback.setText(ex.getMessage());
-        } catch (DataAccessException ex) {
-            feedback.setText("The booking request could not be saved. Please try again.");
-        }
+            calendar = new AvailabilityCalendar(availability, selected -> {
+                try { marked = availability.day(selected); date = selected; renderTimes(); }
+                catch (org.springframework.dao.DataAccessException ex) { AvailabilityCalendar.error("Unable to load availability. Please try again later."); }
+            });
+            add(calendar, times, new H2("Your appointments"), new Button("Refresh appointments", e -> refresh()), appointments);
+            refresh();
+        } catch (org.springframework.dao.DataAccessException ex) { add(new Paragraph("Unable to load calendar. Please try again later.")); }
     }
-
-    private void refreshAvailability() {
-        availability.setText("");
-        if (servicePicker.getValue() == null || datePicker.getValue() == null) return;
+    private void renderTimes() {
+        times.removeAll();
+        times.add(new H2(date.toString()), period, new Paragraph("Each time marks a 30-minute slot."), AvailabilityCalendar.slots(date, marked, false, Set.of(), slot -> {
+            try {
+                availability.setAvailable(date, slot, !marked.contains(slot));
+                marked = availability.day(date); renderTimes(); calendar.reload();
+            } catch (org.springframework.dao.DataAccessException ex) {
+                AvailabilityCalendar.error("Unable to save availability changes. Please try again later.");
+            } catch (IllegalArgumentException ex) { AvailabilityCalendar.error(ex.getMessage()); }
+        }, period.isPm()));
+    }
+    private void refresh() {
+        appointments.removeAll();
         try {
-            var slots = service.getApprovedSlots(servicePicker.getValue().id(), datePicker.getValue());
-            if (slots.isEmpty()) {
-                availability.setText("No approved bookings on this date yet.");
-            } else {
-                String reserved = slots.stream()
-                        .sorted(Comparator.comparing(BookingService.BusySlot::startAt))
-                        .map(slot -> TIME_FORMAT.format(slot.startAt()) + "–" + TIME_FORMAT.format(slot.endAt()))
-                        .reduce((first, second) -> first + " · " + second).orElse("");
-                availability.setText("Already reserved (Central Time): " + reserved);
+            var format = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm z").withZone(BookingService.BOOKING_ZONE);
+            var items = bookings.getMyBookings();
+            calendar.setBookedDates(items.stream().filter(b -> b.status() == com.mavworks.model.BookingStatus.CONFIRMED)
+                    .map(b -> b.startAt().atZone(BookingService.BOOKING_ZONE).toLocalDate()).collect(java.util.stream.Collectors.toSet()));
+            if (items.isEmpty()) appointments.add(new Paragraph("No appointments yet. Request one from a listing or its conversation."));
+            for (var b : items) {
+                var card = new Div(new Paragraph(b.listingName() + " · " + format.format(b.startAt()) + "–"
+                        + format.format(b.endAt()) + " · " + b.status()));
+                if (b.conversationId() != null) card.add(new Anchor("messages/" + b.conversationId(), "Open conversation"));
+                if (b.status() == com.mavworks.model.BookingStatus.COMPLETED)
+                    card.add(new Paragraph("Appointment completed; listing marked Sold."));
+                appointments.add(card);
             }
-        } catch (IllegalArgumentException ex) {
-            availability.setText(ex.getMessage());
-        } catch (DataAccessException ex) {
-            availability.setText("Availability could not be loaded. Select Refresh to try again.");
-        }
-    }
-
-    private void refreshAll() {
-        try {
-            servicePicker.setItems(service.availableServices());
-        } catch (DataAccessException ex) {
-            feedback.setText("Services could not be loaded. Please try again.");
-        }
-        refreshAvailability();
-        refreshBookings();
-    }
-
-    private void refreshBookings() {
-        requestList.removeAll();
-        incomingList.removeAll();
-        try {
-            var bookings = service.getMyBookings();
-            var incoming = bookings.stream().filter(BookingService.BookingSummary::currentUserIsProvider).toList();
-            var outgoing = bookings.stream().filter(item -> !item.currentUserIsProvider()).toList();
-            if (incoming.isEmpty()) incomingList.add(new Paragraph("No requests for your services."));
-            if (outgoing.isEmpty()) requestList.add(new Paragraph("You have not requested any bookings."));
-            incoming.forEach(item -> incomingList.add(bookingCard(item, true)));
-            outgoing.forEach(item -> requestList.add(bookingCard(item, false)));
-        } catch (DataAccessException ex) {
-            incomingList.add(new Paragraph("Booking requests could not be loaded. Select Refresh to try again."));
-        }
-    }
-
-    private Div bookingCard(BookingService.BookingSummary booking, boolean incoming) {
-        Div card = new Div();
-        card.addClassName("mw-panel");
-        String person = incoming ? "Requested by " + booking.buyer() : "Provider " + booking.provider();
-        Span status = new Span(label(booking.status()));
-        status.addClassName("mw-badge");
-        Paragraph detail = new Paragraph(booking.listingName() + " · " + person + " · "
-                + SLOT_FORMAT.format(booking.startAt()) + "–"
-                + TIME_FORMAT.format(booking.endAt()));
-        HorizontalLayout actions = new HorizontalLayout();
-
-        if (incoming && booking.status() == BookingStatus.PENDING) {
-            Button approve = new Button("Approve", event -> updateBooking(booking.id(), "approve"));
-            approve.addThemeVariants(ButtonVariant.PRIMARY);
-            Button decline = new Button("Decline", event -> updateBooking(booking.id(), "decline"));
-            actions.add(approve, decline);
-        } else if (!incoming && (booking.status() == BookingStatus.PENDING
-                || booking.status() == BookingStatus.APPROVED)
-                && booking.startAt().isAfter(Instant.now())) {
-            actions.add(new Button("Cancel request", event -> updateBooking(booking.id(), "cancel")));
-        }
-        card.add(detail, status, actions);
-        return card;
-    }
-
-    private void updateBooking(Long id, String action) {
-        feedback.setText("");
-        try {
-            switch (action) {
-                case "approve" -> service.approve(id);
-                case "decline" -> service.decline(id);
-                case "cancel" -> service.cancel(id);
-                default -> throw new IllegalArgumentException("Unknown booking action.");
-            }
-            refreshAvailability();
-            refreshBookings();
-        } catch (IllegalArgumentException | AccessDeniedException ex) {
-            feedback.setText(ex.getMessage());
-        } catch (DataAccessException ex) {
-            feedback.setText("The booking could not be updated. Please try again.");
-        }
-    }
-
-    private static String label(BookingStatus status) {
-        String lower = status.name().toLowerCase(Locale.ROOT);
-        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
+        } catch (org.springframework.dao.DataAccessException ex) { AvailabilityCalendar.error("Unable to load appointments. Please try again later."); }
     }
 }

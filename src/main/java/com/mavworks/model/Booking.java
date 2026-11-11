@@ -31,21 +31,44 @@ public class Booking {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private BookingStatus status = BookingStatus.PENDING;
+    private BookingStatus status = BookingStatus.REQUESTED;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    protected Booking() {}
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "conversation_id", nullable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Conversation conversation;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "requester_id", nullable = false, updatable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private User requester;
 
-    public Booking(User buyer, Listing listing, Instant startAt, Instant endAt) {
+    protected Booking() {}
+    public Booking(Conversation conversation, User requester, Instant start, Instant end) {
+        this(conversation.getBuyer(), conversation.getListing(), start, end);
+        if (!conversation.hasParticipant(requester)) throw new IllegalArgumentException("Only participants can request appointments.");
+        this.conversation = conversation;
+        this.requester = requester;
+    }
+    public Conversation getConversation() { return conversation; }
+    public User getRequester() { return requester == null ? buyer : requester; }
+    public boolean isExpired(Instant now) {
+        return status == BookingStatus.REQUESTED && (!startAt.isAfter(now) || !createdAt.plus(java.time.Duration.ofHours(48)).isAfter(now));
+    }
+    public void expire() { requirePending(); status = BookingStatus.EXPIRED; }
+    public void complete() {
+        if (status != BookingStatus.CONFIRMED) throw new IllegalArgumentException("Only confirmed appointments can be completed.");
+        status = BookingStatus.COMPLETED;
+    }
+
+    private Booking(User buyer, Listing listing, Instant startAt, Instant endAt) {
         if (buyer == null || buyer.getId() == null || listing == null || listing.getId() == null
                 || buyer.getId().equals(listing.getOwner().getId())) {
-            throw new IllegalArgumentException("A booking requires a buyer and another user's service.");
+            throw new IllegalArgumentException("An appointment requires a buyer and another user's listing.");
         }
-        if (listing.getType() != ListingType.SERVICE) {
-            throw new IllegalArgumentException("Only services can be booked.");
-        }
+
         if (startAt == null || endAt == null || !endAt.isAfter(startAt)) {
             throw new IllegalArgumentException("Choose a valid appointment time.");
         }
@@ -57,23 +80,20 @@ public class Booking {
 
     public void approve() {
         requirePending();
-        status = BookingStatus.APPROVED;
+        status = BookingStatus.CONFIRMED;
     }
 
-    public void decline() {
-        requirePending();
-        status = BookingStatus.DECLINED;
-    }
+
 
     public void cancel() {
-        if (status != BookingStatus.PENDING && status != BookingStatus.APPROVED) {
+        if (status != BookingStatus.REQUESTED && status != BookingStatus.CONFIRMED) {
             throw new IllegalArgumentException("This booking can no longer be cancelled.");
         }
         status = BookingStatus.CANCELLED;
     }
 
     private void requirePending() {
-        if (status != BookingStatus.PENDING) {
+        if (status != BookingStatus.REQUESTED) {
             throw new IllegalArgumentException("This booking request has already been handled.");
         }
     }

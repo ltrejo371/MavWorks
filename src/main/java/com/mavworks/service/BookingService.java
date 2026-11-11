@@ -4,7 +4,7 @@ import com.mavworks.model.*;
 import com.mavworks.repository.*;
 import com.mavworks.security.CurrentUser;
 import java.time.*;
-import java.util.List;
+import java.util.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,162 +12,166 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class BookingService {
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     public static final ZoneId BOOKING_ZONE = ZoneId.of("America/Chicago");
-
-    public record ServiceOption(Long id, String name, String provider, int durationMinutes) {}
-    public record BookingSummary(Long id, Long listingId, String listingName,
-            String buyer, String provider, boolean currentUserIsProvider,
-            Instant startAt, Instant endAt, BookingStatus status) {}
-    public record BusySlot(Instant startAt, Instant endAt) {}
-
+    public record BookingSummary(Long id, Long listingId, Long conversationId, String listingName,
+            String buyer, String provider, boolean canRespond, Instant startAt, Instant endAt, BookingStatus status) {}
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
     private final BookingRepository bookings;
+    private final ConversationRepository conversations;
+    private final AvailabilityRepository availability;
+    private final UserBlockRepository blocks;
+    private final MessageRepository messages;
 
     public BookingService(CurrentUser current, UserRepository users, ListingRepository listings,
-            BookingRepository bookings) {
-        this.current = current;
-        this.users = users;
-        this.listings = listings;
-        this.bookings = bookings;
+            BookingRepository bookings, ConversationRepository conversations, AvailabilityRepository availability,
+            UserBlockRepository blocks, MessageRepository messages) {
+        this.current = current; this.users = users; this.listings = listings; this.bookings = bookings;
+        this.conversations = conversations; this.availability = availability; this.blocks = blocks; this.messages = messages;
     }
-
     private User user() {
         return current.username().flatMap(users::findByUsername)
-                .orElseThrow(() -> new AccessDeniedException("Sign in to manage bookings."));
+                .orElseThrow(() -> new AccessDeniedException("Sign in to manage appointments."));
     }
-
-    public List<ServiceOption> availableServices() {
+    public Long conversationForListing(Long listingId) {
+        return conversations.findFirstByBuyerIdAndListingIdOrderByIdDesc(user().getId(), listingId)
+                .map(Conversation::getId).orElseThrow(() -> new IllegalArgumentException("Open a message conversation for this listing first."));
+    }
+    public Long listingForConversation(Long id) { return conversation(id, true).getListing().getId(); }
+    private Conversation conversation(Long id, boolean requireOpen) {
         User viewer = user();
-        return listings.searchPublished(ListingStatus.ACTIVE, "", null, ListingType.SERVICE).stream()
-                .filter(listing -> !listing.getOwner().getId().equals(viewer.getId()))
-                .map(listing -> new ServiceOption(listing.getId(), listing.getName(),
-                        listing.getOwner().getUsername(), listing.getAppointmentDurationMinutes()))
-                .toList();
+        Conversation chat = conversations.findById(id).orElseThrow(() -> new IllegalArgumentException("Conversation not found."));
+        if (!chat.hasParticipant(viewer)) throw new AccessDeniedException("Conversation not available.");
+        Long buyer = chat.getBuyer().getId(), provider = chat.getListing().getOwner().getId();
+        if (blocks.existsByBlockerIdAndBlockedId(buyer, provider) || blocks.existsByBlockerIdAndBlockedId(provider, buyer))
+            throw new AccessDeniedException("Conversation not available.");
+        if (requireOpen && (chat.getClosedAt() != null || chat.getSaleConfirmedAt() != null
+                || chat.getListing().getStatus() != ListingStatus.ACTIVE))
+            throw new IllegalArgumentException("This listing conversation is no longer available for appointments.");
+        return chat;
     }
-
     public List<BookingSummary> getMyBookings() {
         User viewer = user();
-        return bookings.findForParticipant(viewer.getId()).stream()
-                .map(booking -> summary(booking, viewer.getId())).toList();
+        return bookings.findForParticipant(viewer.getId()).stream().map(b -> summary(b, viewer)).toList();
     }
-
-    public List<BusySlot> getApprovedSlots(Long listingId, LocalDate date) {
-        user();
-        Listing listing = activeService(listingId);
-        if (date == null || date.isBefore(LocalDate.now(BOOKING_ZONE))) {
-            throw new IllegalArgumentException("Choose today or a future date.");
-        }
-        Instant start = date.atStartOfDay(BOOKING_ZONE).toInstant();
-        Instant end = date.plusDays(1).atStartOfDay(BOOKING_ZONE).toInstant();
-        return bookings.findOverlapping(listing.getId(), BookingStatus.APPROVED, start, end).stream()
-                .map(booking -> new BusySlot(booking.getStartAt(), booking.getEndAt())).toList();
+    public List<BookingSummary> getConversationBookings(Long id) {
+        conversation(id, false);
+        User viewer = user();
+        return bookings.findByConversationIdOrderByStartAtDesc(id).stream().map(b -> summary(b, viewer)).toList();
     }
-
+    private BookingSummary summary(Booking b, User viewer) {
+        BookingStatus status = b.isExpired(Instant.now()) ? BookingStatus.EXPIRED : b.getStatus();
+        return new BookingSummary(b.getId(), b.getListing().getId(), b.getConversation() == null ? null : b.getConversation().getId(),
+                b.getListing().getName(), b.getBuyer().getUsername(), b.getListing().getOwner().getUsername(),
+                !b.getRequester().getId().equals(viewer.getId()) && status == BookingStatus.REQUESTED
+                        && b.getListing().getStatus() == ListingStatus.ACTIVE
+                        && b.getConversation().getSaleConfirmedAt() == null && b.getConversation().getClosedAt() == null,
+                b.getStartAt(), b.getEndAt(), status);
+    }
     @Transactional
-    public Long requestBooking(Long listingId, LocalDate date, LocalTime time) {
-        User buyer = user();
-        Listing listing = activeService(listingId);
-        if (listing.getOwner().getId().equals(buyer.getId())) {
-            throw new IllegalArgumentException("You cannot book your own service.");
-        }
-        if (date == null || time == null) {
-            throw new IllegalArgumentException("Choose a date and time for your booking.");
-        }
-        LocalDateTime localStart = LocalDateTime.of(date, time);
-        if (!localStart.isAfter(LocalDateTime.now(BOOKING_ZONE))) {
-            throw new IllegalArgumentException("Choose a future appointment time.");
-        }
-        LocalDateTime localEnd = localStart.plusMinutes(listing.getAppointmentDurationMinutes());
-        if (!localEnd.toLocalDate().equals(date)) {
-            throw new IllegalArgumentException("The appointment must end before midnight.");
-        }
-        Instant start = toInstant(localStart);
-        Instant end = toInstant(localEnd);
-        if (!bookings.findOverlapping(listing.getId(), BookingStatus.APPROVED, start, end).isEmpty()) {
-            throw new IllegalArgumentException("That time overlaps an approved booking. Choose another time.");
-        }
-        return bookings.saveAndFlush(new Booking(buyer, listing, start, end)).getId();
+    public Long requestAppointment(Long conversationId, LocalDate date, Set<Integer> selected) {
+        return requestAppointment(conversationId, date, selected, Map.of());
     }
-
     @Transactional
-    public void approve(Long bookingId) {
-        User provider = user();
-        Booking booking = bookingForUpdate(bookingId);
-        Listing listing = listings.findForManagement(booking.getListing().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Service not found."));
-        requireProvider(provider, listing);
-        if (listing.getStatus() != ListingStatus.ACTIVE) {
-            throw new IllegalArgumentException("This service is no longer available for booking.");
-        }
-        if (!booking.getStartAt().isAfter(Instant.now())) {
-            throw new IllegalArgumentException("Past booking requests cannot be approved.");
-        }
-        if (bookings.findOverlapping(listing.getId(), BookingStatus.APPROVED,
-                booking.getStartAt(), booking.getEndAt()).stream()
-                .anyMatch(other -> !other.getId().equals(booking.getId()))) {
-            throw new IllegalArgumentException("This time is already reserved by another approved booking.");
-        }
-        booking.approve();
+    public Long requestAppointment(Long conversationId, LocalDate date, Set<Integer> selected,
+            Map<LocalDate, Map<Integer, Boolean>> edits) {
+        Conversation chat = conversation(conversationId, true);
+        User requester = user();
+        lockParticipants(chat.getBuyer(), chat.getListing().getOwner());
+        entityManager.refresh(chat, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        entityManager.refresh(chat.getListing(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        conversation(conversationId, true);
+        try {
+            for (var day : edits.entrySet()) {
+                Set<Integer> existing = new HashSet<>(availability.findByUserIdAndDate(requester.getId(), day.getKey())
+                        .stream().map(Availability::getSlot).toList());
+                for (var change : day.getValue().entrySet()) {
+                    AvailabilityService.validate(day.getKey(), change.getKey());
+                    if (change.getValue() && !existing.contains(change.getKey()))
+                        availability.save(new Availability(requester, day.getKey(), change.getKey()));
+                    else if (!change.getValue())
+                        availability.deleteByUserIdAndDateAndSlot(requester.getId(), day.getKey(), change.getKey());
+                }
+            }
+            availability.flush();
+        } catch (org.springframework.dao.DataAccessException ex) { throw new AvailabilityService.SaveException(ex); }
+        if (selected == null || selected.isEmpty()) throw new IllegalArgumentException("Select appointment times.");
+        var sorted = new TreeSet<>(selected);
+        if (sorted.last() - sorted.first() + 1 != sorted.size())
+            throw new IllegalArgumentException("Appointment times have to be in consecutive slots.");
+        sorted.forEach(slot -> AvailabilityService.validate(date, slot));
+        var available = availability.findByUserIdAndDate(requester.getId(), date).stream().map(Availability::getSlot).toList();
+        if (!available.containsAll(sorted)) throw new IllegalArgumentException("Mark the selected times available first.");
+        Instant start = toInstant(date.atStartOfDay().plusMinutes(sorted.first() * (long) AvailabilityService.SLOT_MINUTES));
+        Instant end = toInstant(date.atStartOfDay().plusMinutes((sorted.last() + 1) * (long) AvailabilityService.SLOT_MINUTES));
+        if (!start.isAfter(Instant.now())) throw new IllegalArgumentException("Choose a future appointment time.");
+        requireFree(chat.getBuyer().getId(), chat.getListing().getOwner().getId(), start, end);
+        return bookings.saveAndFlush(new Booking(chat, requester, start, end)).getId();
     }
-
+    private void lockParticipants(User first, User second) {
+        List.of(first, second).stream().sorted(Comparator.comparing(User::getId))
+                .forEach(u -> users.findForMessaging(u.getUsername()).orElseThrow());
+    }
+    private void requireFree(Long buyer, Long provider, Instant start, Instant end) {
+        if (!bookings.findParticipantConflicts(buyer, provider, BookingStatus.CONFIRMED, start, end).isEmpty())
+            throw new IllegalArgumentException("One of you already has a confirmed appointment at this time.");
+    }
     @Transactional
-    public void decline(Long bookingId) {
-        User provider = user();
-        Booking booking = bookingForUpdate(bookingId);
-        Listing listing = booking.getListing();
-        requireProvider(provider, listing);
-        booking.decline();
+    public void approve(Long id) {
+        User viewer = user();
+        Booking original = bookings.findById(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        requireRecipient(original, viewer);
+        lockParticipants(original.getBuyer(), original.getListing().getOwner());
+        Booking b = bookings.findForUpdate(id).orElseThrow();
+        entityManager.refresh(b);
+        entityManager.refresh(b.getListing(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (b.getConversation() != null) conversation(b.getConversation().getId(), true);
+        if (b.getListing().getStatus() != ListingStatus.ACTIVE) throw new IllegalArgumentException("Listing no longer available.");
+        if (b.isExpired(Instant.now())) throw new IllegalArgumentException("This appointment request has expired.");
+        requireFree(b.getBuyer().getId(), b.getListing().getOwner().getId(), b.getStartAt(), b.getEndAt());
+        b.approve();
     }
-
     @Transactional
-    public void cancel(Long bookingId) {
-        User buyer = user();
-        Booking booking = bookingForUpdate(bookingId);
-        if (!booking.getBuyer().getId().equals(buyer.getId())) {
-            throw new AccessDeniedException("Only the person who requested this booking can cancel it.");
-        }
-        if (!booking.getStartAt().isAfter(Instant.now())) {
-            throw new IllegalArgumentException("A booking cannot be cancelled after its start time.");
-        }
-        booking.cancel();
+    public void decline(Long id) {
+        Booking b = bookings.findForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        requireRecipient(b, user());
+        if (b.getConversation() != null) conversation(b.getConversation().getId(), true);
+        if (b.getStatus() != BookingStatus.REQUESTED || b.isExpired(Instant.now()))
+            throw new IllegalArgumentException("This request is no longer awaiting a response.");
+        bookings.delete(b);
     }
-
-    private Listing activeService(Long listingId) {
-        if (listingId == null) throw new IllegalArgumentException("Select a service.");
-        Listing listing = listings.findById(listingId)
-                .orElseThrow(() -> new IllegalArgumentException("Service not found."));
-        if (listing.getType() != ListingType.SERVICE || listing.getStatus() != ListingStatus.ACTIVE) {
-            throw new IllegalArgumentException("This service is not available for booking.");
+    private void requireRecipient(Booking b, User viewer) {
+        if ((!b.getBuyer().getId().equals(viewer.getId()) && !b.getListing().getOwner().getId().equals(viewer.getId()))
+                || b.getRequester().getId().equals(viewer.getId()))
+            throw new AccessDeniedException("Only the other participant can respond to this request.");
+    }
+    @Transactional
+    public void advanceLifecycle(Long id) {
+        Booking b = bookings.findForUpdate(id).orElse(null);
+        if (b == null) return;
+        Instant now = Instant.now();
+        if (b.isExpired(now)) b.expire();
+        if (b.getStatus() == BookingStatus.CONFIRMED && !b.getEndAt().isAfter(now)) {
+            Conversation chat = b.getConversation();
+            entityManager.refresh(chat, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            Listing listing = listings.findForManagement(b.getListing().getId()).orElseThrow();
+            if (listing.getStatus() == ListingStatus.REMOVED) { b.cancel(); return; }
+            listing.markSold();
+            if (chat != null && chat.getClosedAt() == null) {
+                messages.save(listing.getOwner().sendMessage(chat,
+                        "Appointment completed. The listing has automatically been marked Sold."));
+                chat.confirmSale(listing.getOwner());
+                chat.closeConversation();
+            }
+            b.complete();
         }
-        return listing;
     }
-
-    private Booking bookingForUpdate(Long bookingId) {
-        if (bookingId == null) throw new IllegalArgumentException("Select a booking.");
-        return bookings.findForUpdate(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Booking not found."));
-    }
-
-    private static void requireProvider(User provider, Listing listing) {
-        if (!listing.getOwner().getId().equals(provider.getId())) {
-            throw new AccessDeniedException("Only the service provider can respond to this request.");
-        }
-    }
-
-    private static Instant toInstant(LocalDateTime localTime) {
+    public static Instant toInstant(LocalDateTime localTime) {
         var offsets = BOOKING_ZONE.getRules().getValidOffsets(localTime);
-        if (offsets.isEmpty()) throw new IllegalArgumentException("That local time does not exist due to a clock change.");
-        if (offsets.size() > 1) throw new IllegalArgumentException("That local time occurs twice due to a clock change. Choose another time.");
+        if (offsets.size() != 1) throw new IllegalArgumentException("This time is unavailable because of a daylight saving clock change.");
         return localTime.atOffset(offsets.getFirst()).toInstant();
-    }
-
-    private static BookingSummary summary(Booking booking, Long viewerId) {
-        return new BookingSummary(booking.getId(), booking.getListing().getId(),
-                booking.getListing().getName(), booking.getBuyer().getUsername(),
-                booking.getListing().getOwner().getUsername(),
-                booking.getListing().getOwner().getId().equals(viewerId),
-                booking.getStartAt(), booking.getEndAt(), booking.getStatus());
     }
 }

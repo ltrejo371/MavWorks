@@ -32,14 +32,13 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
         mobile.getElement().setAttribute("aria-label", "Main navigation");
         mobile.add(mobileLink("", "Home", com.vaadin.flow.component.icon.VaadinIcon.HOME),
                 mobileLink("messages", "Messages", com.vaadin.flow.component.icon.VaadinIcon.COMMENTS),
+                mobileLink("calendar", "Calendar", com.vaadin.flow.component.icon.VaadinIcon.CALENDAR),
                 mobileLink("dashboard", "Dashboard", com.vaadin.flow.component.icon.VaadinIcon.USER));
         // Retain access to moderation on small screens for administrators only.
         if (MenuConfiguration.getMenuEntries().stream().anyMatch(e -> e.menuClass() == com.mavworks.admin.ReportsView.class)) {
             mobile.add(mobileLink("admin/reports", "Reports", com.vaadin.flow.component.icon.VaadinIcon.FLAG));
         }
-        var mobileBrand = new UtaBrand();
-        mobileBrand.addClassName("mobile-brand");
-        addToNavbar(mobileBrand, mobile);
+        addToNavbar(mobile);
     }
 
     private com.vaadin.flow.component.html.Anchor mobileLink(String path, String label, com.vaadin.flow.component.icon.VaadinIcon symbol) {
@@ -52,7 +51,7 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
 
     @Override public void afterNavigation(com.vaadin.flow.router.AfterNavigationEvent event) {
         String path = event.getLocation().getPath();
-        String selected = path.startsWith("messages") ? "messages" : path.equals("dashboard") ? "dashboard"
+        String selected = (path.equals("calendar") || path.equals("bookings")) ? "calendar" : path.startsWith("messages") ? "messages" : path.equals("dashboard") ? "dashboard"
                 : path.startsWith("admin/reports") ? "admin/reports" : "";
         mobileLinks.forEach((route, link) -> {
             if (route.equals(selected)) link.getElement().setAttribute("aria-current", "page");

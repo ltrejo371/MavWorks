@@ -2,14 +2,11 @@ package com.mavworks;
 
 import com.mavworks.model.*;
 import com.mavworks.repository.*;
-import com.mavworks.service.BookingService;
-import com.mavworks.service.ListingManagementService;
+import com.mavworks.service.*;
 import java.math.BigDecimal;
 import java.time.*;
-import java.util.List;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import java.util.*;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,150 +27,161 @@ class BookingWorkflowTest {
     @Autowired UserRepository users;
     @Autowired ListingRepository listings;
     @Autowired BookingRepository bookings;
+    @Autowired ConversationRepository conversations;
+    @Autowired MessageRepository messages;
+    @Autowired AvailabilityRepository slots;
     @Autowired BookingService service;
-    @Autowired ListingManagementService listingManagement;
-
-    private User buyer;
-    private User provider;
-    private User stranger;
+    @Autowired AvailabilityService availability;
+    private User buyer, provider, stranger;
     private Listing listing;
+    private Conversation chat;
+    private LocalDate date;
 
-    @BeforeEach
-    void setUp() {
-        bookings.deleteAll();
-        listings.deleteAll();
-        users.deleteAll();
-        buyer = account("booking-buyer");
-        provider = account("booking-provider");
-        stranger = account("booking-stranger");
-        listing = serviceListing("Tutoring", 30);
+    @BeforeEach void setUp() {
+        buyer = account("booking-buyer"); provider = account("booking-provider"); stranger = account("booking-stranger");
+        listing = listing("Tutoring", ListingType.SERVICE);
+        chat = conversations.saveAndFlush(new Conversation(buyer, listing));
+        date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
         login(buyer);
     }
+    @AfterEach void clearAuthentication() { SecurityContextHolder.clearContext(); }
 
-    @AfterEach
-    void clearAuthentication() {
-        SecurityContextHolder.clearContext();
-    }
-
-    @Test
-    void requestUsesProviderConfiguredDurationAndProviderCanApprove() {
-        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
-        Long id = service.requestBooking(listing.getId(), date, LocalTime.NOON);
-
-        var saved = bookings.findById(id).orElseThrow();
-        assertEquals(BookingStatus.PENDING, saved.getStatus());
-        assertEquals(Duration.ofMinutes(30), Duration.between(saved.getStartAt(), saved.getEndAt()));
-
-        login(provider);
-        service.approve(id);
-        assertEquals(BookingStatus.APPROVED, bookings.findById(id).orElseThrow().getStatus());
-
-        login(buyer);
-        assertEquals(1, service.getApprovedSlots(listing.getId(), date).size());
-        assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(listing.getId(), date, LocalTime.of(12, 15)));
-        assertDoesNotThrow(() -> service.requestBooking(listing.getId(), date, LocalTime.of(12, 30)));
-    }
-
-    @Test
-    void concurrentRequestsCanBePendingButOnlyOneOverlappingRequestCanBeApproved() {
-        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(3);
-        Long first = service.requestBooking(listing.getId(), date, LocalTime.of(10, 0));
-        Long second = service.requestBooking(listing.getId(), date, LocalTime.of(10, 15));
-
-        login(provider);
-        service.approve(first);
-        assertThrows(IllegalArgumentException.class, () -> service.approve(second));
-        assertEquals(BookingStatus.PENDING, bookings.findById(second).orElseThrow().getStatus());
-        service.decline(second);
-        assertEquals(BookingStatus.DECLINED, bookings.findById(second).orElseThrow().getStatus());
-    }
-
-    @Test
-    void onlyProviderCanApproveAndOnlyBuyerCanCancel() {
-        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
-        Long id = service.requestBooking(listing.getId(), date, LocalTime.of(14, 0));
+    @Test void availabilityTogglesAndIsPrivate() {
+        availability.setAvailable(date, 0, true);
+        availability.setAvailable(date, 47, true);
+        availability.setAvailable(date, 47, true);
+        assertEquals(Set.of(0, 47), availability.day(date));
+        assertEquals(Set.of(0, 47), availability.month(YearMonth.from(date)).get(date));
+        availability.setAvailable(date, 0, false);
+        assertEquals(Set.of(47), availability.day(date));
         login(stranger);
-        assertThrows(AccessDeniedException.class, () -> service.approve(id));
-        assertThrows(AccessDeniedException.class, () -> service.cancel(id));
-
+        assertTrue(availability.day(date).isEmpty());
+    }
+    @Test void requestedSlotsDetermineDurationAndBothCalendarsShowConfirmation() {
+        Long id = request(chat, Set.of(24, 25, 26));
+        Booking saved = bookings.findById(id).orElseThrow();
+        assertEquals(BookingStatus.REQUESTED, saved.getStatus());
+        assertEquals(Duration.ofMinutes(90), Duration.between(saved.getStartAt(), saved.getEndAt()));
+        assertFalse(service.getConversationBookings(chat.getId()).getFirst().canRespond());
         login(provider);
-        assertThrows(AccessDeniedException.class, () -> service.cancel(id));
+        assertTrue(service.getConversationBookings(chat.getId()).getFirst().canRespond());
         service.approve(id);
+        assertEquals(BookingStatus.CONFIRMED, service.getMyBookings().getFirst().status());
         login(buyer);
-        service.cancel(id);
-        assertEquals(BookingStatus.CANCELLED, bookings.findById(id).orElseThrow().getStatus());
-        assertDoesNotThrow(() -> service.requestBooking(listing.getId(), date, LocalTime.of(14, 0)));
+        assertEquals(BookingStatus.CONFIRMED, service.getMyBookings().getFirst().status());
     }
-
-    @Test
-    void providerCanChangeServiceDurationAndCannotBookTheirOwnService() {
+    @Test void providerCanRequestProductPickupAndBuyerCanAccept() {
+        Listing product = listing("Textbook", ListingType.PRODUCT);
+        Conversation productChat = conversations.saveAndFlush(new Conversation(buyer, product));
         login(provider);
-        listingManagement.updateDetails(listing.getId(), listing.getName(), listing.getDescription(),
-                listing.getPrice(), listing.getCategory(), 75);
-        assertEquals(75, listings.findById(listing.getId()).orElseThrow().getAppointmentDurationMinutes());
-        assertTrue(service.availableServices().isEmpty());
-
+        Long id = request(productChat, Set.of(47));
+        assertEquals(date.plusDays(1).atStartOfDay(BookingService.BOOKING_ZONE).toInstant(), bookings.findById(id).orElseThrow().getEndAt());
         login(buyer);
-        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
-        Long id = service.requestBooking(listing.getId(), date, LocalTime.of(11, 0));
-        var saved = bookings.findById(id).orElseThrow();
-        assertEquals(Duration.ofMinutes(75), Duration.between(saved.getStartAt(), saved.getEndAt()));
+        service.approve(id);
+        assertEquals(BookingStatus.CONFIRMED, bookings.findById(id).orElseThrow().getStatus());
     }
-
-    @Test
-    void rejectsPastTimesSelfBookingAndProductListings() {
-        assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(listing.getId(), LocalDate.now(BookingService.BOOKING_ZONE).minusDays(1), LocalTime.NOON));
-        assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(listing.getId(), LocalDate.now(BookingService.BOOKING_ZONE), LocalTime.MIDNIGHT));
+    @Test void buyerCanRequestProductPickupFromListingAndSellerCanAccept() {
+        Listing product = listing("Textbook", ListingType.PRODUCT);
+        Conversation productChat = conversations.saveAndFlush(new Conversation(buyer, product));
+        Long conversationId = service.conversationForListing(product.getId());
+        assertEquals(productChat.getId(), conversationId);
+        assertEquals(product.getId(), service.listingForConversation(conversationId));
+        Long id = service.requestAppointment(conversationId, date, Set.of(24), Map.of(date, Map.of(24, true)));
+        Booking appointment = bookings.findById(id).orElseThrow();
+        assertEquals(BookingStatus.REQUESTED, appointment.getStatus());
+        assertEquals(Duration.ofMinutes(30), Duration.between(appointment.getStartAt(), appointment.getEndAt()));
         login(provider);
-        assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(listing.getId(),
-                        LocalDate.now(BookingService.BOOKING_ZONE).plusDays(1), LocalTime.NOON));
-
-        var product = new Listing();
-        product.setOwner(provider);
-        product.setName("Textbook");
-        product.setDescription("A book");
-        product.setPrice(BigDecimal.TEN);
-        product.setType(ListingType.PRODUCT);
-        product = listings.saveAndFlush(product);
-        Long productId = product.getId();
-        login(buyer);
-        assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(productId,
-                        LocalDate.now(BookingService.BOOKING_ZONE).plusDays(1), LocalTime.NOON));
+        service.approve(id);
+        assertEquals(BookingStatus.CONFIRMED, service.getConversationBookings(conversationId).getFirst().status());
     }
-
+    @Test void declineDeletesRequest() {
+        Long id = request(chat, Set.of(24));
+        login(provider); service.decline(id);
+        assertFalse(bookings.existsById(id));
+    }
+    @Test void nonParticipantsAndRequesterCannotRespond() {
+        Long id = request(chat, Set.of(24));
+        assertThrows(AccessDeniedException.class, () -> service.approve(id));
+        login(stranger);
+        assertTrue(service.getMyBookings().isEmpty());
+        assertThrows(AccessDeniedException.class, () -> service.getConversationBookings(chat.getId()));
+        assertThrows(AccessDeniedException.class, () -> service.requestAppointment(chat.getId(), date, Set.of(24)));
+        assertThrows(AccessDeniedException.class, () -> service.approve(id));
+        assertThrows(AccessDeniedException.class, () -> service.decline(id));
+    }
+    @Test void rejectsMissingAvailabilityGapsAndClosedConversations() {
+        assertThrows(IllegalArgumentException.class, () -> service.requestAppointment(chat.getId(), date, Set.of(24)));
+        assertThrows(IllegalArgumentException.class, () -> request(chat, Set.of(24, 26)));
+        chat.confirmSale(provider);
+        assertThrows(IllegalArgumentException.class, () -> request(chat, Set.of(24)));
+    }
+    @Test void preventsConflictsAcrossDifferentListingsForEitherParticipant() {
+        Long first = request(chat, Set.of(24, 25));
+        Listing secondListing = listing("Another service", ListingType.SERVICE);
+        Conversation other = conversations.saveAndFlush(new Conversation(buyer, secondListing));
+        Long second = request(other, Set.of(25, 26));
+        login(provider); service.approve(first);
+        assertThrows(IllegalArgumentException.class, () -> service.approve(second));
+        assertEquals(BookingStatus.REQUESTED, bookings.findById(second).orElseThrow().getStatus());
+    }
+    @Test void expiresAtStartOrAfter48Hours() {
+        Long id = request(chat, Set.of(24));
+        Booking booking = bookings.findById(id).orElseThrow();
+        org.springframework.test.util.ReflectionTestUtils.setField(booking, "createdAt", Instant.now().minus(Duration.ofHours(49)));
+        service.advanceLifecycle(id);
+        assertEquals(BookingStatus.EXPIRED, booking.getStatus());
+        Booking past = bookings.saveAndFlush(new Booking(chat, buyer, Instant.now().minusSeconds(60), Instant.now().plusSeconds(900)));
+        service.advanceLifecycle(past.getId());
+        assertEquals(BookingStatus.EXPIRED, past.getStatus());
+    }
+    @Test void confirmedAppointmentMarksListingSoldAndNotifiesConversationOnce() {
+        Booking past = new Booking(chat, buyer, Instant.now().minusSeconds(1800), Instant.now().minusSeconds(900));
+        past.approve(); bookings.saveAndFlush(past);
+        service.advanceLifecycle(past.getId());
+        service.advanceLifecycle(past.getId());
+        assertEquals(BookingStatus.COMPLETED, past.getStatus());
+        assertEquals(ListingStatus.SOLD, listing.getStatus());
+        assertNotNull(chat.getSaleConfirmedAt());
+        assertEquals(1, messages.count());
+        assertTrue(messages.findAll().getFirst().getBody().contains("automatically been marked Sold"));
+    }
+    @Test void savesDraftAvailabilityTogetherWithAppointment() {
+        Long id = service.requestAppointment(chat.getId(), date, Set.of(24, 25), Map.of(date, Map.of(24, true, 25, true)));
+        assertNotNull(id);
+        assertEquals(Set.of(24, 25), availability.day(date));
+    }
     @Test
-    void rejectsAppointmentsThatWouldCrossMidnight() {
-        listing.setAppointmentDurationMinutes(90);
-        listings.saveAndFlush(listing);
-        LocalDate date = LocalDate.now(BookingService.BOOKING_ZONE).plusDays(2);
-        assertThrows(IllegalArgumentException.class,
-                () -> service.requestBooking(listing.getId(), date, LocalTime.of(23, 0)));
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void failedRequestRollsBackDraftAvailabilityAndCanBeRetried() {
+        try {
+            assertThrows(IllegalArgumentException.class, () -> service.requestAppointment(chat.getId(), date,
+                    Set.of(24, 26), Map.of(date, Map.of(24, true, 26, true))));
+            assertTrue(availability.day(date).isEmpty());
+            assertTrue(service.getConversationBookings(chat.getId()).isEmpty());
+            assertNotNull(service.requestAppointment(chat.getId(), date,
+                    Set.of(24), Map.of(date, Map.of(24, true))));
+        } finally {
+            bookings.deleteAll(); conversations.deleteAll(); slots.deleteAll(); listings.deleteAll(); users.deleteAll();
+        }
     }
-
+    @Test void rejectsInvalidHalfHoursPastDatesAndClockChanges() {
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailable(date, 48, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailable(date.minusYears(1), 0, true));
+        assertThrows(IllegalArgumentException.class, () -> BookingService.toInstant(LocalDateTime.of(2027, 3, 14, 2, 15)));
+        assertThrows(IllegalArgumentException.class, () -> BookingService.toInstant(LocalDateTime.of(2027, 11, 7, 1, 15)));
+    }
+    private Long request(Conversation conversation, Set<Integer> selected) {
+        selected.forEach(slot -> availability.setAvailable(date, slot, true));
+        return service.requestAppointment(conversation.getId(), date, selected);
+    }
     private User account(String username) {
-        var user = new User();
-        user.setUsername(username);
-        user.setEmail(username + "@mavs.uta.edu");
-        user.setHashedPassword("test-only");
+        var user = new User(); user.setUsername(username); user.setEmail(username + "@mavs.uta.edu"); user.setHashedPassword("test-only");
         return users.saveAndFlush(user);
     }
-
-    private Listing serviceListing(String name, int minutes) {
-        var serviceListing = new Listing();
-        serviceListing.setOwner(provider);
-        serviceListing.setName(name);
-        serviceListing.setDescription("A service");
-        serviceListing.setPrice(BigDecimal.TEN);
-        serviceListing.setType(ListingType.SERVICE);
-        serviceListing.setAppointmentDurationMinutes(minutes);
-        return listings.saveAndFlush(serviceListing);
+    private Listing listing(String name, ListingType type) {
+        var result = new Listing(); result.setOwner(provider); result.setName(name); result.setDescription("A listing");
+        result.setPrice(BigDecimal.TEN); result.setType(type); return listings.saveAndFlush(result);
     }
-
     private void login(User user) {
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(user.getUsername(), null, List.of()));
