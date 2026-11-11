@@ -159,10 +159,17 @@ public class BookingService {
             entityManager.refresh(chat, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             Listing listing = listings.findForManagement(b.getListing().getId()).orElseThrow();
             if (listing.getStatus() == ListingStatus.REMOVED) { b.cancel(); return; }
-            listing.markSold();
+            boolean isProduct = listing.getType() == ListingType.PRODUCT;
+            if (isProduct) {
+                listing.markSold();
+            }
+
             if (chat != null && chat.getClosedAt() == null) {
-                messages.save(listing.getOwner().sendMessage(chat,
-                        "Appointment completed. The listing has automatically been marked Sold."));
+                String completionMessage = isProduct
+                        ? "Appointment completed. The listing has automatically been marked Sold."
+                        : "Service appointment completed. The service listing's status has not changed.";
+
+                messages.save(listing.getOwner().sendMessage(chat, completionMessage));
                 chat.confirmSale(listing.getOwner());
                 chat.closeConversation();
             }

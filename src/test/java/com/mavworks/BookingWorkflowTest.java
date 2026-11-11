@@ -134,22 +134,81 @@ class BookingWorkflowTest {
         service.advanceLifecycle(past.getId());
         assertEquals(BookingStatus.EXPIRED, past.getStatus());
     }
-    @Test void confirmedAppointmentMarksListingSoldAndNotifiesConversationOnce() {
-        Booking past = new Booking(chat, buyer, Instant.now().minusSeconds(1800), Instant.now().minusSeconds(900));
-        past.approve(); bookings.saveAndFlush(past);
-        service.advanceLifecycle(past.getId());
-        service.advanceLifecycle(past.getId());
-        assertEquals(BookingStatus.COMPLETED, past.getStatus());
-        assertEquals(ListingStatus.SOLD, listing.getStatus());
-        assertNotNull(chat.getSaleConfirmedAt());
+    @Test
+    void completedProductAppointmentMarksListingSold() {
+        Listing product = listing("Textbook", ListingType.PRODUCT);
+        Conversation productChat =
+                conversations.saveAndFlush(new Conversation(buyer, product));
+
+        Booking appointment = completedAppointment(productChat);
+
+        assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
+        assertEquals(ListingStatus.SOLD, product.getStatus());
+        assertNotNull(productChat.getSaleConfirmedAt());
+        assertNotNull(productChat.getClosedAt());
         assertEquals(1, messages.count());
-        assertTrue(messages.findAll().getFirst().getBody().contains("automatically been marked Sold"));
+        assertTrue(messages.findAll().getFirst().getBody()
+                .contains("automatically been marked Sold"));
     }
+
+    @Test
+    void completedServiceAppointmentKeepsListingActive() {
+        Booking appointment = completedAppointment(chat);
+
+        assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
+        assertEquals(ListingStatus.ACTIVE, listing.getStatus());
+        assertNotNull(chat.getSaleConfirmedAt());
+        assertNotNull(chat.getClosedAt());
+        assertEquals(1, messages.count());
+        assertEquals(
+                "Service appointment completed. The service listing's status has not changed.",
+                messages.findAll().getFirst().getBody());
+
+        // Another customer can still request this service.
+        login(stranger);
+        Conversation nextChat =
+                conversations.saveAndFlush(new Conversation(stranger, listing));
+        Long nextAppointment = request(nextChat, Set.of(24));
+
+        assertEquals(BookingStatus.REQUESTED,
+                bookings.findById(nextAppointment).orElseThrow().getStatus());
+    }
+
+    @Test
+    void completedServiceAppointmentDoesNotReopenWithdrawnListing() {
+        listing.setStatus(ListingStatus.WITHDRAWN);
+        listings.saveAndFlush(listing);
+
+        Booking appointment = completedAppointment(chat);
+
+        assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
+        assertEquals(ListingStatus.WITHDRAWN, listing.getStatus());
+        assertEquals(1, messages.count());
+    }
+
+    private Booking completedAppointment(Conversation conversation) {
+        Instant now = Instant.now();
+        Booking appointment = new Booking(
+                conversation,
+                buyer,
+                now.minusSeconds(1800),
+                now.minusSeconds(900));
+
+        appointment.approve();
+        bookings.saveAndFlush(appointment);
+
+        service.advanceLifecycle(appointment.getId());
+        service.advanceLifecycle(appointment.getId());
+
+        return appointment;
+    }
+
     @Test void savesDraftAvailabilityTogetherWithAppointment() {
         Long id = service.requestAppointment(chat.getId(), date, Set.of(24, 25), Map.of(date, Map.of(24, true, 25, true)));
         assertNotNull(id);
         assertEquals(Set.of(24, 25), availability.day(date));
     }
+
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void failedRequestRollsBackDraftAvailabilityAndCanBeRetried() {
