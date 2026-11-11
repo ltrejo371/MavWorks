@@ -130,7 +130,8 @@ apply it automatically; no manual database changes are needed.
 V11 updates appointment statuses, links bookings to conversations, and adds
 user availability. V12 converts availability to 30-minute slots.
 V13 adds registration email verification records. V14 adds the optional reply
-column to reviews without changing existing review data.
+column to reviews if absent and aligns an existing column to VARCHAR(2000).
+V14 has been applied to the shared database; keep the applied migration unchanged.
 When sharing the database, keep the team's application code and migrations in
 sync; a schema ahead of an older checkout can cause validation or insert errors.
 With development terms seeding enabled, startup publishes the bundled terms for
@@ -209,8 +210,9 @@ databases. SupabaseSchemaTest checks migration/mapping compatibility with H2's
 PostgreSQL mode; it does not verify live PostgreSQL semantics or connectivity.
 SupabaseImageStorageTest uses a mock HTTP client to check requests, ownership,
 validation and failure handling without credentials or shared storage writes.
-The automated suite passed; live bucket upload/download and verification across
-two separate app instances are still pending.
+The automated suite passed with 150 tests. Live bucket uploads were verified,
+and teammates confirmed the branch works on their app instances. Live profile-picture
+and blocked profile access checks still need explicit verification.
 
 For live verification, coordinate shared test data with the team. Create a test
 listing with one image, confirm its file appears in `mavworks-images`, and open

@@ -58,6 +58,35 @@ Stop the app with **Ctrl+C** in the terminal.
 
 Alternatively, run the `main()` method in `Application.java` from your IDE.
 
+## Run with Supabase
+
+The commands above use local H2 and local images. To use the shared database
+and image bucket, stop the app and run from PowerShell:
+
+```powershell
+$dbSecret = Read-Host "Supabase database password" -AsSecureString
+$env:SUPABASE_DB_PASSWORD = [System.Net.NetworkCredential]::new("", $dbSecret).Password
+Remove-Variable dbSecret
+
+$env:SUPABASE_URL = Read-Host "Supabase project URL"
+$storageSecret = Read-Host "Supabase project secret API key" -AsSecureString
+$env:SUPABASE_STORAGE_SECRET_KEY = [System.Net.NetworkCredential]::new("", $storageSecret).Password
+Remove-Variable storageSecret
+
+.\mvnw.cmd clean spring-boot:run "-Dspring-boot.run.profiles=supabase"
+```
+
+Use the project HTTPS URL and backend secret key beginning with `sb_secret_`,
+not the database pooler address or publishable key. Keep credentials out of Git.
+Variables remain set in this terminal after Ctrl+C; a new terminal needs them
+entered again. IntelliJ's Run button needs its own environment configuration.
+
+Startup applies pending Flyway migrations to the shared database and processes
+due appointments. The clean build removes stale files left by branch switches.
+Existing accounts can sign in; new registration also requires
+[SMTP configuration](docs/email-verification.md). See
+[Supabase setup](docs/supabase-setup.md) for bucket setup and Git Bash commands.
+
 ## Build and test
 
 Stop the running app first.
@@ -141,8 +170,9 @@ variables. Database rows store image references, not the image files themselves.
 Existing local images are not uploaded automatically. Preserve their filenames
 when transferring them to the bucket, or create new test listings with fresh
 uploads. Older app versions using local storage cannot display bucket-only images.
-Automated storage tests pass; live bucket upload/download and verification from
-two separate app instances are still pending.
+Automated storage tests pass. Live bucket uploads were verified, and teammates
+confirmed the branch works on their app instances. Profile-picture and blocked
+profile access checks still need explicit live verification.
 
 ## Manage your listings
 

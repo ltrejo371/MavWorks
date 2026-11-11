@@ -97,8 +97,8 @@ See [Supabase setup](supabase-setup.md) for configuration and transition steps.
    for the student pilot.
 3. Add pagination for large catalogs and refine marketplace navigation.
 4. Extend owner listing editing to images if included in the next iteration.
-5. Complete live shared-image storage verification from two app instances and
-   decide whether existing local test images need transferring.
+5. Complete live profile-picture and blocked profile access checks, and decide
+   whether existing local test images need transferring.
 
 Listing creation, public profiles, account editing, owner listing management,
 messaging, reviews, blocking, reports and administrator report decisions are
@@ -120,5 +120,6 @@ product and service sales, and check marketplace and profile visibility.
 
 SupabaseImageStorageTest checks upload/download requests, ownership, validation,
 missing files and network errors with a mock HTTP client. These tests do not
-contact Supabase. Automated tests passed; live bucket and cross-instance image
-verification remain pending.
+contact Supabase. Automated tests passed. Live bucket uploads were verified,
+and teammates confirmed the branch works on their app instances. Live profile-picture
+and blocked profile access checks remain to be verified explicitly.
