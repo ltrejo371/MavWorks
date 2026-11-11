@@ -37,8 +37,20 @@ public class BookingService {
                 .orElseThrow(() -> new AccessDeniedException("Sign in to manage appointments."));
     }
     public Long conversationForListing(Long listingId) {
-        return conversations.findFirstByBuyerIdAndListingIdOrderByIdDesc(user().getId(), listingId)
+        return requestableConversationForListing(listingId)
                 .map(Conversation::getId).orElseThrow(() -> new IllegalArgumentException("Open a message conversation for this listing first."));
+    }
+    public boolean canRequestFromListing(Long listingId) {
+        return requestableConversationForListing(listingId).isPresent();
+    }
+    private Optional<Conversation> requestableConversationForListing(Long listingId) {
+        User viewer = user();
+        if (listingId == null) return Optional.empty();
+        return conversations.findFirstByBuyerIdAndListingIdOrderByIdDesc(viewer.getId(), listingId)
+                .filter(chat -> chat.getClosedAt() == null && chat.getSaleConfirmedAt() == null
+                        && chat.getListing().getStatus() == ListingStatus.ACTIVE)
+                .filter(chat -> !blocks.existsByBlockerIdAndBlockedId(viewer.getId(), chat.getListing().getOwner().getId())
+                        && !blocks.existsByBlockerIdAndBlockedId(chat.getListing().getOwner().getId(), viewer.getId()));
     }
     public Long listingForConversation(Long id) { return conversation(id, true).getListing().getId(); }
     private Conversation conversation(Long id, boolean requireOpen) {

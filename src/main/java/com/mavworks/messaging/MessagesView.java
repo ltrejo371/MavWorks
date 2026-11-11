@@ -15,7 +15,7 @@ import org.springframework.dao.DataAccessException;
 
 @Route("messages")
 @PageTitle("Messages")
-@Menu(order = 2, title = "Messages")
+@Menu(order = 2, icon = "vaadin:comments", title = "Messages")
 @PermitAll
 @CssImport("./styles/messages.css")
 public class MessagesView extends VerticalLayout implements BeforeEnterObserver {

@@ -18,15 +18,15 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
     private final com.mavworks.service.MessagingService messages;
     private final com.mavworks.service.BlockService blocks;
     private final com.mavworks.service.ReportService reports;
+    private final com.mavworks.service.BookingService bookings;
 
-    public ListingDetailsView(com.mavworks.service.ListingService listings,
-            com.mavworks.service.ImageStorageService storage, com.mavworks.service.MessagingService messages,
-            com.mavworks.service.BlockService blocks, com.mavworks.service.ReportService reports) {
+    public ListingDetailsView(com.mavworks.service.ListingService listings, com.mavworks.service.ImageStorageService storage, com.mavworks.service.MessagingService messages, com.mavworks.service.BlockService blocks, com.mavworks.service.ReportService reports, com.mavworks.service.BookingService bookings) {
         this.listings = listings;
         this.storage = storage;
         this.messages = messages;
         this.blocks = blocks;
         this.reports = reports;
+        this.bookings = bookings;
         addClassNames("mw-page", "listing-detail-page");
     }
 
@@ -103,11 +103,8 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             var actions = new com.vaadin.flow.component.html.Div(appointmentButton, messageButton);
             actions.addClassName("listing-actions");
             info.add(actions, messageStatus);
-            if (listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
-                appointmentButton.setVisible(true);
-            } else {
-                appointmentButton.setVisible(false);
-            }
+            appointmentButton.setVisible(listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE
+                    && bookings.canRequestFromListing(id));
             var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
             var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
             var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);
