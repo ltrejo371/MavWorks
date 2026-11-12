@@ -36,6 +36,8 @@ class MessagingWorkflowTest {
     @Autowired ListingCatalogService catalog;
     @Autowired ListingManagementService management;
     @Autowired AccountDashboardService dashboard;
+    @Autowired ImageStorageService imageStorage;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     User buyer, provider, outsider;
     Listing listing;
@@ -55,6 +57,30 @@ class MessagingWorkflowTest {
         login(buyer);
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
+
+    @Test void replacingListingImagesPersistsAndRemovesOldImageRows() throws Exception {
+        login(provider);
+        ListingImage old = new ListingImage();
+        old.setStorageReference("old-preview.png");
+        listing.getImages().add(old);
+        Long oldImageId = listings.saveAndFlush(listing).getImages().getFirst().getId();
+        var bytes = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1, 1,
+                java.awt.image.BufferedImage.TYPE_INT_RGB), "png", bytes);
+        String reference = imageStorage.store(new java.io.ByteArrayInputStream(bytes.toByteArray()), "new.png", "image/png");
+        try {
+            management.updateDetails(listing.getId(), "Updated book", "Updated description", BigDecimal.TEN,
+                    ListingCategory.OTHER, null, List.of(reference));
+            var reloaded = listings.findByOwnerId(provider.getId()).getFirst();
+            assertEquals("Updated book", reloaded.getName());
+            assertEquals(1, reloaded.getImages().size());
+            assertEquals(reference, reloaded.getImages().getFirst().getStorageReference());
+            assertEquals(0, reloaded.getImages().getFirst().getDisplayOrder());
+            assertEquals(0, jdbc.queryForObject("select count(*) from mavworks.listing_images where id = ?", Integer.class, oldImageId));
+        } finally {
+            imageStorage.delete(reference);
+        }
+    }
 
     @Test void profileShowsOnlyAvailableListingsAndHonorsBlocks() {
         ListingImage preview = new ListingImage(); preview.setStorageReference("profile-preview.png");

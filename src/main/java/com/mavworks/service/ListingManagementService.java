@@ -14,8 +14,9 @@ public class ListingManagementService {
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
-    public ListingManagementService(CurrentUser current, UserRepository users, ListingRepository listings) {
-        this.current = current; this.users = users; this.listings = listings;
+    private final ImageStorageService images;
+    public ListingManagementService(CurrentUser current, UserRepository users, ListingRepository listings, ImageStorageService images) {
+        this.current = current; this.users = users; this.listings = listings; this.images = images;
     }
     private User user() {
         return current.username().flatMap(users::findByUsername).orElseThrow(() -> new AccessDeniedException("Sign in to manage listings."));
@@ -36,6 +37,13 @@ public class ListingManagementService {
     @Transactional
     public void updateDetails(Long id, String name, String description, BigDecimal price,
             ListingCategory category, Integer appointmentDurationMinutes) {
+        updateDetails(id, name, description, price, category, appointmentDurationMinutes, null);
+    }
+
+    /** Null image references preserve the existing images; a supplied list replaces them. */
+    @Transactional
+    public void updateDetails(Long id, String name, String description, BigDecimal price,
+            ListingCategory category, Integer appointmentDurationMinutes, java.util.List<String> imageReferences) {
         Listing listing = owned(id);
 
         if (listing.getStatus() == ListingStatus.SOLD) {
@@ -62,12 +70,28 @@ public class ListingManagementService {
                     "Enter a price from 0 to 999,999.99 with at most two decimal places.");
         }
 
+        if (imageReferences != null) {
+            if (imageReferences.size() > 5) {
+                throw new IllegalArgumentException("Select at most five images.");
+            }
+            imageReferences.forEach(images::validateOwnedReference);
+        }
+
         listing.setName(name.trim());
         listing.setDescription(description.trim());
         listing.setPrice(price.setScale(2));
         listing.setCategory(category == null ? ListingCategory.OTHER : category);
         if (listing.getType() == ListingType.SERVICE && appointmentDurationMinutes != null) {
             listing.setAppointmentDurationMinutes(appointmentDurationMinutes);
+        }
+        if (imageReferences != null) {
+            listing.getImages().clear();
+            for (String reference : imageReferences) {
+                ListingImage image = new ListingImage();
+                image.setStorageReference(reference);
+                image.setDisplayOrder(listing.getImages().size());
+                listing.getImages().add(image);
+            }
         }
     }
 
