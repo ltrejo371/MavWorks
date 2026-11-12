@@ -6,7 +6,9 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "messages", indexes = @Index(name = "idx_messages_conversation_id", columnList = "conversation_id, id"))
+@Table(name = "messages", indexes = {
+        @Index(name = "idx_messages_conversation_id", columnList = "conversation_id, id"),
+        @Index(name = "idx_messages_unread", columnList = "read_at, conversation_id, sender_id, id")})
 public class Message {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -22,6 +24,7 @@ public class Message {
     private String body;
     @Column(nullable = false, updatable = false)
     private Instant sentAt = Instant.now();
+    private Instant readAt;
 
     protected Message() {}
 

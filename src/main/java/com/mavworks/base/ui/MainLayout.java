@@ -22,8 +22,10 @@ import jakarta.annotation.security.PermitAll;
 
 public final class MainLayout extends AppLayout implements com.vaadin.flow.router.AfterNavigationObserver {
     private final java.util.Map<String, com.vaadin.flow.component.html.Anchor> mobileLinks = new java.util.LinkedHashMap<>();
+    private final com.mavworks.messaging.MessageNotifications notifications;
 
-    MainLayout() {
+    MainLayout(com.mavworks.service.MessagingService messaging) {
+        notifications = new com.mavworks.messaging.MessageNotifications(messaging);
         setPrimarySection(Section.DRAWER);
         addToDrawer(createApplicationHeader(), createApplicationDrawer(), createApplicationFooter());
         addClassName("mav-shell");
@@ -39,6 +41,7 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
             mobile.add(mobileLink("admin/reports", "Reports", com.vaadin.flow.component.icon.VaadinIcon.FLAG));
         }
         addToNavbar(mobile);
+        addToNavbar(notifications);
     }
 
     private com.vaadin.flow.component.html.Anchor mobileLink(String path, String label, com.vaadin.flow.component.icon.VaadinIcon symbol) {
@@ -57,6 +60,7 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
             if (route.equals(selected)) link.getElement().setAttribute("aria-current", "page");
             else link.getElement().removeAttribute("aria-current");
         });
+        notifications.refresh();
     }
 
     private Component createApplicationHeader() {

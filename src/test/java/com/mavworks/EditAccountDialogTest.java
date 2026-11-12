@@ -16,7 +16,7 @@ class EditAccountDialogTest {
     @AfterEach void clear() { UI.setCurrent(null); }
     AccountDashboardService.DashboardData data() {
         return new AccountDashboardService.DashboardData("owner", "owner@mavs.uta.edu", "Owner", "Old bio",
-                "", List.of(), List.of(), 1L, false, List.of(), List.of());
+                "Email me at contact@example.com", List.of(), List.of(), 1L, false, List.of(), List.of());
     }
     @Test void currentFieldsAreShownAndCancelDoesNotSave() {
         var service = mock(AccountEditingService.class);
@@ -24,6 +24,8 @@ class EditAccountDialogTest {
         dialog.open();
         assertEquals("owner", username(dialog).getValue());
         assertEquals("Old bio", bio(dialog).getValue());
+        assertEquals("Email me at contact@example.com", contact(dialog).getValue());
+        contact(dialog).setValue("Unsent contact");
         bio(dialog).setValue("Unsent");
         button(dialog, "Cancel").click();
         assertFalse(dialog.isOpened());
@@ -33,11 +35,13 @@ class EditAccountDialogTest {
         var service = mock(AccountEditingService.class);
         var saved = mock(Runnable.class);
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("offline")).doNothing()
-                .when(service).save("newname", "New bio", null);
+                .when(service).save("newname", "New bio", null, "New contact");
         var dialog = new EditAccountDialog(data(), service, mock(LocalImageStorageService.class), saved);
         dialog.open(); username(dialog).setValue("newname"); bio(dialog).setValue("New bio");
+        contact(dialog).setValue("New contact");
         button(dialog, "Save").click();
         assertTrue(dialog.isOpened()); assertEquals("New bio", bio(dialog).getValue());
+        assertEquals("New contact", contact(dialog).getValue());
         assertTrue(button(dialog, "Save").isEnabled()); verifyNoInteractions(saved);
         button(dialog, "Save").click();
         assertFalse(dialog.isOpened()); verify(saved).run();
@@ -47,6 +51,10 @@ class EditAccountDialogTest {
     }
     TextArea bio(EditAccountDialog dialog) {
         return (TextArea) dialog.getChildren().filter(TextArea.class::isInstance).findFirst().orElseThrow();
+    }
+    TextArea contact(EditAccountDialog dialog) {
+        return dialog.getChildren().filter(c -> c instanceof TextArea a && a.getLabel().equals("Contact information"))
+                .map(TextArea.class::cast).findFirst().orElseThrow();
     }
     Button button(EditAccountDialog dialog, String label) {
         return dialog.getFooter().getElement().getChildren().map(e -> e.getComponent().orElseThrow())

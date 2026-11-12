@@ -51,7 +51,9 @@ class MessagingViewTest {
         assertFalse(times.get(0).isVisible());
         assertTrue(times.get(1).isVisible());
         assertTrue(times.get(2).isVisible());
+        verify(service).markConversationRead(3L, 3L);
         button(view, "Refresh").click();
+        verify(service).markConversationRead(3L, 4L);
         assertFalse(times.get(2).isVisible());
         assertEquals(2, components(view).filter(c -> c instanceof com.vaadin.flow.component.html.Span s
                 && s.hasClassName("mav-chat-time") && s.isVisible()).count());

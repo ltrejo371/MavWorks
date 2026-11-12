@@ -58,6 +58,53 @@ class MessagingWorkflowTest {
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 
+    @Test void unreadNotificationsPersistAndOnlyRecipientCanClearThem() {
+        Long chat = service.startConversation(listing.getId());
+        Long first = service.sendMessage(chat, "First message");
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        service.markConversationRead(chat, first); // Sender cannot acknowledge for the recipient.
+        login(outsider);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        assertThrows(AccessDeniedException.class, () -> service.markConversationRead(chat, first));
+        login(provider);
+        var notice = service.getUnreadNotifications().getFirst();
+        assertEquals(chat, notice.conversationId());
+        assertEquals("buyer", notice.senderName());
+        assertEquals(1, notice.count());
+        service.getChat(chat, null); // Fetching alone does not acknowledge unseen UI content.
+        assertEquals(1, service.getUnreadNotifications().getFirst().count());
+        login(buyer);
+        Long second = service.sendMessage(chat, "Arrived after the first page loaded");
+        login(provider);
+        service.markConversationRead(chat, first);
+        assertEquals(1, service.getUnreadNotifications().getFirst().count());
+        assertEquals(second, service.getUnreadNotifications().getFirst().latestMessageId());
+        service.markConversationRead(chat, second);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        Long reply = service.sendMessage(chat, "Reply");
+        login(buyer);
+        assertEquals(reply, service.getUnreadNotifications().getFirst().latestMessageId());
+        service.markConversationRead(chat, reply);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        assertEquals(3, jdbc.queryForObject("select count(*) from mavworks.messages where read_at is not null", Integer.class));
+    }
+
+    @Test void notificationsHideBlockedConversationsInBothDirections() {
+        Long chat = service.startConversation(listing.getId());
+        Long message = service.sendMessage(chat, "Hello");
+        login(provider);
+        assertEquals(1, service.getUnreadNotifications().size());
+        blocking.blockUser(buyer.getId());
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        assertThrows(MessagingBlockedException.class, () -> service.markConversationRead(chat, message));
+        blocks.deleteAll();
+        login(buyer); blocking.blockUser(provider.getId());
+        login(provider);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> service.getUnreadNotifications());
+    }
+
     @Test void replacingListingImagesPersistsAndRemovesOldImageRows() throws Exception {
         login(provider);
         ListingImage old = new ListingImage();

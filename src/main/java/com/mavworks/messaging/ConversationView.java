@@ -277,6 +277,8 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             updateTimestampGroups();
             history.getElement().executeJs("requestAnimationFrame(() => { if (!this.dataset.scrolled || this.scrollHeight - this.scrollTop - this.clientHeight < 300) { this.scrollTop = this.scrollHeight; } this.dataset.scrolled = 'true'; })");
         }
+        // Acknowledge only through the last message actually loaded, so concurrent arrivals stay unread.
+        if (lastId != null) service.markConversationRead(conversationId, lastId);
     }
 
     private void updateTimestampGroups() {
