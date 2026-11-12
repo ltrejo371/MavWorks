@@ -90,6 +90,44 @@ public class BookingService {
     @Transactional
     public Long requestAppointment(Long conversationId, LocalDate date, Set<Integer> selected,
             Map<LocalDate, Map<Integer, Boolean>> edits) {
+        return saveAppointment(conversationId, date, selected, edits, null);
+    }
+    public BookingSummary getAppointment(Long id) {
+        Booking b = bookings.findById(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        requireParticipant(b, user());
+        return summary(b, user());
+    }
+    private void requireParticipant(Booking b, User viewer) {
+        if (!b.getConversation().hasParticipant(viewer)) throw new AccessDeniedException("Appointment not available.");
+    }
+    private Booking editableAppointment(Long id) {
+        Booking original = bookings.findById(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        requireParticipant(original, user());
+        lockParticipants(original.getBuyer(), original.getListing().getOwner());
+        Booking b = bookings.findForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        entityManager.refresh(b);
+        if (b.getStatus() != BookingStatus.CONFIRMED || !b.getStartAt().isAfter(Instant.now()))
+            throw new IllegalArgumentException("Only future confirmed appointments can be changed.");
+        return b;
+    }
+    @Transactional
+    public void reschedule(Long id, LocalDate date, Set<Integer> selected, Map<LocalDate, Map<Integer, Boolean>> edits) {
+        Booking b = editableAppointment(id);
+        saveAppointment(b.getConversation().getId(), date, selected, edits, b);
+    }
+    @Transactional
+    public void cancelAppointment(Long id) {
+        Booking b = editableAppointment(id);
+        messages.save(user().sendMessage(b.getConversation(), "Appointment cancelled: " + appointmentTime(b.getStartAt(), b.getEndAt()) + ". It has been removed from both calendars."));
+        bookings.delete(b);
+        bookings.flush();
+    }
+    private String appointmentTime(Instant start, Instant end) {
+        var format = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a z").withZone(BOOKING_ZONE);
+        return format.format(start) + "–" + format.format(end);
+    }
+    private Long saveAppointment(Long conversationId, LocalDate date, Set<Integer> selected,
+            Map<LocalDate, Map<Integer, Boolean>> edits, Booking existingBooking) {
         Conversation chat = conversation(conversationId, true);
         User requester = user();
         lockParticipants(chat.getBuyer(), chat.getListing().getOwner());
@@ -120,8 +158,15 @@ public class BookingService {
         Instant start = toInstant(date.atStartOfDay().plusMinutes(sorted.first() * (long) AvailabilityService.SLOT_MINUTES));
         Instant end = toInstant(date.atStartOfDay().plusMinutes((sorted.last() + 1) * (long) AvailabilityService.SLOT_MINUTES));
         if (!start.isAfter(Instant.now())) throw new IllegalArgumentException("Choose a future appointment time.");
-        requireFree(chat.getBuyer().getId(), chat.getListing().getOwner().getId(), start, end);
-        return bookings.saveAndFlush(new Booking(chat, requester, start, end)).getId();
+        var conflicts = bookings.findParticipantConflicts(chat.getBuyer().getId(), chat.getListing().getOwner().getId(), BookingStatus.CONFIRMED, start, end);
+        if (conflicts.stream().anyMatch(b -> existingBooking == null || !b.getId().equals(existingBooking.getId())))
+            throw new IllegalArgumentException("One of you already has a confirmed appointment at this time.");
+        if (existingBooking == null) return bookings.saveAndFlush(new Booking(chat, requester, start, end)).getId();
+        String previous = appointmentTime(existingBooking.getStartAt(), existingBooking.getEndAt());
+        existingBooking.reschedule(start, end);
+        messages.save(requester.sendMessage(chat, "Appointment rescheduled from " + previous + " to " + appointmentTime(start, end) + "."));
+        bookings.flush();
+        return existingBooking.getId();
     }
     private void lockParticipants(User first, User second) {
         List.of(first, second).stream().sorted(Comparator.comparing(User::getId))
@@ -171,15 +216,10 @@ public class BookingService {
             entityManager.refresh(chat, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             Listing listing = listings.findForManagement(b.getListing().getId()).orElseThrow();
             if (listing.getStatus() == ListingStatus.REMOVED) { b.cancel(); return; }
-            boolean isProduct = listing.getType() == ListingType.PRODUCT;
-            if (isProduct) {
-                listing.markSold();
-            }
+            listing.markSold();
 
             if (chat != null && chat.getClosedAt() == null) {
-                String completionMessage = isProduct
-                        ? "Appointment completed. The listing has automatically been marked Sold."
-                        : "Service appointment completed. The service listing's status has not changed.";
+                String completionMessage = "Appointment completed. The listing has automatically been marked Sold.";
 
                 messages.save(listing.getOwner().sendMessage(chat, completionMessage));
                 chat.confirmSale(listing.getOwner());

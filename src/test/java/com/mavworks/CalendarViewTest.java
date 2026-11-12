@@ -84,6 +84,33 @@ class CalendarViewTest {
         verify(availability, never()).setAvailable(any(), anyInt(), anyBoolean());
         verify(bookings, never()).requestAppointment(any(), any(), any(), any());
     }
+    @Test void reschedulePrefillsOriginalDateSlotsAndReturnLink() {
+        when(bookings.listingForConversation(3L)).thenReturn(10L);
+        when(bookings.getAppointment(7L)).thenReturn(new BookingService.BookingSummary(7L, 10L, 3L,
+                "Tutoring", "buyer", "provider", false, BookingService.toInstant(date.atTime(12, 0)),
+                BookingService.toInstant(date.atTime(13, 0)), com.mavworks.model.BookingStatus.CONFIRMED));
+        var view = new AppointmentView(bookings, availability); ui.add(view);
+        var event = mock(BeforeEnterEvent.class);
+        when(event.getRouteParameters()).thenReturn(new RouteParameters("listingId", "10"));
+        when(event.getLocation()).thenReturn(new Location("listings/10/appointment?booking=7&from=calendar"));
+        view.beforeEnter(event);
+        assertEquals("true", button(view, "12:00 PM–12:30 PM").getElement().getAttribute("aria-pressed"));
+        assertEquals("true", button(view, "12:30 PM–1:00 PM").getElement().getAttribute("aria-pressed"));
+        assertTrue(button(view, "Save Reschedule").isEnabled());
+        assertTrue(components(view).anyMatch(c -> c instanceof com.vaadin.flow.component.html.Anchor a && a.getHref().equals("calendar")));
+        verify(bookings, never()).reschedule(any(), any(), any(), any());
+    }
+    @Test void cancellationRequiresYesAndNoLeavesAppointmentAlone() {
+        var booking = new BookingService.BookingSummary(7L, 10L, 3L, "Tutoring", "buyer", "provider", false,
+                BookingService.toInstant(date.atTime(12, 0)), BookingService.toInstant(date.atTime(13, 0)),
+                com.mavworks.model.BookingStatus.CONFIRMED);
+        Runnable refresh = mock(Runnable.class);
+        var actions = new AppointmentActions(bookings, booking, "calendar", refresh); ui.add(actions);
+        button(actions, "Cancel").click(); button(ui, "No").click();
+        verify(bookings, never()).cancelAppointment(any());
+        button(actions, "Cancel").click(); button(ui, "Yes").click();
+        verify(bookings).cancelAppointment(7L); verify(refresh).run();
+    }
     private AppointmentView schedule() {
         when(bookings.listingForConversation(3L)).thenReturn(10L);
         var view = new AppointmentView(bookings, availability); ui.add(view);

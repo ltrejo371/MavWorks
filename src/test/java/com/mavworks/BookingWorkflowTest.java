@@ -32,6 +32,7 @@ class BookingWorkflowTest {
     @Autowired AvailabilityRepository slots;
     @Autowired BookingService service;
     @Autowired AvailabilityService availability;
+    @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     private User buyer, provider, stranger;
     private Listing listing;
     private Conversation chat;
@@ -152,38 +153,98 @@ class BookingWorkflowTest {
     }
 
     @Test
-    void completedServiceAppointmentKeepsListingActive() {
+    void completedServiceAppointmentMarksListingSold() {
         Booking appointment = completedAppointment(chat);
 
         assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
-        assertEquals(ListingStatus.ACTIVE, listing.getStatus());
+        assertEquals(ListingStatus.SOLD, listing.getStatus());
         assertNotNull(chat.getSaleConfirmedAt());
         assertNotNull(chat.getClosedAt());
         assertEquals(1, messages.count());
         assertEquals(
-                "Service appointment completed. The service listing's status has not changed.",
+                "Appointment completed. The listing has automatically been marked Sold.",
                 messages.findAll().getFirst().getBody());
 
-        // Another customer can still request this service.
+        // Sold services no longer accept new appointments.
         login(stranger);
         Conversation nextChat =
                 conversations.saveAndFlush(new Conversation(stranger, listing));
-        Long nextAppointment = request(nextChat, Set.of(24));
-
-        assertEquals(BookingStatus.REQUESTED,
-                bookings.findById(nextAppointment).orElseThrow().getStatus());
+        assertThrows(IllegalArgumentException.class, () -> request(nextChat, Set.of(24)));
     }
 
     @Test
-    void completedServiceAppointmentDoesNotReopenWithdrawnListing() {
+    void completedServiceAppointmentMarksWithdrawnListingSold() {
         listing.setStatus(ListingStatus.WITHDRAWN);
         listings.saveAndFlush(listing);
 
         Booking appointment = completedAppointment(chat);
 
         assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
-        assertEquals(ListingStatus.WITHDRAWN, listing.getStatus());
+        assertEquals(ListingStatus.SOLD, listing.getStatus());
         assertEquals(1, messages.count());
+    }
+
+    @Test void reschedulePreservesConfirmationAndUpdatesBothCalendars() {
+        Long id = request(chat, Set.of(24, 25));
+        login(provider); service.approve(id);
+        service.reschedule(id, date, Set.of(25, 26), Map.of(date, Map.of(25, true, 26, true)));
+        entityManager.clear();
+        Instant expected = BookingService.toInstant(date.atTime(12, 30));
+        assertEquals(expected, service.getAppointment(id).startAt());
+        assertEquals(BookingStatus.CONFIRMED, service.getAppointment(id).status());
+        login(buyer);
+        assertEquals(expected, service.getMyBookings().getFirst().startAt());
+        service.reschedule(id, date.plusDays(1), Set.of(24), Map.of(date.plusDays(1), Map.of(24, true)));
+        assertEquals(BookingService.toInstant(date.plusDays(1).atTime(12, 0)), service.getAppointment(id).startAt());
+        assertEquals(2, messages.count());
+        assertTrue(messages.findAll().stream().allMatch(m -> m.getBody().contains("Appointment rescheduled")));
+    }
+    @Test void cancellationDeletesAppointmentAndNotifiesConversation() {
+        Long id = request(chat, Set.of(24));
+        login(provider); service.approve(id);
+        login(buyer); service.cancelAppointment(id);
+        assertFalse(bookings.existsById(id));
+        assertTrue(service.getMyBookings().isEmpty());
+        login(provider); assertTrue(service.getMyBookings().isEmpty());
+        assertEquals(1, messages.count());
+        assertTrue(messages.findAll().getFirst().getBody().contains("Appointment cancelled"));
+    }
+    @Test void strangersCannotReadRescheduleOrCancelAppointments() {
+        Long id = request(chat, Set.of(24));
+        login(provider); service.approve(id); login(stranger);
+        assertThrows(AccessDeniedException.class, () -> service.getAppointment(id));
+        assertThrows(AccessDeniedException.class, () -> service.reschedule(id, date, Set.of(26), Map.of()));
+        assertThrows(AccessDeniedException.class, () -> service.cancelAppointment(id));
+    }
+    @Test void rescheduleRejectsOtherConfirmedAppointments() {
+        Long first = request(chat, Set.of(24));
+        Long second = request(chat, Set.of(26));
+        login(provider); service.approve(first); service.approve(second); login(buyer);
+        assertThrows(IllegalArgumentException.class, () -> service.reschedule(first, date, Set.of(26), Map.of()));
+        assertEquals(BookingService.toInstant(date.atTime(12, 0)), service.getAppointment(first).startAt());
+        assertEquals(0, messages.count());
+    }
+    @Test void requestedAppointmentsCannotBeRescheduledOrCancelledAsConfirmed() {
+        Long id = request(chat, Set.of(24));
+        assertThrows(IllegalArgumentException.class, () -> service.cancelAppointment(id));
+        assertThrows(IllegalArgumentException.class, () -> service.reschedule(id, date, Set.of(24), Map.of()));
+    }
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void failedRescheduleRollsBackAvailabilityTimesAndNotification() {
+        try {
+            Long id = request(chat, Set.of(24));
+            login(provider); service.approve(id); login(buyer);
+            Instant original = service.getAppointment(id).startAt();
+            assertThrows(IllegalArgumentException.class, () -> service.reschedule(id, date.plusDays(1),
+                    Set.of(24, 26), Map.of(date.plusDays(1), Map.of(24, true, 26, true))));
+            assertEquals(original, service.getAppointment(id).startAt());
+            assertEquals(BookingStatus.CONFIRMED, service.getAppointment(id).status());
+            assertTrue(availability.day(date.plusDays(1)).isEmpty());
+            assertEquals(0, messages.count());
+        } finally {
+            messages.deleteAll(); bookings.deleteAll(); conversations.deleteAll(); slots.deleteAll(); listings.deleteAll(); users.deleteAll();
+        }
     }
 
     private Booking completedAppointment(Conversation conversation) {

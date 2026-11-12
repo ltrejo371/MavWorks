@@ -20,6 +20,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private final BookingService bookings;
     private final AvailabilityService availability;
     private Long conversationId;
+    private Long bookingId;
     private String returnPath;
     private LocalDate date;
     private Set<Integer> available = Set.of();
@@ -40,17 +41,45 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     }
     @Override public void beforeEnter(BeforeEnterEvent event) {
         removeAll(); selected.clear(); edits.clear(); date = null; times.removeAll(); request.setEnabled(false);
+        bookingId = null; editingAvailability = false; request.setText("Request Appointment");
         try {
             Long listingId = Long.valueOf(event.getRouteParameters().get("listingId").orElse(""));
-            var chat = event.getLocation().getQueryParameters().getParameters().get("conversation");
-            conversationId = chat == null ? bookings.conversationForListing(listingId) : Long.valueOf(chat.getFirst());
+            var params = event.getLocation().getQueryParameters().getParameters();
+            var chat = params.get("conversation");
+            BookingService.BookingSummary original = null;
+            if (params.containsKey("booking")) {
+                bookingId = Long.valueOf(params.get("booking").getFirst());
+                original = bookings.getAppointment(bookingId);
+                if (!listingId.equals(original.listingId())) throw new IllegalArgumentException("Appointment does not match this listing.");
+                if (original.status() != com.mavworks.model.BookingStatus.CONFIRMED || !original.startAt().isAfter(Instant.now()))
+                    throw new IllegalArgumentException("Only future confirmed appointments can be changed.");
+                conversationId = original.conversationId();
+                request.setText("Save Reschedule");
+            } else conversationId = chat == null ? bookings.conversationForListing(listingId) : Long.valueOf(chat.getFirst());
             if (!listingId.equals(bookings.listingForConversation(conversationId))) throw new IllegalArgumentException("Conversation does not match this listing.");
             returnPath = chat == null ? "listings/" + listingId : "messages/" + conversationId;
+            if (original != null) returnPath = params.getOrDefault("from", List.of("messages")).getFirst().equals("calendar")
+                    ? "calendar" : "messages/" + conversationId;
             calendar = new AvailabilityCalendar(availability, this::selectDate);
-            add(new Anchor(returnPath, "← Back"), new H1("Schedule Appointment"),
+            add(new Anchor(returnPath, "← Back"), new H1(original == null ? "Schedule Appointment" : "Reschedule Appointment"),
                     new Paragraph("Select consecutive 30-minute slots from your availability. Times are Central Time."),
-                    new Paragraph("Availability added here is saved when you request the appointment. Back discards these changes."),
+                    new Paragraph("Availability added here is saved when you save the appointment. Back discards these changes."),
                     calendar, times, request);
+            if (original != null) {
+                addComponentAtIndex(2, new Paragraph(original.listingName() + " · " + original.buyer() + " · " + original.provider()));
+                var start = original.startAt().atZone(BookingService.BOOKING_ZONE);
+                date = start.toLocalDate();
+                for (Instant slot = original.startAt(); slot.isBefore(original.endAt()); slot = slot.plusSeconds(1800)) {
+                    var local = slot.atZone(BookingService.BOOKING_ZONE);
+                    if (local.toLocalDate().equals(date)) selected.add(local.getHour() * 2 + local.getMinute() / 30);
+                }
+                var daySlots = new HashSet<>(availableOn(date));
+                for (int slot : selected) if (daySlots.add(slot)) edits.computeIfAbsent(date, ignored -> new HashMap<>()).put(slot, true);
+                available = daySlots;
+                calendar.showDate(date); calendar.setDrafts(edits);
+                period.setValue(start.getHour() >= 12 ? "PM" : "AM");
+                renderTimes();
+            }
         } catch (IllegalArgumentException | AccessDeniedException ex) {
             add(new Paragraph(ex.getMessage()), new Anchor("messages", "Open a listing conversation"));
         } catch (DataAccessException ex) { add(new Paragraph("Unable to load calendar. Please try again later.")); }
@@ -114,7 +143,8 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private void submit() {
         request.setEnabled(false);
         try {
-            bookings.requestAppointment(conversationId, date, selected, edits);
+            if (bookingId == null) bookings.requestAppointment(conversationId, date, selected, edits);
+            else bookings.reschedule(bookingId, date, selected, edits);
             getUI().ifPresent(ui -> ui.navigate(returnPath));
         } catch (IllegalArgumentException | AccessDeniedException ex) { AvailabilityCalendar.error(ex.getMessage()); }
         catch (AvailabilityService.SaveException ex) {

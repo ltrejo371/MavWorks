@@ -193,6 +193,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
                     + format.format(booking.endAt()) + " · " + booking.status()));
             if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
                     new Button("Decline", e -> respond(booking.id(), false)));
+            card.add(new com.mavworks.booking.AppointmentActions(bookings, booking, "messages/" + conversationId, this::refresh));
             appointments.add(card);
         }
     }

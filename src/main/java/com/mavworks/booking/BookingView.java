@@ -62,6 +62,7 @@ public class BookingView extends VerticalLayout {
                 var card = new Div(new Paragraph(b.listingName() + " · " + format.format(b.startAt()) + "–"
                         + format.format(b.endAt()) + " · " + b.status()));
                 if (b.conversationId() != null) card.add(new Anchor("messages/" + b.conversationId(), "Open conversation"));
+                card.add(new AppointmentActions(bookings, b, "calendar", this::refresh));
                 if (b.status() == com.mavworks.model.BookingStatus.COMPLETED)
                     card.add(new Paragraph("Appointment completed; listing marked Sold."));
                 appointments.add(card);

@@ -38,6 +38,7 @@ public class AvailabilityCalendar extends VerticalLayout {
         }
     }
     public void reload() { available = service.month(month); render(); }
+    public void showDate(LocalDate date) { selected = date; month = YearMonth.from(date); reload(); }
     public void setDrafts(Map<LocalDate, Map<Integer, Boolean>> drafts) { this.drafts = drafts; render(); }
     public void setBookedDates(Set<LocalDate> dates) { bookedDates = dates; render(); }
     private void render() {

@@ -23,10 +23,10 @@ public class Booking {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User buyer;
 
-    @Column(name = "start_at", nullable = false, updatable = false)
+    @Column(name = "start_at", nullable = false)
     private Instant startAt;
 
-    @Column(name = "end_at", nullable = false, updatable = false)
+    @Column(name = "end_at", nullable = false)
     private Instant endAt;
 
     @Enumerated(EnumType.STRING)
@@ -76,6 +76,13 @@ public class Booking {
         this.listing = listing;
         this.startAt = startAt;
         this.endAt = endAt;
+    }
+
+    public void reschedule(Instant start, Instant end) {
+        if (status != BookingStatus.CONFIRMED || start == null || end == null || !end.isAfter(start))
+            throw new IllegalArgumentException("Choose a valid time for a confirmed appointment.");
+        startAt = start;
+        endAt = end;
     }
 
     public void approve() {
