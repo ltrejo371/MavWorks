@@ -100,6 +100,43 @@ class BookingWorkflowTest {
         login(provider); service.decline(id);
         assertFalse(bookings.existsById(id));
     }
+    @Test void incomingRequestChecksAllRecipientSlotsWithoutSharingTheirAvailability() {
+        Long id = request(chat, Set.of(24, 25));
+        assertNull(service.getAppointment(id).availableForRecipient());
+        login(provider);
+        assertEquals(Boolean.FALSE, service.getAppointment(id).availableForRecipient());
+        availability.setAvailable(date, 24, true);
+        assertEquals(Boolean.FALSE, service.getAppointment(id).availableForRecipient());
+        availability.setAvailable(date, 25, true);
+        assertEquals(Boolean.TRUE, service.getAppointment(id).availableForRecipient());
+        availability.setAvailable(date, 25, false);
+        assertEquals(Boolean.FALSE, service.getConversationBookings(chat.getId()).getFirst().availableForRecipient());
+        service.approve(id); // Missing availability is a warning, not a prohibition.
+        assertEquals(BookingStatus.CONFIRMED, service.getAppointment(id).status());
+        assertNull(service.getAppointment(id).availableForRecipient());
+    }
+    @Test void providerRequestsAndReschedulesCheckBuyersAvailability() {
+        login(provider);
+        Long id = request(chat, Set.of(47));
+        login(buyer);
+        availability.setAvailable(date, 47, true);
+        assertEquals(Boolean.TRUE, service.getAppointment(id).availableForRecipient());
+        service.approve(id);
+        login(provider);
+        service.reschedule(id, date.plusDays(1), Set.of(24), Map.of(date.plusDays(1), Map.of(24, true)));
+        assertNull(service.getAppointment(id).availableForRecipient());
+        login(buyer);
+        assertEquals(Boolean.FALSE, service.getAppointment(id).availableForRecipient());
+    }
+    @Test void legacyRequestsCheckPartialSlotsAcrossMidnight() {
+        Booking request = bookings.saveAndFlush(new Booking(chat, buyer,
+                BookingService.toInstant(date.atTime(23, 45)), BookingService.toInstant(date.plusDays(1).atTime(0, 15))));
+        login(provider);
+        availability.setAvailable(date, 47, true);
+        assertEquals(Boolean.FALSE, service.getAppointment(request.getId()).availableForRecipient());
+        availability.setAvailable(date.plusDays(1), 0, true);
+        assertEquals(Boolean.TRUE, service.getAppointment(request.getId()).availableForRecipient());
+    }
     @Test void nonParticipantsAndRequesterCannotRespond() {
         Long id = request(chat, Set.of(24));
         assertThrows(AccessDeniedException.class, () -> service.approve(id));

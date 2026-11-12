@@ -16,7 +16,8 @@ public class BookingService {
     private jakarta.persistence.EntityManager entityManager;
     public static final ZoneId BOOKING_ZONE = ZoneId.of("America/Chicago");
     public record BookingSummary(Long id, Long listingId, Long conversationId, String listingName,
-            String buyer, String provider, boolean canRespond, Instant startAt, Instant endAt, BookingStatus status) {}
+            String buyer, String provider, boolean canRespond, Instant startAt, Instant endAt, BookingStatus status,
+            Boolean availableForRecipient) {}
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
@@ -76,12 +77,29 @@ public class BookingService {
     }
     private BookingSummary summary(Booking b, User viewer) {
         BookingStatus status = b.isExpired(Instant.now()) ? BookingStatus.EXPIRED : b.getStatus();
+        boolean canRespond = !b.getRequester().getId().equals(viewer.getId()) && status == BookingStatus.REQUESTED
+                && b.getListing().getStatus() == ListingStatus.ACTIVE
+                && b.getConversation().getSaleConfirmedAt() == null && b.getConversation().getClosedAt() == null;
         return new BookingSummary(b.getId(), b.getListing().getId(), b.getConversation() == null ? null : b.getConversation().getId(),
                 b.getListing().getName(), b.getBuyer().getUsername(), b.getListing().getOwner().getUsername(),
-                !b.getRequester().getId().equals(viewer.getId()) && status == BookingStatus.REQUESTED
-                        && b.getListing().getStatus() == ListingStatus.ACTIVE
-                        && b.getConversation().getSaleConfirmedAt() == null && b.getConversation().getClosedAt() == null,
-                b.getStartAt(), b.getEndAt(), status);
+                canRespond, b.getStartAt(), b.getEndAt(), status,
+                canRespond ? coversAvailability(b, viewer) : null);
+    }
+    private boolean coversAvailability(Booking b, User viewer) {
+        var first = b.getStartAt().atZone(BOOKING_ZONE).toLocalDate();
+        var last = b.getEndAt().minusNanos(1).atZone(BOOKING_ZONE).toLocalDate();
+        var days = availability.findByUserIdAndDateBetween(viewer.getId(), first, last).stream().collect(
+                java.util.stream.Collectors.groupingBy(Availability::getDate,
+                        java.util.stream.Collectors.mapping(Availability::getSlot, java.util.stream.Collectors.toSet())));
+        // Check every half hour touched, including legacy appointments starting between slots or crossing midnight.
+        for (Instant cursor = b.getStartAt(); cursor.isBefore(b.getEndAt());) {
+            var local = cursor.atZone(BOOKING_ZONE);
+            int slot = local.getHour() * 2 + local.getMinute() / 30;
+            if (!days.getOrDefault(local.toLocalDate(), Set.of()).contains(slot)) return false;
+            var slotStart = local.withMinute((local.getMinute() / 30) * 30).withSecond(0).withNano(0);
+            cursor = slotStart.plusMinutes(30).toInstant();
+        }
+        return true;
     }
     @Transactional
     public Long requestAppointment(Long conversationId, LocalDate date, Set<Integer> selected) {

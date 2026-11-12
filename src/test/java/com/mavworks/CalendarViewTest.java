@@ -88,7 +88,7 @@ class CalendarViewTest {
         when(bookings.listingForConversation(3L)).thenReturn(10L);
         when(bookings.getAppointment(7L)).thenReturn(new BookingService.BookingSummary(7L, 10L, 3L,
                 "Tutoring", "buyer", "provider", false, BookingService.toInstant(date.atTime(12, 0)),
-                BookingService.toInstant(date.atTime(13, 0)), com.mavworks.model.BookingStatus.CONFIRMED));
+                BookingService.toInstant(date.atTime(13, 0)), com.mavworks.model.BookingStatus.CONFIRMED, null));
         var view = new AppointmentView(bookings, availability); ui.add(view);
         var event = mock(BeforeEnterEvent.class);
         when(event.getRouteParameters()).thenReturn(new RouteParameters("listingId", "10"));
@@ -103,7 +103,7 @@ class CalendarViewTest {
     @Test void cancellationRequiresYesAndNoLeavesAppointmentAlone() {
         var booking = new BookingService.BookingSummary(7L, 10L, 3L, "Tutoring", "buyer", "provider", false,
                 BookingService.toInstant(date.atTime(12, 0)), BookingService.toInstant(date.atTime(13, 0)),
-                com.mavworks.model.BookingStatus.CONFIRMED);
+                com.mavworks.model.BookingStatus.CONFIRMED, null);
         Runnable refresh = mock(Runnable.class);
         var actions = new AppointmentActions(bookings, booking, "calendar", refresh); ui.add(actions);
         button(actions, "Cancel").click(); button(ui, "No").click();

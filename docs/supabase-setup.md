@@ -115,6 +115,10 @@ V5 adds persisted messages and block-list records for the messaging workflow.
 V6 adds reports and the pending administrator review queue. Set
 `MAVWORKS_ADMIN_USER_IDS` to a comma-separated list of trusted existing `app_users.id`
 values to grant administrator access on the next login; the default grants none.
+For local testing with the Supabase profile, an optional `data/supabase-admin.properties`
+file can set `mavworks.admin-user-ids`. This file is ignored by Git and is not packaged
+in the application. It is resolved relative to the application's working directory.
+Restart the application after changing the allowlist, then sign out and sign in.
 V7 adds report decisions, warning explanations, and account bans. Admins can open
 reports, save a VALID/INVALID decision, and filter the archived results by status.
 V8 adds listing expiration, view counts, styles, expanded categories, conversation
