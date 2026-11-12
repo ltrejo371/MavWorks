@@ -163,8 +163,9 @@ public class BookingService {
             throw new IllegalArgumentException("One of you already has a confirmed appointment at this time.");
         if (existingBooking == null) return bookings.saveAndFlush(new Booking(chat, requester, start, end)).getId();
         String previous = appointmentTime(existingBooking.getStartAt(), existingBooking.getEndAt());
-        existingBooking.reschedule(start, end);
-        messages.save(requester.sendMessage(chat, "Appointment rescheduled from " + previous + " to " + appointmentTime(start, end) + "."));
+        existingBooking.reschedule(requester, start, end);
+        messages.save(requester.sendMessage(chat, "Appointment reschedule requested from " + previous + " to " + appointmentTime(start, end)
+                + ". Awaiting the other participant's confirmation."));
         bookings.flush();
         return existingBooking.getId();
     }

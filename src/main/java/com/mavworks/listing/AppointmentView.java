@@ -54,7 +54,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
                 if (original.status() != com.mavworks.model.BookingStatus.CONFIRMED || !original.startAt().isAfter(Instant.now()))
                     throw new IllegalArgumentException("Only future confirmed appointments can be changed.");
                 conversationId = original.conversationId();
-                request.setText("Save Reschedule");
+                request.setText("Request Reschedule");
             } else conversationId = chat == null ? bookings.conversationForListing(listingId) : Long.valueOf(chat.getFirst());
             if (!listingId.equals(bookings.listingForConversation(conversationId))) throw new IllegalArgumentException("Conversation does not match this listing.");
             returnPath = chat == null ? "listings/" + listingId : "messages/" + conversationId;
@@ -64,6 +64,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
             add(new Anchor(returnPath, "← Back"), new H1(original == null ? "Schedule Appointment" : "Reschedule Appointment"),
                     new Paragraph("Select consecutive 30-minute slots from your availability. Times are Central Time."),
                     new Paragraph("Availability added here is saved when you save the appointment. Back discards these changes."),
+                    new Paragraph("The appointment stays Requested until the other participant accepts it in Messages."),
                     calendar, times, request);
             if (original != null) {
                 addComponentAtIndex(2, new Paragraph(original.listingName() + " · " + original.buyer() + " · " + original.provider()));

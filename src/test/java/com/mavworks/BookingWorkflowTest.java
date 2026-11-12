@@ -184,20 +184,51 @@ class BookingWorkflowTest {
         assertEquals(1, messages.count());
     }
 
-    @Test void reschedulePreservesConfirmationAndUpdatesBothCalendars() {
+    @Test void rescheduleRequiresTheOtherParticipantToConfirmInEitherDirection() {
         Long id = request(chat, Set.of(24, 25));
         login(provider); service.approve(id);
+        org.springframework.test.util.ReflectionTestUtils.setField(bookings.findById(id).orElseThrow(),
+                "createdAt", Instant.now().minus(Duration.ofDays(3)));
+        bookings.flush();
         service.reschedule(id, date, Set.of(25, 26), Map.of(date, Map.of(25, true, 26, true)));
         entityManager.clear();
         Instant expected = BookingService.toInstant(date.atTime(12, 30));
         assertEquals(expected, service.getAppointment(id).startAt());
-        assertEquals(BookingStatus.CONFIRMED, service.getAppointment(id).status());
+        assertEquals(BookingStatus.REQUESTED, service.getAppointment(id).status());
+        assertFalse(service.getAppointment(id).canRespond());
+        assertFalse(bookings.findById(id).orElseThrow().isExpired(Instant.now()));
+        assertThrows(AccessDeniedException.class, () -> service.approve(id));
+        assertThrows(AccessDeniedException.class, () -> service.decline(id));
         login(buyer);
         assertEquals(expected, service.getMyBookings().getFirst().startAt());
+        assertTrue(service.getAppointment(id).canRespond());
+        service.approve(id);
+        assertEquals(BookingStatus.CONFIRMED, service.getAppointment(id).status());
         service.reschedule(id, date.plusDays(1), Set.of(24), Map.of(date.plusDays(1), Map.of(24, true)));
         assertEquals(BookingService.toInstant(date.plusDays(1).atTime(12, 0)), service.getAppointment(id).startAt());
+        assertEquals(BookingStatus.REQUESTED, service.getAppointment(id).status());
+        assertFalse(service.getAppointment(id).canRespond());
+        assertThrows(AccessDeniedException.class, () -> service.approve(id));
+        login(provider);
+        assertTrue(service.getAppointment(id).canRespond());
+        service.approve(id);
+        assertEquals(BookingStatus.CONFIRMED, service.getAppointment(id).status());
         assertEquals(2, messages.count());
-        assertTrue(messages.findAll().stream().allMatch(m -> m.getBody().contains("Appointment rescheduled")));
+        assertTrue(messages.findAll().stream().allMatch(m -> m.getBody().contains("Appointment reschedule requested")));
+    }
+    @Test void rescheduleReleasesOldReservationAndRechecksConflictsOnAcceptance() {
+        Long id = request(chat, Set.of(24));
+        login(provider); service.approve(id); login(buyer);
+        service.reschedule(id, date, Set.of(26), Map.of(date, Map.of(26, true)));
+        Long oldTime = request(chat, Set.of(24));
+        Long proposedTime = request(chat, Set.of(26));
+        login(provider);
+        service.approve(oldTime);
+        service.approve(proposedTime);
+        assertThrows(IllegalArgumentException.class, () -> service.approve(id));
+        assertEquals(BookingStatus.REQUESTED, service.getAppointment(id).status());
+        service.decline(id);
+        assertFalse(bookings.existsById(id));
     }
     @Test void cancellationDeletesAppointmentAndNotifiesConversation() {
         Long id = request(chat, Set.of(24));

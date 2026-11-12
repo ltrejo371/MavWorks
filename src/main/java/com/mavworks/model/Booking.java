@@ -33,7 +33,8 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus status = BookingStatus.REQUESTED;
 
-    @Column(nullable = false, updatable = false)
+    // Creation time of the current request, reset when a reschedule is proposed.
+    @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -41,7 +42,7 @@ public class Booking {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Conversation conversation;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "requester_id", nullable = false, updatable = false)
+    @JoinColumn(name = "requester_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User requester;
 
@@ -78,11 +79,16 @@ public class Booking {
         this.endAt = endAt;
     }
 
-    public void reschedule(Instant start, Instant end) {
+    public void reschedule(User requester, Instant start, Instant end) {
         if (status != BookingStatus.CONFIRMED || start == null || end == null || !end.isAfter(start))
             throw new IllegalArgumentException("Choose a valid time for a confirmed appointment.");
+        if (!conversation.hasParticipant(requester))
+            throw new IllegalArgumentException("Only participants can request appointments.");
         startAt = start;
         endAt = end;
+        this.requester = requester;
+        createdAt = Instant.now();
+        status = BookingStatus.REQUESTED;
     }
 
     public void approve() {

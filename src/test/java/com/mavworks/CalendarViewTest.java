@@ -96,7 +96,7 @@ class CalendarViewTest {
         view.beforeEnter(event);
         assertEquals("true", button(view, "12:00 PM–12:30 PM").getElement().getAttribute("aria-pressed"));
         assertEquals("true", button(view, "12:30 PM–1:00 PM").getElement().getAttribute("aria-pressed"));
-        assertTrue(button(view, "Save Reschedule").isEnabled());
+        assertTrue(button(view, "Request Reschedule").isEnabled());
         assertTrue(components(view).anyMatch(c -> c instanceof com.vaadin.flow.component.html.Anchor a && a.getHref().equals("calendar")));
         verify(bookings, never()).reschedule(any(), any(), any(), any());
     }
