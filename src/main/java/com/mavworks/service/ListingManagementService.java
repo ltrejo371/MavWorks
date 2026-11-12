@@ -116,6 +116,12 @@ public class ListingManagementService {
             throw new AccessDeniedException("Only administrators can moderate listings.");
     }
     public record ModerationListing(Long id, String name, String owner, ListingStatus status, java.time.Instant posted, java.time.Instant expires) {}
+    public enum ModerationFilter {
+        OUTDATED_INACTIVE("Outdated or inactive"), ALL("All current listings"), REMOVED("Removed listings");
+        private final String label;
+        ModerationFilter(String label) { this.label = label; }
+        public String label() { return label; }
+    }
     @Transactional(readOnly = true) public org.springframework.data.domain.Page<ModerationListing> moderationQueue(int page) {
         admin();
         return listings.findAllByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(page, 50))
@@ -125,5 +131,14 @@ public class ListingManagementService {
         admin();
         if (id == null) throw new IllegalArgumentException("Select a listing.");
         listings.findForManagement(id).orElseThrow(() -> new IllegalArgumentException("Listing not found.")).setStatus(ListingStatus.REMOVED);
+    }
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ModerationListing> moderationQueue(ModerationFilter filter, int page) {
+        admin();
+        if (filter == null || page < 0) throw new IllegalArgumentException("Choose a valid moderation filter and page.");
+        return listings.findForModeration(filter == ModerationFilter.REMOVED ? ListingStatus.REMOVED : null,
+                filter == ModerationFilter.OUTDATED_INACTIVE, java.time.Instant.now(),
+                org.springframework.data.domain.PageRequest.of(page, 50))
+                .map(l -> new ModerationListing(l.getId(), l.getName(), l.getOwner().getUsername(), l.getStatus(), l.getCreatedAt(), l.getExpiresAt()));
     }
 }

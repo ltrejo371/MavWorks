@@ -55,7 +55,7 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
     @Override public void afterNavigation(com.vaadin.flow.router.AfterNavigationEvent event) {
         String path = event.getLocation().getPath();
         String selected = (path.equals("calendar") || path.equals("bookings")) ? "calendar" : path.startsWith("messages") ? "messages" : path.equals("dashboard") ? "dashboard"
-                : path.startsWith("admin/reports") ? "admin/reports" : "";
+                : path.startsWith("admin/") ? "admin/reports" : "";
         mobileLinks.forEach((route, link) -> {
             if (route.equals(selected)) link.getElement().setAttribute("aria-current", "page");
             else link.getElement().removeAttribute("aria-current");

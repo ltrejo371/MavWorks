@@ -786,6 +786,61 @@ class MessagingWorkflowTest {
         user.setHashedPassword("test-only");
         return users.saveAndFlush(user);
     }
+    @Test void listingModerationRequiresAnActiveAdminAccount() {
+        assertThrows(AccessDeniedException.class, () -> management.moderationQueue(
+                ListingManagementService.ModerationFilter.OUTDATED_INACTIVE, 0));
+        assertThrows(AccessDeniedException.class, () -> management.remove(listing.getId()));
+        login(provider);
+        assertThrows(AccessDeniedException.class, () -> management.remove(listing.getId()));
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> management.moderationQueue(0));
+        loginAsAdmin();
+        outsider.ban(); users.saveAndFlush(outsider);
+        assertThrows(AccessDeniedException.class, () -> management.remove(listing.getId()));
+        assertEquals(ListingStatus.ACTIVE, listings.findById(listing.getId()).orElseThrow().getStatus());
+    }
+
+    @Test void moderationFilterIncludesInactiveAndExpiredListingsButNotCurrentOrRemoved() {
+        loginAsAdmin();
+        var cleanup = ListingManagementService.ModerationFilter.OUTDATED_INACTIVE;
+        assertTrue(management.moderationQueue(cleanup, 0).isEmpty());
+        assertEquals(1, management.moderationQueue(ListingManagementService.ModerationFilter.ALL, 0).getTotalElements());
+        for (ListingStatus status : List.of(ListingStatus.SOLD, ListingStatus.WITHDRAWN, ListingStatus.EXPIRED)) {
+            listing.setStatus(status); listings.saveAndFlush(listing);
+            assertEquals(listing.getId(), management.moderationQueue(cleanup, 0).getContent().getFirst().id());
+        }
+        listing.setStatus(ListingStatus.ACTIVE);
+        org.springframework.test.util.ReflectionTestUtils.setField(listing, "expiresAt", java.time.Instant.now().minusSeconds(60));
+        listings.saveAndFlush(listing);
+        assertEquals(ListingStatus.EXPIRED, management.moderationQueue(cleanup, 0).getContent().getFirst().status());
+        management.remove(listing.getId());
+        assertTrue(management.moderationQueue(cleanup, 0).isEmpty());
+        assertTrue(management.moderationQueue(ListingManagementService.ModerationFilter.ALL, 0).isEmpty());
+        assertEquals(listing.getId(), management.moderationQueue(ListingManagementService.ModerationFilter.REMOVED, 0)
+                .getContent().getFirst().id());
+    }
+
+    @Test void adminRemovalHidesListingPreservesHistoryAndPreventsOwnerRenewal() {
+        Long chat = service.startConversation(listing.getId());
+        service.sendMessage(chat, "Keep this conversation history");
+        loginAsAdmin();
+        management.remove(listing.getId());
+        management.remove(listing.getId()); // Repeating removal is harmless.
+        assertTrue(listings.existsById(listing.getId()));
+        assertEquals(ListingStatus.REMOVED, listings.findById(listing.getId()).orElseThrow().getStatus());
+        assertTrue(catalog.search(new com.mavworks.dto.SearchFilter("", null), null).isEmpty());
+        login(provider);
+        assertEquals(1, service.getChat(chat, null).messages().size());
+        assertThrows(IllegalArgumentException.class, () -> management.renew(listing.getId()));
+        assertThrows(IllegalArgumentException.class, () -> management.updateDetails(listing.getId(), "Restored", "Restored", BigDecimal.ONE, ListingCategory.OTHER));
+    }
+
+    private void loginAsAdmin() {
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(outsider.getUsername(), null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        SecurityContextHolder.setContext(context);
+    }
     private void login(User user) {
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(user.getUsername(), null, List.of()));

@@ -32,7 +32,7 @@ public class ReportsView extends VerticalLayout implements BeforeEnterObserver {
         status.addValueChangeListener(e -> { if (e.getValue() != null) { page = 0; load(); } });
         previous.addClickListener(e -> { if (page > 0) { page--; load(); } });
         next.addClickListener(e -> { page++; load(); });
-        add(new ViewTitle("Reports"), status, new Button("Refresh", e -> load()), results, previous, next);
+        add(new ViewTitle("Reports"), new Anchor("admin/listings", "Moderate listings"), status, new Button("Refresh", e -> load()), results, previous, next);
         results.setPadding(false);
     }
     @Override public void beforeEnter(BeforeEnterEvent event) { page = 0; load(); }

@@ -39,4 +39,19 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "owner")
     org.springframework.data.domain.Page<Listing> findAllByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable page);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "owner")
+    @Query("""
+            select l from Listing l
+            where (:status is null or l.status = :status)
+              and (:status is not null or l.status <> com.mavworks.model.ListingStatus.REMOVED)
+              and (:cleanupOnly = false or l.status in
+                (com.mavworks.model.ListingStatus.SOLD, com.mavworks.model.ListingStatus.WITHDRAWN,
+                 com.mavworks.model.ListingStatus.EXPIRED)
+                or (l.status = com.mavworks.model.ListingStatus.ACTIVE and l.expiresAt <= :now))
+            order by l.createdAt desc, l.id desc
+            """)
+    org.springframework.data.domain.Page<Listing> findForModeration(@Param("status") ListingStatus status,
+            @Param("cleanupOnly") boolean cleanupOnly, @Param("now") java.time.Instant now,
+            org.springframework.data.domain.Pageable page);
 }
