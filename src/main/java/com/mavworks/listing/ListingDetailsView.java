@@ -67,7 +67,8 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             for (String tag : java.util.List.of(listing.getType().name(), listing.getCategory().name(), listing.getStatus().name())) {
                 var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
             }
-            info.add(tags, new ViewTitle(listing.getName()), date, price);
+            info.add(tags, new ViewTitle(listing.getName()), date, price,
+                    new Paragraph(com.mavworks.base.ui.ListingPreview.views(listings.recordView(id))));
             if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
                 info.add(new Paragraph("Suggested appointment length: "
                         + listing.getAppointmentDurationMinutes() + " minutes"));

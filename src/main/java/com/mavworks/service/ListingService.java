@@ -13,4 +13,5 @@ public interface ListingService {
     List<Listing> search(SearchFilter filter);
     Optional<Listing> getListingDetails(Long listingId);
     List<Listing> getMyListings();
+    long recordView(Long listingId);
 }

@@ -29,8 +29,12 @@ public final class ListingPreview {
         Anchor card = new Anchor("listings/" + listing.id(), ""); card.addClassName("profile-listing-card");
         Span price = new Span(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.price()));
         price.addClassName("listing-price-small");
-        Div info = new Div(new H3(listing.name()), price, new Paragraph(label(listing.type().name())));
+        Div info = new Div(new H3(listing.name()), price, new Paragraph(label(listing.type().name())), new Paragraph(views(listing.viewCount())));
         card.add(image(listing.imageReference(), listing.name(), storage), info); return card;
+    }
+    public static String views(long count) {
+        return java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(count)
+                + (count == 1 ? " view" : " views");
     }
     public static String label(String value) {
         String text = value.toLowerCase(java.util.Locale.ROOT).replace('_', ' ');

@@ -39,6 +39,10 @@ public class LandingView extends VerticalLayout {
     private final TextField search = new TextField("Search listings");
     private final ComboBox<ListingCategory> category = new ComboBox<>("Category");
     private final ComboBox<ListingType> type = new ComboBox<>("Listing type");
+    private final ComboBox<com.mavworks.model.ListingSort> sort = new ComboBox<>("Sort by");
+    private final ComboBox<String> posted = new ComboBox<>("Posted");
+    private final com.vaadin.flow.component.datepicker.DatePicker from = new com.vaadin.flow.component.datepicker.DatePicker("From date");
+    private final com.vaadin.flow.component.datepicker.DatePicker to = new com.vaadin.flow.component.datepicker.DatePicker("To date");
     private final Paragraph status = new Paragraph();
     private final Div results = new Div();
     private final ListingCatalogService catalog;
@@ -63,8 +67,15 @@ public class LandingView extends VerticalLayout {
         type.setItemLabelGenerator(value -> label(value.name()));
         type.setPlaceholder("Products and services");
         type.setClearButtonVisible(true);
+        sort.setItems(com.mavworks.model.ListingSort.values());
+        sort.setItemLabelGenerator(com.mavworks.model.ListingSort::label);
+        sort.setValue(com.mavworks.model.ListingSort.NEWEST);
+        posted.setItems("All time", "Today", "Past week", "Past month", "Past year", "Custom range");
+        posted.setValue("All time");
+        from.setVisible(false);
+        to.setVisible(false);
         Button refresh = new Button("Refresh", event -> loadListings());
-        HorizontalLayout filters = new HorizontalLayout(search, category, type, refresh);
+        HorizontalLayout filters = new HorizontalLayout(search, sort, category, type, posted, from, to, refresh);
         filters.setAlignItems(Alignment.END);
         filters.setWidthFull();
         filters.getStyle().set("flex-wrap", "wrap");
@@ -75,24 +86,56 @@ public class LandingView extends VerticalLayout {
         search.addValueChangeListener(event -> loadListings());
         category.addValueChangeListener(event -> loadListings());
         type.addValueChangeListener(event -> loadListings());
+        sort.addValueChangeListener(event -> loadListings());
+        posted.addValueChangeListener(event -> {
+            boolean custom = "Custom range".equals(posted.getValue());
+            from.setVisible(custom); to.setVisible(custom);
+            loadListings();
+        });
+        from.addValueChangeListener(event -> loadListings());
+        to.addValueChangeListener(event -> loadListings());
         loadListings();
     }
 
     private void loadListings() {
         results.removeAll();
         try {
-            var listings = catalog.search(new SearchFilter(search.getValue(), category.getValue()),
+            var listings = catalog.search(searchFilter(),
                     type.getValue());
             boolean filtered = !search.getValue().isBlank() || category.getValue() != null
-                    || type.getValue() != null;
+                    || type.getValue() != null || !"All time".equals(posted.getValue());
             status.setText(listings.isEmpty()
                     ? (filtered ? "No listings match your filters. Try another search."
                                 : "No listings have been published yet.")
                     : listings.size() + (listings.size() == 1 ? " listing" : " listings"));
             listings.forEach(listing -> results.add(card(listing)));
+        } catch (IllegalArgumentException ex) {
+            status.setText(ex.getMessage());
         } catch (DataAccessException ex) {
             status.setText("Listings could not be loaded. Select Refresh to try again.");
         }
+    }
+
+    private SearchFilter searchFilter() {
+        // Marketplace dates follow the campus time zone, including daylight-saving changes.
+        var zone = java.time.ZoneId.of("America/Chicago");
+        var today = java.time.LocalDate.now(zone);
+        String range = posted.getValue() == null ? "All time" : posted.getValue();
+        java.time.LocalDate start = switch (range) {
+            case "Today" -> today;
+            case "Past week" -> today.minusWeeks(1);
+            case "Past month" -> today.minusMonths(1);
+            case "Past year" -> today.minusYears(1);
+            case "Custom range" -> from.getValue();
+            default -> null;
+        };
+        java.time.LocalDate end = "Custom range".equals(range) ? to.getValue() : today;
+        if ("Custom range".equals(range) && (start == null || end == null || from.isInvalid() || to.isInvalid())) {
+            throw new IllegalArgumentException("Choose valid From and To dates for the custom range.");
+        }
+        return new SearchFilter(search.getValue(), category.getValue(), sort.getValue(),
+                start == null ? null : start.atStartOfDay(zone).toInstant(),
+                start == null ? null : end.plusDays(1).atStartOfDay(zone).toInstant());
     }
 
     private Div card(ListingSummary listing) {
@@ -112,7 +155,7 @@ public class LandingView extends VerticalLayout {
         summary.addClassName("marketplace-description");
         Paragraph category = new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name()));
         category.addClassName("marketplace-category");
-        details.add(title, price, summary, category);
+        details.add(title, price, summary, category, new Paragraph(com.mavworks.base.ui.ListingPreview.views(listing.viewCount())));
         card.add(preview(listing), details);
         return card;
     }

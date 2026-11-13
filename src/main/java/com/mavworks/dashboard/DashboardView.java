@@ -78,7 +78,7 @@ public class DashboardView extends VerticalLayout {
                         "listings/" + listing.id(), listing.name());
                 Span status = new Span(listing.status().name());
                 status.addClassName("dashboard-status");
-                Div listingInfo = new Div(link, status);
+                Div listingInfo = new Div(link, status, new Span(com.mavworks.base.ui.ListingPreview.views(listing.viewCount())));
                 Span price = new Span(
                         NumberFormat.getCurrencyInstance(Locale.US)
                                 .format(listing.price()));

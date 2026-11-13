@@ -42,6 +42,13 @@ class ListingMigrationTest {
             assertEquals(1, sql.executeUpdate("UPDATE mavworks.listings SET category = 'ART', status = 'SOLD' WHERE id = 1"));
             assertThrows(SQLException.class, () -> sql.executeUpdate("UPDATE mavworks.listings SET category = 'INVALID' WHERE id = 1"));
             assertThrows(SQLException.class, () -> sql.executeUpdate("UPDATE mavworks.listings SET status = 'DRAFT' WHERE id = 1"));
+            sql.execute("SET SCHEMA mavworks");
+            org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                    new org.springframework.core.io.ClassPathResource("db/migration/postgresql/V16__expand_listing_categories.sql"));
+            for (var category : com.mavworks.model.ListingCategory.values()) {
+                assertEquals(1, sql.executeUpdate("UPDATE mavworks.listings SET category = '" + category.name() + "' WHERE id = 1"));
+            }
+            assertThrows(SQLException.class, () -> sql.executeUpdate("UPDATE mavworks.listings SET category = 'INVALID' WHERE id = 1"));
         }
     }
 }

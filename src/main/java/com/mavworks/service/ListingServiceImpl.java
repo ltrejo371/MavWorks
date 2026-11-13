@@ -43,7 +43,7 @@ public class ListingServiceImpl implements ListingService {
     @Transactional(readOnly = true)
     public List<Listing> search(SearchFilter filter) {
         return listings.searchPublished(ListingStatus.ACTIVE,
-                filter.keyword() == null ? "" : filter.keyword().trim(), filter.category(), null);
+                filter.keyword() == null ? "" : filter.keyword().trim(), filter.category(), null, filter.from(), filter.until(), filter.sort().ordering());
     }
 
     @Override
@@ -53,6 +53,13 @@ public class ListingServiceImpl implements ListingService {
         return listings.findById(listingId).filter(l -> l.getStatus() != ListingStatus.REMOVED
                 || l.getOwner().getId().equals(viewer.getId()))
                 .map(l -> { l.getImages().size(); return l; });
+    }
+
+    @Override
+    public long recordView(Long listingId) {
+        var viewer = owner();
+        listings.recordView(listingId, viewer.getId());
+        return listings.viewCount(listingId);
     }
 
     @Override
