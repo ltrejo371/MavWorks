@@ -196,8 +196,11 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             for (var booking : bookings.getConversationBookings(conversationId)) {
                 Div card = new Div(new Paragraph("Appointment · " + format.format(booking.startAt()) + "–"
                         + format.format(booking.endAt()) + " · " + booking.status()));
+                card.add(new com.mavworks.booking.AppointmentAvailabilityNotice(booking));
                 if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
                         new Button("Decline", e -> respond(booking.id(), false)));
+                card.add(new com.mavworks.booking.AppointmentActions(bookings, booking,
+                        "messages/" + conversationId, this::refresh));
                 appointments.add(card);
             }
         } catch (DataAccessException ex) {
@@ -284,6 +287,8 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             updateTimestampGroups();
             history.getElement().executeJs("requestAnimationFrame(() => { if (!this.dataset.scrolled || this.scrollHeight - this.scrollTop - this.clientHeight < 300) { this.scrollTop = this.scrollHeight; } this.dataset.scrolled = 'true'; })");
         }
+        // Acknowledge only through the last message actually loaded, so concurrent arrivals stay unread.
+        if (lastId != null) service.markConversationRead(conversationId, lastId);
     }
 
     private void updateTimestampGroups() {

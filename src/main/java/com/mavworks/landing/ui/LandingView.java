@@ -21,10 +21,12 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.*;
 import jakarta.annotation.security.PermitAll;
+import java.time.LocalDate;
 import java.text.NumberFormat;
 import java.util.Locale;
 import org.springframework.dao.DataAccessException;
@@ -39,10 +41,17 @@ public class LandingView extends VerticalLayout {
     private final TextField search = new TextField("Search listings");
     private final ComboBox<ListingCategory> category = new ComboBox<>("Category");
     private final ComboBox<ListingType> type = new ComboBox<>("Listing type");
+    private final ComboBox<ListingCatalogService.SortOption> sort = new ComboBox<>("Sort by");
+    private final ComboBox<ListingCatalogService.DateRange> dateRange = new ComboBox<>("Uploaded");
+    private final DatePicker fromDate = new DatePicker("From");
+    private final DatePicker throughDate = new DatePicker("Through");
     private final Paragraph status = new Paragraph();
     private final Div results = new Div();
+    private final Button previous = new Button("Previous");
+    private final Button next = new Button("Next");
     private final ListingCatalogService catalog;
     private final ImageStorageService images;
+    private int page;
 
     public LandingView(CurrentUser currentUser, ListingCatalogService catalog, ImageStorageService images) {
         this.catalog = catalog;
@@ -63,18 +72,65 @@ public class LandingView extends VerticalLayout {
         type.setItemLabelGenerator(value -> label(value.name()));
         type.setPlaceholder("Products and services");
         type.setClearButtonVisible(true);
+        sort.setItems(ListingCatalogService.SortOption.values());
+        sort.setItemLabelGenerator(value -> switch (value) {
+            case NEWEST -> "Newest";
+            case PRICE_LOW_TO_HIGH -> "Price: low to high";
+            case PRICE_HIGH_TO_LOW -> "Price: high to low";
+            case MOST_VIEWED -> "Most viewed";
+        });
+        sort.setValue(ListingCatalogService.SortOption.NEWEST);
+        dateRange.setItems(ListingCatalogService.DateRange.values());
+        dateRange.setItemLabelGenerator(value -> switch (value) {
+            case ANY_TIME -> "Any time";
+            case TODAY -> "Today";
+            case LAST_7_DAYS -> "Last 7 days";
+            case LAST_30_DAYS -> "Last 30 days";
+            case LAST_365_DAYS -> "Last year";
+            case CUSTOM -> "Custom dates";
+        });
+        dateRange.setValue(ListingCatalogService.DateRange.ANY_TIME);
+        fromDate.setVisible(false);
+        throughDate.setVisible(false);
+        dateRange.addValueChangeListener(event -> {
+            boolean custom = event.getValue() == ListingCatalogService.DateRange.CUSTOM;
+            fromDate.setVisible(custom);
+            throughDate.setVisible(custom);
+            filtersChanged();
+        });
         Button refresh = new Button("Refresh", event -> loadListings());
-        HorizontalLayout filters = new HorizontalLayout(search, category, type, refresh);
+        HorizontalLayout filters = new HorizontalLayout(search, category, type, sort, dateRange,
+                fromDate, throughDate, refresh);
         filters.setAlignItems(Alignment.END);
         filters.setWidthFull();
         filters.getStyle().set("flex-wrap", "wrap");
         results.setWidthFull();
         results.addClassName("marketplace-results");
         status.getElement().setAttribute("role", "status");
-        add(filters, status, results);
-        search.addValueChangeListener(event -> loadListings());
-        category.addValueChangeListener(event -> loadListings());
-        type.addValueChangeListener(event -> loadListings());
+        previous.addClickListener(event -> {
+            if (page > 0) {
+                page--;
+                loadListings();
+            }
+        });
+        next.addClickListener(event -> {
+            page++;
+            loadListings();
+        });
+        previous.setEnabled(false);
+        next.setEnabled(false);
+        add(filters, status, results, new HorizontalLayout(previous, next));
+        search.addValueChangeListener(event -> filtersChanged());
+        category.addValueChangeListener(event -> filtersChanged());
+        type.addValueChangeListener(event -> filtersChanged());
+        sort.addValueChangeListener(event -> filtersChanged());
+        fromDate.addValueChangeListener(event -> filtersChanged());
+        throughDate.addValueChangeListener(event -> filtersChanged());
+        loadListings();
+    }
+
+    private void filtersChanged() {
+        page = 0;
         loadListings();
     }
 
@@ -82,16 +138,29 @@ public class LandingView extends VerticalLayout {
         results.removeAll();
         try {
             var listings = catalog.search(new SearchFilter(search.getValue(), category.getValue()),
-                    type.getValue());
+                    type.getValue(), sort.getValue(), dateRange.getValue(), fromDate.getValue(),
+                    throughDate.getValue(), page);
             boolean filtered = !search.getValue().isBlank() || category.getValue() != null
-                    || type.getValue() != null;
-            status.setText(listings.isEmpty()
+                    || type.getValue() != null
+                    || dateRange.getValue() != ListingCatalogService.DateRange.ANY_TIME;
+            status.setText(listings.getTotalElements() == 0
                     ? (filtered ? "No listings match your filters. Try another search."
                                 : "No listings have been published yet.")
-                    : listings.size() + (listings.size() == 1 ? " listing" : " listings"));
-            listings.forEach(listing -> results.add(card(listing)));
+                    : "Showing " + (listings.getNumber() * listings.getSize() + 1) + "–"
+                            + (listings.getNumber() * listings.getSize() + listings.getNumberOfElements())
+                            + " of " + listings.getTotalElements() + " listings · Page "
+                            + (listings.getNumber() + 1) + " of " + listings.getTotalPages());
+            listings.getContent().forEach(listing -> results.add(card(listing)));
+            previous.setEnabled(listings.hasPrevious());
+            next.setEnabled(listings.hasNext());
+        } catch (IllegalArgumentException ex) {
+            status.setText(ex.getMessage());
+            previous.setEnabled(false);
+            next.setEnabled(false);
         } catch (DataAccessException ex) {
             status.setText("Listings could not be loaded. Select Refresh to try again.");
+            previous.setEnabled(false);
+            next.setEnabled(false);
         }
     }
 
@@ -112,7 +181,9 @@ public class LandingView extends VerticalLayout {
         summary.addClassName("marketplace-description");
         Paragraph category = new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name()));
         category.addClassName("marketplace-category");
-        details.add(title, price, summary, category);
+        Paragraph views = new Paragraph(listing.viewCount() + " views");
+        views.addClassName("marketplace-views");
+        details.add(title, price, summary, category, views);
         card.add(preview(listing), details);
         return card;
     }

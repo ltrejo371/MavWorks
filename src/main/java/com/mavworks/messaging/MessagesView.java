@@ -22,6 +22,7 @@ public class MessagesView extends VerticalLayout implements BeforeEnterObserver 
     private final MessagingService service;
     private final ImageStorageService images;
     private final Div conversations = new Div();
+    private java.util.Map<Long, Long> unreadCounts = java.util.Map.of();
 
     public MessagesView(MessagingService service, ImageStorageService images) {
         this.service = service;
@@ -40,6 +41,8 @@ public class MessagesView extends VerticalLayout implements BeforeEnterObserver 
         conversations.removeAll();
         try {
             var items = service.getMyConversations();
+            unreadCounts = service.getUnreadNotifications().stream().collect(java.util.stream.Collectors.toMap(
+                    MessagingService.UnreadNotification::conversationId, MessagingService.UnreadNotification::count));
             if (items.isEmpty()) conversations.add(new Paragraph("No conversations yet. Open a listing and select Message."));
             for (var c : items) {
                 conversations.add(card(c));
@@ -84,6 +87,12 @@ public class MessagesView extends VerticalLayout implements BeforeEnterObserver 
                     + "{month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'}); this.title = date.toLocaleString();", instant));
         }
         Div tags = new Div(timestamp); tags.addClassName("message-card-tags");
+        long unread = unreadCounts.getOrDefault(conversation.id(), 0L);
+        if (unread > 0) {
+            Span badge = new Span(unread + " unread");
+            badge.getElement().getThemeList().add("badge primary");
+            tags.add(badge);
+        }
         if (conversation.closed()) {
             Span closed = new Span("Closed"); closed.addClassName("message-closed"); tags.add(closed);
         }

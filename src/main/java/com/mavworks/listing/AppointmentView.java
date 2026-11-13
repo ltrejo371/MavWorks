@@ -8,6 +8,7 @@ import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.*;
 import jakarta.annotation.security.PermitAll;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import org.springframework.dao.DataAccessException;
@@ -20,6 +21,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private final BookingService bookings;
     private final AvailabilityService availability;
     private Long conversationId;
+    private Long bookingId;
     private String returnPath;
     private LocalDate date;
     private Set<Integer> available = Set.of();
@@ -29,6 +31,7 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private AvailabilityCalendar calendar;
     private final AvailabilityCalendar.PeriodPicker period = new AvailabilityCalendar.PeriodPicker();
     private boolean editingAvailability;
+    private BookingService.BookingSummary original;
     private final Button request = new Button("Request Appointment", event -> submit());
 
     public AppointmentView(BookingService bookings, AvailabilityService availability) {
@@ -42,11 +45,11 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         addClassName("mw-page");
         times.setWidthFull();
     }
-
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         removeAll();
         conversationId = null;
+        bookingId = null;
         returnPath = null;
         selected.clear();
         edits.clear();
@@ -55,21 +58,58 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         times.removeAll();
         request.setEnabled(false);
         editingAvailability = false;
+        request.setText("Request Appointment");
+        original = null;
         try {
             Long listingId = Long.valueOf(event.getRouteParameters().get("listingId").orElse(""));
-            var query = event.getLocation().getQueryParameters().getParameters().get("conversation");
-            conversationId = query == null
-                    ? bookings.conversationForListing(listingId)
-                    : Long.valueOf(query.getFirst());
+            var params = event.getLocation().getQueryParameters().getParameters();
+            var query = params.get("conversation");
+            if (params.containsKey("booking")) {
+                bookingId = Long.valueOf(params.get("booking").getFirst());
+                original = bookings.getAppointment(bookingId);
+                if (!listingId.equals(original.listingId())) {
+                    throw new IllegalArgumentException("Appointment does not match this listing.");
+                }
+                if (original.status() != com.mavworks.model.BookingStatus.CONFIRMED
+                        || !original.startAt().isAfter(java.time.Instant.now())) {
+                    throw new IllegalArgumentException("Only future confirmed appointments can be changed.");
+                }
+                conversationId = original.conversationId();
+                request.setText("Request Reschedule");
+            } else {
+                conversationId = query == null
+                        ? bookings.conversationForListing(listingId)
+                        : Long.valueOf(query.getFirst());
+            }
             if (!listingId.equals(bookings.listingForConversation(conversationId))) {
                 throw new IllegalArgumentException("Conversation does not match this listing.");
             }
             returnPath = query == null ? "listings/" + listingId : "messages/" + conversationId;
+            if (original != null) {
+                returnPath = params.getOrDefault("from", List.of("messages")).getFirst().equals("calendar")
+                        ? "calendar" : "messages/" + conversationId;
+            }
             calendar = new AvailabilityCalendar(availability, this::selectDate);
-            add(new Anchor(returnPath, "← Back"), new H1("Schedule Appointment"),
+            add(new Anchor(returnPath, "← Back"), new H1(original == null ? "Schedule Appointment" : "Reschedule Appointment"),
                     new Paragraph("Select consecutive 30-minute slots from your availability. Times are Central Time."),
-                    new Paragraph("Availability added here is saved when you request the appointment. Back discards these changes."),
+                    new Paragraph("Availability added here is saved when you save the appointment. Back discards these changes."),
+                    new Paragraph("The appointment stays Requested until the other participant accepts it in Messages."),
                     calendar, times, request);
+            if (original != null) {
+                addComponentAtIndex(2, new Paragraph(original.listingName() + " · " + original.buyer() + " · " + original.provider()));
+                var start = original.startAt().atZone(BookingService.BOOKING_ZONE);
+                date = start.toLocalDate();
+                for (Instant slot = original.startAt(); slot.isBefore(original.endAt()); slot = slot.plusSeconds(1800)) {
+                    var local = slot.atZone(BookingService.BOOKING_ZONE);
+                    if (local.toLocalDate().equals(date)) selected.add(local.getHour() * 2 + local.getMinute() / 30);
+                }
+                var daySlots = new HashSet<>(availableOn(date));
+                for (int slot : selected) if (daySlots.add(slot)) edits.computeIfAbsent(date, ignored -> new HashMap<>()).put(slot, true);
+                available = daySlots;
+                calendar.showDate(date); calendar.setDrafts(edits);
+                period.setValue(start.getHour() >= 12 ? "PM" : "AM");
+                renderTimes();
+            }
         } catch (IllegalArgumentException | AccessDeniedException ex) {
             add(new Paragraph(ex.getMessage()), new Anchor("messages", "Open a listing conversation"));
         } catch (DataAccessException ex) {
@@ -172,7 +212,8 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
         if (conversationId == null || date == null || selected.isEmpty()) return;
         request.setEnabled(false);
         try {
-            bookings.requestAppointment(conversationId, date, selected, edits);
+            if (bookingId == null) bookings.requestAppointment(conversationId, date, selected, edits);
+            else bookings.reschedule(bookingId, date, selected, edits);
             getUI().ifPresent(ui -> ui.navigate(returnPath));
         } catch (IllegalArgumentException | AccessDeniedException ex) {
             AvailabilityCalendar.error(ex.getMessage());

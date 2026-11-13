@@ -1,6 +1,7 @@
 package com.mavworks.model;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 
 @Entity
 @org.hibernate.annotations.DynamicUpdate
@@ -25,8 +26,13 @@ public class User implements UserActions {
     @Column(nullable = false)
     private boolean banned;
 
+    @Column(name = "username_last_changed_at")
+    private Instant usernameLastChangedAt;
+
     public boolean isBanned() { return banned; }
     public void ban() { banned = true; }
+    public Instant getUsernameLastChangedAt() { return usernameLastChangedAt; }
+    public void recordUsernameChange(Instant changedAt) { usernameLastChangedAt = changedAt; }
 
     public User() {
     }

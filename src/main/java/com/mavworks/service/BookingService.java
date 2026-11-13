@@ -16,7 +16,8 @@ public class BookingService {
     private jakarta.persistence.EntityManager entityManager;
     public static final ZoneId BOOKING_ZONE = ZoneId.of("America/Chicago");
     public record BookingSummary(Long id, Long listingId, Long conversationId, String listingName,
-            String buyer, String provider, boolean canRespond, Instant startAt, Instant endAt, BookingStatus status) {}
+            String buyer, String provider, boolean canRespond, Instant startAt, Instant endAt, BookingStatus status,
+            Boolean availableForRecipient) {}
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
@@ -76,12 +77,29 @@ public class BookingService {
     }
     private BookingSummary summary(Booking b, User viewer) {
         BookingStatus status = b.isExpired(Instant.now()) ? BookingStatus.EXPIRED : b.getStatus();
+        boolean canRespond = !b.getRequester().getId().equals(viewer.getId()) && status == BookingStatus.REQUESTED
+                && b.getListing().getStatus() == ListingStatus.ACTIVE
+                && b.getConversation().getSaleConfirmedAt() == null && b.getConversation().getClosedAt() == null;
         return new BookingSummary(b.getId(), b.getListing().getId(), b.getConversation() == null ? null : b.getConversation().getId(),
                 b.getListing().getName(), b.getBuyer().getUsername(), b.getListing().getOwner().getUsername(),
-                !b.getRequester().getId().equals(viewer.getId()) && status == BookingStatus.REQUESTED
-                        && b.getListing().getStatus() == ListingStatus.ACTIVE
-                        && b.getConversation().getSaleConfirmedAt() == null && b.getConversation().getClosedAt() == null,
-                b.getStartAt(), b.getEndAt(), status);
+                canRespond, b.getStartAt(), b.getEndAt(), status,
+                canRespond ? coversAvailability(b, viewer) : null);
+    }
+    private boolean coversAvailability(Booking b, User viewer) {
+        var first = b.getStartAt().atZone(BOOKING_ZONE).toLocalDate();
+        var last = b.getEndAt().minusNanos(1).atZone(BOOKING_ZONE).toLocalDate();
+        var days = availability.findByUserIdAndDateBetween(viewer.getId(), first, last).stream().collect(
+                java.util.stream.Collectors.groupingBy(Availability::getDate,
+                        java.util.stream.Collectors.mapping(Availability::getSlot, java.util.stream.Collectors.toSet())));
+        // Check every half hour touched, including legacy appointments starting between slots or crossing midnight.
+        for (Instant cursor = b.getStartAt(); cursor.isBefore(b.getEndAt());) {
+            var local = cursor.atZone(BOOKING_ZONE);
+            int slot = local.getHour() * 2 + local.getMinute() / 30;
+            if (!days.getOrDefault(local.toLocalDate(), Set.of()).contains(slot)) return false;
+            var slotStart = local.withMinute((local.getMinute() / 30) * 30).withSecond(0).withNano(0);
+            cursor = slotStart.plusMinutes(30).toInstant();
+        }
+        return true;
     }
     @Transactional
     public Long requestAppointment(Long conversationId, LocalDate date, Set<Integer> selected) {
@@ -90,6 +108,44 @@ public class BookingService {
     @Transactional
     public Long requestAppointment(Long conversationId, LocalDate date, Set<Integer> selected,
             Map<LocalDate, Map<Integer, Boolean>> edits) {
+        return saveAppointment(conversationId, date, selected, edits, null);
+    }
+    public BookingSummary getAppointment(Long id) {
+        Booking b = bookings.findById(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        requireParticipant(b, user());
+        return summary(b, user());
+    }
+    private void requireParticipant(Booking b, User viewer) {
+        if (!b.getConversation().hasParticipant(viewer)) throw new AccessDeniedException("Appointment not available.");
+    }
+    private Booking editableAppointment(Long id) {
+        Booking original = bookings.findById(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        requireParticipant(original, user());
+        lockParticipants(original.getBuyer(), original.getListing().getOwner());
+        Booking b = bookings.findForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Appointment not found."));
+        entityManager.refresh(b);
+        if (b.getStatus() != BookingStatus.CONFIRMED || !b.getStartAt().isAfter(Instant.now()))
+            throw new IllegalArgumentException("Only future confirmed appointments can be changed.");
+        return b;
+    }
+    @Transactional
+    public void reschedule(Long id, LocalDate date, Set<Integer> selected, Map<LocalDate, Map<Integer, Boolean>> edits) {
+        Booking b = editableAppointment(id);
+        saveAppointment(b.getConversation().getId(), date, selected, edits, b);
+    }
+    @Transactional
+    public void cancelAppointment(Long id) {
+        Booking b = editableAppointment(id);
+        messages.save(user().sendMessage(b.getConversation(), "Appointment cancelled: " + appointmentTime(b.getStartAt(), b.getEndAt()) + ". It has been removed from both calendars."));
+        bookings.delete(b);
+        bookings.flush();
+    }
+    private String appointmentTime(Instant start, Instant end) {
+        var format = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a z").withZone(BOOKING_ZONE);
+        return format.format(start) + "–" + format.format(end);
+    }
+    private Long saveAppointment(Long conversationId, LocalDate date, Set<Integer> selected,
+            Map<LocalDate, Map<Integer, Boolean>> edits, Booking existingBooking) {
         Conversation chat = conversation(conversationId, true);
         User requester = user();
         lockParticipants(chat.getBuyer(), chat.getListing().getOwner());
@@ -120,8 +176,16 @@ public class BookingService {
         Instant start = toInstant(date.atStartOfDay().plusMinutes(sorted.first() * (long) AvailabilityService.SLOT_MINUTES));
         Instant end = toInstant(date.atStartOfDay().plusMinutes((sorted.last() + 1) * (long) AvailabilityService.SLOT_MINUTES));
         if (!start.isAfter(Instant.now())) throw new IllegalArgumentException("Choose a future appointment time.");
-        requireFree(chat.getBuyer().getId(), chat.getListing().getOwner().getId(), start, end);
-        return bookings.saveAndFlush(new Booking(chat, requester, start, end)).getId();
+        var conflicts = bookings.findParticipantConflicts(chat.getBuyer().getId(), chat.getListing().getOwner().getId(), BookingStatus.CONFIRMED, start, end);
+        if (conflicts.stream().anyMatch(b -> existingBooking == null || !b.getId().equals(existingBooking.getId())))
+            throw new IllegalArgumentException("One of you already has a confirmed appointment at this time.");
+        if (existingBooking == null) return bookings.saveAndFlush(new Booking(chat, requester, start, end)).getId();
+        String previous = appointmentTime(existingBooking.getStartAt(), existingBooking.getEndAt());
+        existingBooking.reschedule(requester, start, end);
+        messages.save(requester.sendMessage(chat, "Appointment reschedule requested from " + previous + " to " + appointmentTime(start, end)
+                + ". Awaiting the other participant's confirmation."));
+        bookings.flush();
+        return existingBooking.getId();
     }
     private void lockParticipants(User first, User second) {
         List.of(first, second).stream().sorted(Comparator.comparing(User::getId))
@@ -171,18 +235,11 @@ public class BookingService {
             entityManager.refresh(chat, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             Listing listing = listings.findForManagement(b.getListing().getId()).orElseThrow();
             if (listing.getStatus() == ListingStatus.REMOVED) { b.cancel(); return; }
-            boolean isProduct = listing.getType() == ListingType.PRODUCT;
-            boolean isWithdrawn = listing.getStatus() == ListingStatus.WITHDRAWN;
-            if (isProduct || !isWithdrawn) listing.markSold();
+            listing.markSold();
 
             if (chat != null && chat.getClosedAt() == null) {
-                String completionMessage = isProduct
-                        ? "Appointment completed. The listing has automatically been marked Sold."
-                        : isWithdrawn
-                                ? "Service appointment completed. The listing remains Withdrawn."
-                                : "Service appointment completed. The service listing has automatically been marked Sold.";
-
-                messages.save(listing.getOwner().sendMessage(chat, completionMessage));
+                messages.save(listing.getOwner().sendMessage(chat,
+                        "Appointment completed. The listing has automatically been marked Sold."));
                 chat.confirmSale(listing.getOwner());
                 chat.closeConversation();
             }

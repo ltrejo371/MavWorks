@@ -20,6 +20,27 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class MessagingViewTest {
+    @Test void incomingRequestDisplaysAvailabilityBeforeAcceptControls() {
+        var service = mock(MessagingService.class);
+        var bookings = mock(BookingService.class);
+        when(service.getChat(3L, null)).thenReturn(chat(false, List.of()));
+        for (boolean available : List.of(false, true)) {
+            when(bookings.getConversationBookings(3L)).thenReturn(List.of(new BookingService.BookingSummary(
+                    7L, 10L, 3L, "Book", "buyer", "provider", true, Instant.now().plusSeconds(3600),
+                    Instant.now().plusSeconds(5400), com.mavworks.model.BookingStatus.REQUESTED, available)));
+            var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class), mock(ReportService.class), bookings);
+            var event = mock(BeforeEnterEvent.class);
+            when(event.getRouteParameters()).thenReturn(new RouteParameters("conversationId", "3"));
+            view.beforeEnter(event);
+            var notice = components(view).filter(com.mavworks.booking.AppointmentAvailabilityNotice.class::isInstance)
+                    .map(com.mavworks.booking.AppointmentAvailabilityNotice.class::cast).findFirst().orElseThrow();
+            assertTrue(notice.isVisible());
+            assertTrue(notice.getText().contains(available ? "within your saved availability" : "Warning:"));
+            assertTrue(button(view, "Accept").isEnabled());
+            var siblings = notice.getParent().orElseThrow().getChildren().toList();
+            assertTrue(siblings.indexOf(notice) < siblings.indexOf(button(view, "Accept")));
+        }
+    }
     @Test void keyboardSendUsesCurrentInputEvenBeforeFieldChangeIsSynchronized() {
         var service = mock(MessagingService.class);
         when(service.getChat(3L, null)).thenReturn(chat(false, List.of()));
@@ -52,7 +73,9 @@ class MessagingViewTest {
         assertFalse(times.get(0).isVisible());
         assertTrue(times.get(1).isVisible());
         assertTrue(times.get(2).isVisible());
+        verify(service).markConversationRead(3L, 3L);
         button(view, "Refresh").click();
+        verify(service).markConversationRead(3L, 4L);
         assertFalse(times.get(2).isVisible());
         assertEquals(2, components(view).filter(c -> c instanceof com.vaadin.flow.component.html.Span s
                 && s.hasClassName("mav-chat-time") && s.isVisible()).count());

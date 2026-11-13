@@ -36,6 +36,8 @@ class MessagingWorkflowTest {
     @Autowired ListingCatalogService catalog;
     @Autowired ListingManagementService management;
     @Autowired AccountDashboardService dashboard;
+    @Autowired ImageStorageService imageStorage;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     User buyer, provider, outsider;
     Listing listing;
@@ -55,6 +57,77 @@ class MessagingWorkflowTest {
         login(buyer);
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
+
+    @Test void unreadNotificationsPersistAndOnlyRecipientCanClearThem() {
+        Long chat = service.startConversation(listing.getId());
+        Long first = service.sendMessage(chat, "First message");
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        service.markConversationRead(chat, first); // Sender cannot acknowledge for the recipient.
+        login(outsider);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        assertThrows(AccessDeniedException.class, () -> service.markConversationRead(chat, first));
+        login(provider);
+        var notice = service.getUnreadNotifications().getFirst();
+        assertEquals(chat, notice.conversationId());
+        assertEquals("buyer", notice.senderName());
+        assertEquals(1, notice.count());
+        service.getChat(chat, null); // Fetching alone does not acknowledge unseen UI content.
+        assertEquals(1, service.getUnreadNotifications().getFirst().count());
+        login(buyer);
+        Long second = service.sendMessage(chat, "Arrived after the first page loaded");
+        login(provider);
+        service.markConversationRead(chat, first);
+        assertEquals(1, service.getUnreadNotifications().getFirst().count());
+        assertEquals(second, service.getUnreadNotifications().getFirst().latestMessageId());
+        service.markConversationRead(chat, second);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        Long reply = service.sendMessage(chat, "Reply");
+        login(buyer);
+        assertEquals(reply, service.getUnreadNotifications().getFirst().latestMessageId());
+        service.markConversationRead(chat, reply);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        assertEquals(3, jdbc.queryForObject("select count(*) from mavworks.messages where read_at is not null", Integer.class));
+    }
+
+    @Test void notificationsHideBlockedConversationsInBothDirections() {
+        Long chat = service.startConversation(listing.getId());
+        Long message = service.sendMessage(chat, "Hello");
+        login(provider);
+        assertEquals(1, service.getUnreadNotifications().size());
+        blocking.blockUser(buyer.getId());
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        assertThrows(MessagingBlockedException.class, () -> service.markConversationRead(chat, message));
+        blocks.deleteAll();
+        login(buyer); blocking.blockUser(provider.getId());
+        login(provider);
+        assertTrue(service.getUnreadNotifications().isEmpty());
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> service.getUnreadNotifications());
+    }
+
+    @Test void replacingListingImagesPersistsAndRemovesOldImageRows() throws Exception {
+        login(provider);
+        ListingImage old = new ListingImage();
+        old.setStorageReference("old-preview.png");
+        listing.getImages().add(old);
+        Long oldImageId = listings.saveAndFlush(listing).getImages().getFirst().getId();
+        var bytes = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1, 1,
+                java.awt.image.BufferedImage.TYPE_INT_RGB), "png", bytes);
+        String reference = imageStorage.store(new java.io.ByteArrayInputStream(bytes.toByteArray()), "new.png", "image/png");
+        try {
+            management.updateDetails(listing.getId(), "Updated book", "Updated description", BigDecimal.TEN,
+                    ListingCategory.OTHER, null, List.of(reference));
+            var reloaded = listings.findByOwnerId(provider.getId()).getFirst();
+            assertEquals("Updated book", reloaded.getName());
+            assertEquals(1, reloaded.getImages().size());
+            assertEquals(reference, reloaded.getImages().getFirst().getStorageReference());
+            assertEquals(0, reloaded.getImages().getFirst().getDisplayOrder());
+            assertEquals(0, jdbc.queryForObject("select count(*) from mavworks.listing_images where id = ?", Integer.class, oldImageId));
+        } finally {
+            imageStorage.delete(reference);
+        }
+    }
 
     @Test void profileShowsOnlyAvailableListingsAndHonorsBlocks() {
         ListingImage preview = new ListingImage(); preview.setStorageReference("profile-preview.png");
@@ -712,6 +785,61 @@ class MessagingWorkflowTest {
         user.setEmail(name + "@mavs.uta.edu");
         user.setHashedPassword("test-only");
         return users.saveAndFlush(user);
+    }
+    @Test void listingModerationRequiresAnActiveAdminAccount() {
+        assertThrows(AccessDeniedException.class, () -> management.moderationQueue(
+                ListingManagementService.ModerationFilter.OUTDATED_INACTIVE, 0));
+        assertThrows(AccessDeniedException.class, () -> management.remove(listing.getId()));
+        login(provider);
+        assertThrows(AccessDeniedException.class, () -> management.remove(listing.getId()));
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> management.moderationQueue(0));
+        loginAsAdmin();
+        outsider.ban(); users.saveAndFlush(outsider);
+        assertThrows(AccessDeniedException.class, () -> management.remove(listing.getId()));
+        assertEquals(ListingStatus.ACTIVE, listings.findById(listing.getId()).orElseThrow().getStatus());
+    }
+
+    @Test void moderationFilterIncludesInactiveAndExpiredListingsButNotCurrentOrRemoved() {
+        loginAsAdmin();
+        var cleanup = ListingManagementService.ModerationFilter.OUTDATED_INACTIVE;
+        assertTrue(management.moderationQueue(cleanup, 0).isEmpty());
+        assertEquals(1, management.moderationQueue(ListingManagementService.ModerationFilter.ALL, 0).getTotalElements());
+        for (ListingStatus status : List.of(ListingStatus.SOLD, ListingStatus.WITHDRAWN, ListingStatus.EXPIRED)) {
+            listing.setStatus(status); listings.saveAndFlush(listing);
+            assertEquals(listing.getId(), management.moderationQueue(cleanup, 0).getContent().getFirst().id());
+        }
+        listing.setStatus(ListingStatus.ACTIVE);
+        org.springframework.test.util.ReflectionTestUtils.setField(listing, "expiresAt", java.time.Instant.now().minusSeconds(60));
+        listings.saveAndFlush(listing);
+        assertEquals(ListingStatus.EXPIRED, management.moderationQueue(cleanup, 0).getContent().getFirst().status());
+        management.remove(listing.getId());
+        assertTrue(management.moderationQueue(cleanup, 0).isEmpty());
+        assertTrue(management.moderationQueue(ListingManagementService.ModerationFilter.ALL, 0).isEmpty());
+        assertEquals(listing.getId(), management.moderationQueue(ListingManagementService.ModerationFilter.REMOVED, 0)
+                .getContent().getFirst().id());
+    }
+
+    @Test void adminRemovalHidesListingPreservesHistoryAndPreventsOwnerRenewal() {
+        Long chat = service.startConversation(listing.getId());
+        service.sendMessage(chat, "Keep this conversation history");
+        loginAsAdmin();
+        management.remove(listing.getId());
+        management.remove(listing.getId()); // Repeating removal is harmless.
+        assertTrue(listings.existsById(listing.getId()));
+        assertEquals(ListingStatus.REMOVED, listings.findById(listing.getId()).orElseThrow().getStatus());
+        assertTrue(catalog.search(new com.mavworks.dto.SearchFilter("", null), null).isEmpty());
+        login(provider);
+        assertEquals(1, service.getChat(chat, null).messages().size());
+        assertThrows(IllegalArgumentException.class, () -> management.renew(listing.getId()));
+        assertThrows(IllegalArgumentException.class, () -> management.updateDetails(listing.getId(), "Restored", "Restored", BigDecimal.ONE, ListingCategory.OTHER));
+    }
+
+    private void loginAsAdmin() {
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(outsider.getUsername(), null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        SecurityContextHolder.setContext(context);
     }
     private void login(User user) {
         var context = SecurityContextHolder.createEmptyContext();

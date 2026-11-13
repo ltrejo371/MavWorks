@@ -1,7 +1,8 @@
 /* Shared visual language for the marketplace and its account workflows. */
 :root { --mw-border: #e1e7ef; --mw-muted: #5f6d80; --mw-surface: var(--vaadin-background-color, #fff); }
 .mav-shell { --vaadin-app-layout-drawer-overlay: false; }
-.mav-shell::part(navbar) { display: none; }
+.mav-shell::part(navbar) { display: flex; }
+.message-notifications { margin-left: auto; padding: 0 12px; }
 .mobile-navigation { display: none; }
 .listing-info vaadin-drawer-toggle, .profile-identity vaadin-drawer-toggle { display: none; }
 .dashboard-card h3 a { color: inherit; text-decoration: none; }
@@ -12,7 +13,8 @@
     .mav-shell::part(drawer), .mav-shell::part(backdrop) { display: none !important; }
     .mav-shell::part(navbar-top) { display: flex; position: fixed; inset: auto 0 0; height: var(--mobile-navigation-height); box-sizing: border-box; z-index: 200; padding: 0; background: var(--mw-surface); border-top: 1px solid var(--mw-border); border-bottom: 0; }
     .mav-shell::part(content) { padding-bottom: 0; }
-    .mobile-navigation { display: flex; width: 100%; height: 100%; justify-content: space-around; padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+    .mobile-navigation { display: flex; flex: 1; min-width: 0; height: 100%; justify-content: space-around; padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+    .message-notifications { flex: 0 0 auto; padding: 0 6px env(safe-area-inset-bottom, 0px) 0; }
     .mobile-navigation a { display: flex; flex: 1; min-height: 46px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #586574; text-decoration: none; border-radius: 10px; font-size: 10px; font-weight: 600; }
     .mobile-navigation vaadin-icon { width: 25px; height: 25px; }
     .mobile-navigation a[aria-current="page"] { color: #235bb7; background: #edf3fd; }

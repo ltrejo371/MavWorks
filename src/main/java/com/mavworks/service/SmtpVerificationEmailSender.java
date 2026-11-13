@@ -26,4 +26,5 @@ public class SmtpVerificationEmailSender implements VerificationEmailSender {
         try { sender.send(message); }
         catch (MailException ex) { throw new DeliveryException(); }
     }
+
 }

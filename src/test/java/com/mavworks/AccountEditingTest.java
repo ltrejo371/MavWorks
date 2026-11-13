@@ -52,6 +52,7 @@ class AccountEditingTest {
     }
     @Test void renamePersistsAndSessionKeepsOriginalIdentityEvenIfOldNameIsReused() {
         editing.save(" New.Name ", "Updated bio", null);
+        assertNotNull(users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt());
         assertEquals("new.name", dashboard.load().username());
         assertEquals("Updated bio", profiles.getProviderProfile(owner.getId()).orElseThrow().profile().bio());
         assertEquals("new.name", profiles.getProviderProfile(owner.getId()).orElseThrow().profile().username());
@@ -62,6 +63,19 @@ class AccountEditingTest {
         assertNull(users.findByUsername("owner").orElseThrow().getProfile());
         assertNull(users.findById(other.getId()).orElseThrow().getProfile());
     }
+    @Test void usernameCanChangeAgainAfterThirtyDaysButProfileEditsDoNotRestartCooldown() {
+        editing.save("first-name", "Bio", null);
+        var changedAt = users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt();
+        assertThrows(IllegalArgumentException.class, () -> editing.save("second-name", "Bio", null));
+        assertEquals(changedAt, users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt());
+
+        owner.recordUsernameChange(java.time.Instant.now().minus(java.time.Duration.ofDays(30)));
+        users.saveAndFlush(owner);
+        editing.save("second-name", "Updated bio", null);
+        assertEquals("second-name", dashboard.load().username());
+        assertTrue(users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt()
+                .isAfter(changedAt));
+    }
     @Test void invalidFieldsAndAnonymousUpdatesAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> editing.save(" OTHER ", "bad", null));
         assertThrows(IllegalArgumentException.class, () -> editing.save("?", "bad", null));
@@ -71,6 +85,20 @@ class AccountEditingTest {
         SecurityContextHolder.clearContext();
         assertThrows(AccessDeniedException.class, () -> editing.save("changed", "", null));
         assertThrows(AccessDeniedException.class, () -> dashboard.load());
+    }
+    @Test void contactInformationCanBeSavedUpdatedAndClearedOnlyForCurrentUser() {
+        editing.save("owner", "Bio", null, "  Email: hello@example.com; phone: 555-0100  ");
+        assertEquals("Email: hello@example.com; phone: 555-0100", dashboard.load().contactInformation());
+        assertEquals(dashboard.load().contactInformation(), profiles.getProviderProfile(owner.getId()).orElseThrow().profile().contactInformation());
+        assertNull(users.findById(other.getId()).orElseThrow().getProfile());
+        assertThrows(IllegalArgumentException.class, () -> editing.save("owner", "Changed", null, "x".repeat(256)));
+        assertEquals("Bio", dashboard.load().bio());
+        editing.save("owner", "Bio", null, "Updated contact");
+        assertEquals("Updated contact", dashboard.load().contactInformation());
+        editing.save("owner", "Bio", null, "  ");
+        assertEquals("", dashboard.load().contactInformation());
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> editing.save("owner", "Bio", null, "Unauthorized"));
     }
     @Test void dashboardShowsOnlyOwnReportsWithLatestStatusAndOutgoingBlocks() {
         Long id = reporting.reportUser(other.getId(), ReportCategory.SPAM, "reason");

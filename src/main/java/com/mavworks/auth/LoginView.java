@@ -39,6 +39,7 @@ public class LoginView extends Main implements BeforeEnterObserver{
         layout.add(new com.vaadin.flow.component.html.H1("MavWorks"),
                 new com.vaadin.flow.component.html.Paragraph("Your campus marketplace. Sign in to get started."), accountStatus, login, createBtn);
 
+        layout.add(new com.vaadin.flow.router.RouterLink("Forgot password?", ForgotPasswordView.class));
         layout.add(new com.vaadin.flow.router.RouterLink("Terms of Service", TermsView.class));
         add(new com.mavworks.base.ui.UtaBrand(), layout);
     }
@@ -51,6 +52,9 @@ public class LoginView extends Main implements BeforeEnterObserver{
     public void beforeEnter(BeforeEnterEvent event){
         accountStatus.setText(event.getLocation().getQueryParameters().getParameters().containsKey("banned")
                 ? "This account has been banned from MavWorks." : "");
+        if (event.getLocation().getQueryParameters().getParameters().containsKey("reset")) {
+            accountStatus.setText("Your password has been updated. Sign in with your new password.");
+        }
         if(event.getLocation().getQueryParameters().getParameters().containsKey("error")){
             login.setError(true);
         }

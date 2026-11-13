@@ -24,6 +24,7 @@
 .marketplace-price { font-size: 16px; font-weight: 650; }
 .marketplace-description { font-size: 13px; color: #555d68; }
 .marketplace-category { font-size: 12px; color: #6e7681; }
+.marketplace-views { font-size: 11px; color: #6e7681; }
 .marketplace-description, .marketplace-details h2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;

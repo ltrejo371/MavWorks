@@ -94,6 +94,8 @@ public class BookingView extends VerticalLayout {
                 if (booking.conversationId() != null) {
                     card.add(new Anchor("messages/" + booking.conversationId(), "Open conversation"));
                 }
+                card.add(new AppointmentAvailabilityNotice(booking));
+                card.add(new AppointmentActions(bookings, booking, "calendar", this::refresh));
                 if (booking.status() == BookingStatus.COMPLETED) {
                     card.add(new Paragraph("Appointment completed; listing marked Sold."));
                 }

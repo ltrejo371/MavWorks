@@ -8,6 +8,37 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
+    interface UnreadConversation {
+        Long getConversationId();
+        String getListingName();
+        String getSenderName();
+        Long getUnreadCount();
+        Long getLatestMessageId();
+    }
+
+    @Query("""
+            select m.conversation.id as conversationId, m.conversation.listing.name as listingName,
+                m.sender.username as senderName, count(m) as unreadCount, max(m.id) as latestMessageId
+            from Message m
+            where m.readAt is null and m.sender.id <> :userId
+              and (m.conversation.buyer.id = :userId or m.conversation.listing.owner.id = :userId)
+              and not exists (select b.id from UserBlock b
+                where (b.blocker.id = :userId and b.blocked.id = m.sender.id)
+                   or (b.blocked.id = :userId and b.blocker.id = m.sender.id))
+            group by m.conversation.id, m.conversation.listing.name, m.sender.username
+            order by max(m.id) desc
+            """)
+    List<UnreadConversation> findUnreadForParticipant(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("""
+            update Message m set m.readAt = :now
+            where m.conversation.id = :conversationId and m.sender.id <> :userId
+              and m.id <= :throughId and m.readAt is null
+            """)
+    int markRead(@Param("conversationId") Long conversationId, @Param("userId") Long userId,
+            @Param("throughId") Long throughId, @Param("now") java.time.Instant now);
+
     interface LastActivity {
         Long getConversationId();
         java.time.Instant getSentAt();

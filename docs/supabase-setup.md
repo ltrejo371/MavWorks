@@ -33,7 +33,9 @@ the same project and bucket configuration.
 
 New account registration also requires SMTP configuration; see
 [Email verification](email-verification.md). Existing accounts can sign in
-without email delivery configured.
+without email delivery configured. Forgot-password requests use the same SMTP
+settings. Set `PUBLIC_URL` to the public application base URL so reset emails
+contain a link that can reach the deployed instance.
 
 ## Start from PowerShell
 
@@ -115,6 +117,10 @@ V5 adds persisted messages and block-list records for the messaging workflow.
 V6 adds reports and the pending administrator review queue. Set
 `MAVWORKS_ADMIN_USER_IDS` to a comma-separated list of trusted existing `app_users.id`
 values to grant administrator access on the next login; the default grants none.
+For local testing with the Supabase profile, an optional `data/supabase-admin.properties`
+file can set `mavworks.admin-user-ids`. This file is ignored by Git and is not packaged
+in the application. It is resolved relative to the application's working directory.
+Restart the application after changing the allowlist, then sign out and sign in.
 V7 adds report decisions, warning explanations, and account bans. Admins can open
 reports, save a VALID/INVALID decision, and filter the archived results by status.
 V8 adds listing expiration, view counts, styles, expanded categories, conversation
@@ -132,6 +138,9 @@ user availability. V12 converts availability to 30-minute slots.
 V13 adds registration email verification records. V14 adds the optional reply
 column to reviews if absent and aligns an existing column to VARCHAR(2000).
 V14 has been applied to the shared database; keep the applied migration unchanged.
+V15 adds message read markers for unread-message notifications. V16 adds
+single-use, expiring password-reset tokens.
+V17 records successful username changes to enforce the 30-day change interval.
 When sharing the database, keep the team's application code and migrations in
 sync; a schema ahead of an older checkout can cause validation or insert errors.
 With development terms seeding enabled, startup publishes the bundled terms for

@@ -27,6 +27,11 @@ public class EditAccountDialog extends Dialog {
         bio.setMaxLength(2000);
         bio.setHelperText("Up to 2000 characters.");
         username.setWidthFull(); bio.setWidthFull();
+        TextArea contact = new TextArea("Contact information");
+        contact.setValue(data.contactInformation() == null ? "" : data.contactInformation());
+        contact.setMaxLength(255);
+        contact.setWidthFull();
+        contact.setHelperText("Optional email, phone number, or preferred contact method. Shown on your profile. Up to 255 characters.");
         Paragraph error = new Paragraph();
         error.getElement().setAttribute("role", "alert");
         Paragraph selected = new Paragraph();
@@ -66,7 +71,7 @@ public class EditAccountDialog extends Dialog {
             boolean committed = false;
             try {
                 if (selectedPicture != null) reference = storage.store(new ByteArrayInputStream(selectedPicture), "profile", null);
-                service.save(username.getValue(), bio.getValue(), reference);
+                service.save(username.getValue(), bio.getValue(), reference, contact.getValue());
                 committed = true;
                 close(); saved.run();
             } catch (IllegalArgumentException | org.springframework.security.access.AccessDeniedException ex) {
@@ -83,7 +88,7 @@ public class EditAccountDialog extends Dialog {
                 save.setEnabled(true);
             }
         });
-        add(username, bio, new Paragraph("Profile picture: JPEG or PNG, up to 5 MB and 20 megapixels."), preview, upload, selected, error);
+        add(username, bio, contact, new Paragraph("Profile picture: JPEG or PNG, up to 5 MB and 20 megapixels."), preview, upload, selected, error);
         getFooter().add(new Button("Cancel", e -> close()), save);
         addOpenedChangeListener(e -> { if (!e.isOpened()) selectedPicture = null; });
     }

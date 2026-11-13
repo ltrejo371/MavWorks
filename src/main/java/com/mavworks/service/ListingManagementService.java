@@ -14,8 +14,9 @@ public class ListingManagementService {
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
-    public ListingManagementService(CurrentUser current, UserRepository users, ListingRepository listings) {
-        this.current = current; this.users = users; this.listings = listings;
+    private final ImageStorageService images;
+    public ListingManagementService(CurrentUser current, UserRepository users, ListingRepository listings, ImageStorageService images) {
+        this.current = current; this.users = users; this.listings = listings; this.images = images;
     }
     private User user() {
         return current.username().flatMap(users::findByUsername).orElseThrow(() -> new AccessDeniedException("Sign in to manage listings."));
@@ -36,6 +37,13 @@ public class ListingManagementService {
     @Transactional
     public void updateDetails(Long id, String name, String description, BigDecimal price,
             ListingCategory category, Integer appointmentDurationMinutes) {
+        updateDetails(id, name, description, price, category, appointmentDurationMinutes, null);
+    }
+
+    /** Null image references preserve the existing images; a supplied list replaces them. */
+    @Transactional
+    public void updateDetails(Long id, String name, String description, BigDecimal price,
+            ListingCategory category, Integer appointmentDurationMinutes, java.util.List<String> imageReferences) {
         Listing listing = owned(id);
 
         if (listing.getStatus() == ListingStatus.SOLD) {
@@ -62,12 +70,28 @@ public class ListingManagementService {
                     "Enter a price from 0 to 999,999.99 with at most two decimal places.");
         }
 
+        if (imageReferences != null) {
+            if (imageReferences.size() > 5) {
+                throw new IllegalArgumentException("Select at most five images.");
+            }
+            imageReferences.forEach(images::validateOwnedReference);
+        }
+
         listing.setName(name.trim());
         listing.setDescription(description.trim());
         listing.setPrice(price.setScale(2));
         listing.setCategory(category == null ? ListingCategory.OTHER : category);
         if (listing.getType() == ListingType.SERVICE && appointmentDurationMinutes != null) {
             listing.setAppointmentDurationMinutes(appointmentDurationMinutes);
+        }
+        if (imageReferences != null) {
+            listing.getImages().clear();
+            for (String reference : imageReferences) {
+                ListingImage image = new ListingImage();
+                image.setStorageReference(reference);
+                image.setDisplayOrder(listing.getImages().size());
+                listing.getImages().add(image);
+            }
         }
     }
 
@@ -92,6 +116,12 @@ public class ListingManagementService {
             throw new AccessDeniedException("Only administrators can moderate listings.");
     }
     public record ModerationListing(Long id, String name, String owner, ListingStatus status, java.time.Instant posted, java.time.Instant expires) {}
+    public enum ModerationFilter {
+        OUTDATED_INACTIVE("Outdated or inactive"), ALL("All current listings"), REMOVED("Removed listings");
+        private final String label;
+        ModerationFilter(String label) { this.label = label; }
+        public String label() { return label; }
+    }
     @Transactional(readOnly = true) public org.springframework.data.domain.Page<ModerationListing> moderationQueue(int page) {
         admin();
         return listings.findAllByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(page, 50))
@@ -101,5 +131,14 @@ public class ListingManagementService {
         admin();
         if (id == null) throw new IllegalArgumentException("Select a listing.");
         listings.findForManagement(id).orElseThrow(() -> new IllegalArgumentException("Listing not found.")).setStatus(ListingStatus.REMOVED);
+    }
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ModerationListing> moderationQueue(ModerationFilter filter, int page) {
+        admin();
+        if (filter == null || page < 0) throw new IllegalArgumentException("Choose a valid moderation filter and page.");
+        return listings.findForModeration(filter == ModerationFilter.REMOVED ? ListingStatus.REMOVED : null,
+                filter == ModerationFilter.OUTDATED_INACTIVE, java.time.Instant.now(),
+                org.springframework.data.domain.PageRequest.of(page, 50))
+                .map(l -> new ModerationListing(l.getId(), l.getName(), l.getOwner().getUsername(), l.getStatus(), l.getCreatedAt(), l.getExpiresAt()));
     }
 }

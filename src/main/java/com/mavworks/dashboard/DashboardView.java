@@ -87,6 +87,7 @@ public class DashboardView extends VerticalLayout {
                         new ManageListingDialog(
                                 listing,
                                 listingManagement,
+                                storage,
                                 () -> loadAccount(service))
                                 .open());
                 Div actions = new Div(price, manage);

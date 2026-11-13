@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class MessagingService {
+    public record UnreadNotification(Long conversationId, String listingName, String senderName,
+            long count, Long latestMessageId) {}
     public record ConversationSummary(Long id, Long listingId, String listingName, String otherUser, boolean closed,
             String imageReference, java.time.Instant lastMessageAt) {}
     public record Chat(Long id, Long listingId, String listingName, Long providerId, String otherUser,
@@ -96,6 +98,19 @@ public class MessagingService {
                 .sorted(Comparator.comparing(ConversationSummary::lastMessageAt,
                         Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(ConversationSummary::id, Comparator.reverseOrder())).toList();
+    }
+
+    public List<UnreadNotification> getUnreadNotifications() {
+        return messages.findUnreadForParticipant(user(false).getId()).stream()
+                .map(n -> new UnreadNotification(n.getConversationId(), n.getListingName(), n.getSenderName(),
+                        n.getUnreadCount(), n.getLatestMessageId())).toList();
+    }
+
+    @Transactional
+    public void markConversationRead(Long id, Long throughId) {
+        User viewer = user(false);
+        accessible(id, viewer, false);
+        if (throughId != null) messages.markRead(id, viewer.getId(), throughId, java.time.Instant.now());
     }
 
     public Chat getChat(Long id, Long afterId) {
