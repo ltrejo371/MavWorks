@@ -1,11 +1,11 @@
 package com.mavworks.service;
 
+import java.util.UUID;
 
-/** Registers an account and its terms acceptance atomically. */
+/** Creates accounts only after proof of ownership of the university email. */
 public interface AccountService {
-    // Validate the university email, unique username/email, matching passwords
-    // and explicit TOS acceptance. Hash passwords; save user and agreement atomically.
-    void register(String username, String email, String password,
+    UUID requestVerification(String username, String email, String password,
             String passwordConfirmation, Long acceptedTermsId);
+    void register(String username, String email, String password,
+            String passwordConfirmation, Long acceptedTermsId, UUID verificationToken, String code);
 }
-

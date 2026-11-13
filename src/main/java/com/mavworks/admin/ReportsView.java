@@ -13,7 +13,7 @@ import org.springframework.dao.DataAccessException;
 
 @Route("admin/reports")
 @PageTitle("Reports")
-@Menu(order = 3, title = "Reports")
+@Menu(order = 3, icon = "vaadin:flag", title = "Reports")
 @RolesAllowed("ADMIN")
 public class ReportsView extends VerticalLayout implements BeforeEnterObserver {
     private final ReportService reports;

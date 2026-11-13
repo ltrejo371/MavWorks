@@ -16,11 +16,13 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users,
+            @org.springframework.beans.factory.annotation.Value("${server.servlet.context-path:}") String contextPath) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/images/uta-maverick.png").permitAll()
                 .requestMatchers("/profile-pictures/**").authenticated());
-        http.with(VaadinSecurityConfigurer.vaadin(), config -> config.loginView(LoginView.class).defaultSuccessUrl("/", true));
+        String logoutTarget = (contextPath.equals("/") ? "" : contextPath) + "/login";
+        http.with(VaadinSecurityConfigurer.vaadin(), config -> config.loginView(LoginView.class, logoutTarget).defaultSuccessUrl("/", true));
         http.addFilterAfter(new BannedAccountFilter(users),
                 org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class);
 

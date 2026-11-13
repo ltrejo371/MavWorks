@@ -1,5 +1,7 @@
 package com.mavworks.listing;
 
+import java.text.DateFormat;
+
 import com.mavworks.base.ui.ViewTitle;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -12,19 +14,19 @@ import jakarta.annotation.security.PermitAll;
 @PermitAll
 public class ListingDetailsView extends VerticalLayout implements com.vaadin.flow.router.BeforeEnterObserver {
     private final com.mavworks.service.ListingService listings;
-    private final com.mavworks.service.LocalImageStorageService storage;
+    private final com.mavworks.service.ImageStorageService storage;
     private final com.mavworks.service.MessagingService messages;
     private final com.mavworks.service.BlockService blocks;
     private final com.mavworks.service.ReportService reports;
+    private final com.mavworks.service.BookingService bookings;
 
-    public ListingDetailsView(com.mavworks.service.ListingService listings,
-            com.mavworks.service.LocalImageStorageService storage, com.mavworks.service.MessagingService messages,
-            com.mavworks.service.BlockService blocks, com.mavworks.service.ReportService reports) {
+    public ListingDetailsView(com.mavworks.service.ListingService listings, com.mavworks.service.ImageStorageService storage, com.mavworks.service.MessagingService messages, com.mavworks.service.BlockService blocks, com.mavworks.service.ReportService reports, com.mavworks.service.BookingService bookings) {
         this.listings = listings;
         this.storage = storage;
         this.messages = messages;
         this.blocks = blocks;
         this.reports = reports;
+        this.bookings = bookings;
         addClassNames("mw-page", "listing-detail-page");
     }
 
@@ -57,16 +59,20 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                 gallery.add(thumbnails);
             }
             var info = new com.vaadin.flow.component.html.Div(); info.addClassNames("mw-panel", "listing-info");
+            var date = new com.vaadin.flow.component.html.H4((java.text.DateFormat.getDateInstance(DateFormat.SHORT, java.util.Locale.US).format(java.util.Date.from(listing.getCreatedAt()))));
+            date.addClassNames("listing-date");
             var price = new Paragraph(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(listing.getPrice()));
             price.addClassName("listing-price");
             var tags = new com.vaadin.flow.component.html.Div(); tags.addClassName("listing-tags");
             for (String tag : java.util.List.of(listing.getType().name(), listing.getCategory().name(), listing.getStatus().name())) {
                 var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
             }
-            info.add(tags, new ViewTitle(listing.getName()), price);
+            info.add(tags, new ViewTitle(listing.getName()), date, price);
             if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
-                info.add(new Paragraph("Appointment length: "
+                info.add(new Paragraph("Suggested appointment length: "
                         + listing.getAppointmentDurationMinutes() + " minutes"));
+            } else {
+                info.add(new Paragraph("Arrange a pickup appointment in 30-minute slots. Start a conversation using Message, then select Request Appointment."));
             }
             var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
             providerCard.addClassName("listing-provider");
@@ -97,12 +103,8 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             var actions = new com.vaadin.flow.component.html.Div(appointmentButton, messageButton);
             actions.addClassName("listing-actions");
             info.add(actions, messageStatus);
-            if (listing.getType() == com.mavworks.model.ListingType.SERVICE
-                    && listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE) {
-                appointmentButton.setVisible(true);
-            } else {
-                appointmentButton.setVisible(false);
-            }
+            appointmentButton.setVisible(listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE
+                    && bookings.canRequestFromListing(id));
             var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
             var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
             var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);

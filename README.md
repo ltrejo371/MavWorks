@@ -58,6 +58,35 @@ Stop the app with **Ctrl+C** in the terminal.
 
 Alternatively, run the `main()` method in `Application.java` from your IDE.
 
+## Run with Supabase
+
+The commands above use local H2 and local images. To use the shared database
+and image bucket, stop the app and run from PowerShell:
+
+```powershell
+$dbSecret = Read-Host "Supabase database password" -AsSecureString
+$env:SUPABASE_DB_PASSWORD = [System.Net.NetworkCredential]::new("", $dbSecret).Password
+Remove-Variable dbSecret
+
+$env:SUPABASE_URL = Read-Host "Supabase project URL"
+$storageSecret = Read-Host "Supabase project secret API key" -AsSecureString
+$env:SUPABASE_STORAGE_SECRET_KEY = [System.Net.NetworkCredential]::new("", $storageSecret).Password
+Remove-Variable storageSecret
+
+.\mvnw.cmd clean spring-boot:run "-Dspring-boot.run.profiles=supabase"
+```
+
+Use the project HTTPS URL and backend secret key beginning with `sb_secret_`,
+not the database pooler address or publishable key. Keep credentials out of Git.
+Variables remain set in this terminal after Ctrl+C; a new terminal needs them
+entered again. IntelliJ's Run button needs its own environment configuration.
+
+Startup applies pending Flyway migrations to the shared database and processes
+due appointments. The clean build removes stale files left by branch switches.
+Existing accounts can sign in; new registration also requires
+[SMTP configuration](docs/email-verification.md). See
+[Supabase setup](docs/supabase-setup.md) for bucket setup and Git Bash commands.
+
 ## Build and test
 
 Stop the running app first.
@@ -97,7 +126,10 @@ Restart the app after pulling account changes. In Git Bash, run:
 
 Open http://localhost:8080/create-account. Enter a unique username, a
 @mavs.uta.edu email and matching passwords (at least 8 characters), then read and
-accept the displayed Terms of Service. Registration signs you in automatically.
+accept the displayed Terms of Service. Enter the six-digit code sent to your
+email to finish registration and sign in automatically. Registration requires
+SMTP configuration; see [Email verification](docs/email-verification.md).
+Existing accounts can sign in without SMTP configuration.
 
 The bundled terms are maintained in `src/main/resources/legal/terms-of-service.txt`
 and are available at `/terms`. With `mavworks.seed-development-terms=true`, startup
@@ -116,8 +148,7 @@ the liability provisions, and a separate privacy notice reflecting actual practi
 The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
 With the default H2 profile, accounts are saved in data/mavworks and survive restarts. Always run from the
 project root, and do not run two instances against the same database.
-Email ownership verification and password reset are not implemented yet.
-Development terms are placeholders for testing; replace them before public use.
+Password reset is not implemented yet. Live email delivery still needs verification.
 
 ## Create a listing
 
@@ -129,9 +160,19 @@ Current defaults for the use case's open questions: images are optional, with
 up to five JPEG/PNG files, each at most 5 MB and 20 megapixels. Category is
 optional (defaults to Other). Prices may be zero through 999,999.99 with
 at most two decimal places, as enforced by listing creation and editing.
-Images are validated by content and stored under `data/listing-images`.
-Set `mavworks.images-directory` to change that directory; deployments need a
-persistent volume shared by application instances and included in backups.
+Images are validated by content. The default profile stores listing and profile
+images under `data/listing-images`; set `mavworks.images-directory` to change that
+local directory. The `supabase` profile uses the private `mavworks-images` bucket
+so separate app instances can retrieve the same files. See
+[Supabase setup](docs/supabase-setup.md) for the bucket and required environment
+variables. Database rows store image references, not the image files themselves.
+
+Existing local images are not uploaded automatically. Preserve their filenames
+when transferring them to the bucket, or create new test listings with fresh
+uploads. Older app versions using local storage cannot display bucket-only images.
+Automated storage tests pass. Live bucket uploads were verified, and teammates
+confirmed the branch works on their app instances. Profile-picture and blocked
+profile access checks still need explicit live verification.
 
 ## Manage your listings
 
@@ -157,19 +198,21 @@ dialog. Ownership and status checks are enforced by the service, not just the UI
 Flyway V9 adds WITHDRAWN to the allowed database statuses; V10 adds booking
 support. Restart with the Supabase profile to apply pending migrations.
 
-## Service bookings
+## Calendar and appointments
 
-Open **Bookings** from the Dashboard to request an appointment for an active
-service listing. Providers choose an appointment length of 5–480 minutes when
-creating or managing a service; the default is 30 minutes. Times are entered
-and displayed in the UTA/Arlington Central time zone.
+Open **Calendar** from the sidebar to mark availability in 30-minute slots.
+Request an appointment for a product or service through its listing page or
+conversation; an open conversation is required. Select consecutive slots on
+the requesting user's calendar. Times use the UTA/Arlington Central time zone.
 
-Providers can approve or decline pending requests. Approval reserves that time;
-overlapping approved bookings are rejected, including when two requests are
-approved at nearly the same time. Pending requests do not reserve a slot.
-Buyers can cancel pending or future approved bookings. Flyway V10 adds the
-appointment duration and booking tables for Supabase; the local H2 schema is
-updated automatically.
+The other participant accepts or declines the request in the conversation.
+Confirmation reserves both participants across listings; conflicting confirmed
+appointments are rejected. Declining deletes the request. Unanswered requests
+expire after 48 hours or at their start time, whichever comes first.
+
+Completed appointments close the conversation and mark product listings Sold.
+Service listings keep their existing status. See [Calendar workflow](docs/calendar.md)
+for migration details and current limitations.
 
 ## Public profiles
 
@@ -255,8 +298,8 @@ The dashboard's **Edit profile** button lets the signed-in user update
 their username, bio, and profile picture. Usernames follow registration rules:
 3–30 lowercase letters, numbers, dots, underscores, or hyphens (input is trimmed
 and normalized to lowercase). Bios allow 2000 characters. Pictures accept JPEG
-and PNG up to 5 MB and 20 megapixels, using the same persistent image directory
-as listing images. No username-change frequency limit is imposed. Cancel leaves
+and PNG up to 5 MB and 20 megapixels, using the same image storage
+as listing images for the active profile. No username-change frequency limit is imposed. Cancel leaves
 the account unchanged; failed saves retain the form for retry. Active sessions
 use permanent account IDs so renaming does not change account ownership.
 

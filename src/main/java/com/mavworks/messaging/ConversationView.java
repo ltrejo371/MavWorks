@@ -30,12 +30,16 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private final ConversationService sales;
     private final BlockService blocks;
     private final ReportService reports;
+    private final BookingService bookings;
+    private final Div appointments = new Div();
+    private final Button appointmentMenu = new Button("+");
+    private final Button requestAppointment = new Button("Request Appointment");
     private Long conversationId;
+    private Long listingId;
     private Long firstId;
     private Long lastId;
     private Long providerId;
     private boolean viewerIsProvider;
-    private boolean serviceListing;
     private record MessageTime(java.time.Instant sentAt, Span timestamp) {}
     private final NavigableMap<Long, MessageTime> messageTimes = new TreeMap<>();
     private final VerticalLayout history = new VerticalLayout();
@@ -49,11 +53,17 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private Registration poll;
     private int previousPollInterval;
 
-    public ConversationView(MessagingService service, ConversationService sales, BlockService blocks, ReportService reports) {
+    public ConversationView(MessagingService service, ConversationService sales, BlockService blocks, ReportService reports, BookingService bookings) {
         this.service = service;
         this.sales = sales;
         this.blocks = blocks;
         this.reports = reports;
+        this.bookings = bookings;
+        appointmentMenu.setAriaLabel("Conversation actions");
+        appointmentMenu.addClickListener(e -> requestAppointment.setVisible(!requestAppointment.isVisible()));
+        requestAppointment.setVisible(false);
+        requestAppointment.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate(
+                "listings/" + listingId + "/appointment", QueryParameters.simple(java.util.Map.of("conversation", conversationId.toString())))));
         addClassName("mav-chat");
         setPadding(false);
         setSpacing(false);
@@ -98,6 +108,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     @Override public void beforeEnter(BeforeEnterEvent event) {
         removeAll();
         history.removeAll();
+        appointments.removeAll();
         messageTimes.clear();
         draft.clear();
         firstId = null;
@@ -107,8 +118,8 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             conversationId = Long.valueOf(event.getRouteParameters().get("conversationId").orElse(""));
             var chat = service.getChat(conversationId, null);
             providerId = chat.providerId();
+            listingId = chat.listingId();
             viewerIsProvider = chat.provider();
-            serviceListing = chat.serviceListing();
             Span avatar = new Span(chat.otherUser().substring(0, 1).toUpperCase(java.util.Locale.ROOT));
             avatar.addClassName("mav-chat-avatar");
             var person = new com.mavworks.base.ui.UserOptions(chat.otherUserId(), chat.otherUser(), blocks, reports, () -> {
@@ -126,14 +137,15 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             refresh.addClassName("mav-chat-refresh");
             Div header = new Div(back, identity, refresh);
             header.addClassName("mav-chat-header");
-            Div composer = new Div(draft, send);
+            requestAppointment.setVisible(false);
+            Div composer = new Div(appointmentMenu, draft, send);
             composer.addClassName("mav-chat-composer");
             bookAppointment.setHref("listings/" + chat.listingId() + "/appointment");
             bookAppointment.setText("Book appointment");
             Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"),
                     bookAppointment, confirm);
             actions.addClassName("mav-chat-actions");
-            add(header, state, older, history, feedback, composer, actions);
+            add(header, state, older, history, appointments, feedback, requestAppointment, composer, actions);
             append(chat.messages());
             older.setVisible(chat.messages().size() == 100);
             updateState(chat);
@@ -141,6 +153,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             Notification.show(ex.getMessage(), 7000, Notification.Position.MIDDLE);
             event.forwardTo("listings/" + ex.getListingId());
         } catch (IllegalArgumentException | AccessDeniedException ex) {
+            removeAll();
             conversationId = null;
             add(new Paragraph("Conversation not available."), new Anchor("messages", "Back to messages"));
         } catch (DataAccessException ex) {
@@ -170,7 +183,35 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         send.setEnabled(!chat.closed());
         confirm.setVisible(chat.provider() && !chat.closed());
         confirm.setEnabled(!chat.closed());
-        bookAppointment.setVisible(serviceListing && !chat.closed() && !chat.provider());
+        appointmentMenu.setEnabled(!chat.closed());
+        requestAppointment.setEnabled(!chat.closed());
+        refreshAppointments();
+    }
+
+    private void refreshAppointments() {
+        appointments.removeAll();
+        if (conversationId == null) return;
+        var format = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm z").withZone(BookingService.BOOKING_ZONE);
+        try {
+            for (var booking : bookings.getConversationBookings(conversationId)) {
+                Div card = new Div(new Paragraph("Appointment · " + format.format(booking.startAt()) + "–"
+                        + format.format(booking.endAt()) + " · " + booking.status()));
+                if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
+                        new Button("Decline", e -> respond(booking.id(), false)));
+                appointments.add(card);
+            }
+        } catch (DataAccessException ex) {
+            appointments.add(new Paragraph("Appointments could not be loaded. Refresh to try again."));
+        }
+    }
+    private void respond(Long id, boolean accept) {
+        try {
+            if (accept) bookings.approve(id); else bookings.decline(id);
+            refresh();
+        } catch (IllegalArgumentException | AccessDeniedException ex) { feedback.setText(ex.getMessage()); }
+        catch (DataAccessException ex) {
+            com.mavworks.booking.AvailabilityCalendar.error("Unable to save the appointment. Please try again later.");
+        }
     }
 
     private void refresh() {
@@ -281,10 +322,13 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private void denied() {
         conversationId = null;
         history.removeAll();
+        appointments.removeAll();
         messageTimes.clear();
         draft.clear();
         draft.setEnabled(false);
         send.setEnabled(false);
+        appointmentMenu.setEnabled(false);
+        requestAppointment.setVisible(false);
         confirm.setVisible(false);
         older.setVisible(false);
         feedback.setText("Conversation not available.");

@@ -15,16 +15,16 @@ import org.springframework.dao.DataAccessException;
 
 @Route("dashboard")
 @PageTitle("Dashboard")
-@Menu(order = 1, icon = "icons/clipboard-check.svg", title = "Dashboard")
+@Menu(order = 1, icon = "vaadin:user", title = "Dashboard")
 @PermitAll
 @CssImport("./styles/dashboard.css")
 public class DashboardView extends VerticalLayout {
     private final Div account = new Div();
     private final AccountEditingService editing;
-    private final LocalImageStorageService storage;
+    private final ImageStorageService storage;
     private final ListingManagementService listingManagement;
 
-    public DashboardView(AccountDashboardService service, AccountEditingService editing, LocalImageStorageService storage, ListingManagementService listingManagement) {
+    public DashboardView(AccountDashboardService service, AccountEditingService editing, ImageStorageService storage, ListingManagementService listingManagement, com.vaadin.flow.spring.security.AuthenticationContext authentication) {
         this.editing = editing;
         this.storage = storage;
         this.listingManagement = listingManagement;
@@ -33,7 +33,9 @@ public class DashboardView extends VerticalLayout {
         Button addListing = new Button("Add listing", e -> getUI().ifPresent(ui -> ui.navigate(com.mavworks.listing.CreateListingView.class)));
         addListing.addThemeVariants(ButtonVariant.PRIMARY);
         Button bookings = new Button("Bookings & availability", e -> getUI().ifPresent(ui -> ui.navigate("bookings")));
-        Div actions = new Div(new Button("Refresh", e -> loadAccount(service)), bookings, addListing);
+        Button logout = new Button("Logout", com.vaadin.flow.component.icon.VaadinIcon.SIGN_OUT.create(), e -> authentication.logout());
+        logout.setDisableOnClick(true);
+        Div actions = new Div(new Button("Refresh", e -> loadAccount(service)), bookings, addListing, logout);
         actions.addClassName("dashboard-actions");
         Div header = new Div(heading, actions); header.addClassName("dashboard-header");
         account.addClassName("dashboard-content"); add(header, account);

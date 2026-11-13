@@ -2,7 +2,7 @@ package com.mavworks.messaging;
 
 import com.mavworks.base.ui.ViewTitle;
 import com.mavworks.service.MessagingService;
-import com.mavworks.service.LocalImageStorageService;
+import com.mavworks.service.ImageStorageService;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.server.streams.DownloadResponse;
@@ -15,15 +15,15 @@ import org.springframework.dao.DataAccessException;
 
 @Route("messages")
 @PageTitle("Messages")
-@Menu(order = 2, title = "Messages")
+@Menu(order = 2, icon = "vaadin:comments", title = "Messages")
 @PermitAll
 @CssImport("./styles/messages.css")
 public class MessagesView extends VerticalLayout implements BeforeEnterObserver {
     private final MessagingService service;
-    private final LocalImageStorageService images;
+    private final ImageStorageService images;
     private final Div conversations = new Div();
 
-    public MessagesView(MessagingService service, LocalImageStorageService images) {
+    public MessagesView(MessagingService service, ImageStorageService images) {
         this.service = service;
         this.images = images;
         addClassName("messages-inbox");

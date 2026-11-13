@@ -124,7 +124,7 @@ class MessagingViewTest {
                 serviceListing, messages, 2L);
     }
     private ConversationView view(MessagingService service) {
-        var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class), mock(ReportService.class));
+        var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class), mock(ReportService.class), mock(com.mavworks.service.BookingService.class));
         var event = mock(BeforeEnterEvent.class);
         when(event.getRouteParameters()).thenReturn(new RouteParameters("conversationId", "3"));
         view.beforeEnter(event);

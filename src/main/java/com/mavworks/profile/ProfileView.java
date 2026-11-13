@@ -19,6 +19,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.security.access.AccessDeniedException;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.H5;
+
 import java.text.NumberFormat;
 import java.util.Locale;
 
@@ -29,13 +31,13 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
     private final ReviewService service;
     private final com.mavworks.service.BlockService blocks;
     private final com.mavworks.service.ReportService reports;
-    private final com.mavworks.service.LocalImageStorageService images;
+    private final com.mavworks.service.ImageStorageService images;
     private Long providerId;
     private final VerticalLayout form = new VerticalLayout();
     private final Paragraph feedback = new Paragraph();
 
     public ProfileView(ReviewService service, com.mavworks.service.BlockService blocks,
-            com.mavworks.service.ReportService reports, com.mavworks.service.LocalImageStorageService images) {
+            com.mavworks.service.ReportService reports, com.mavworks.service.ImageStorageService images) {
         this.service = service;
         this.blocks = blocks;
         this.reports = reports;
@@ -128,6 +130,13 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
                     Paragraph comment = new Paragraph(review.comment());
                     comment.getStyle().set("white-space", "pre-wrap");
                     card.add(comment);
+                }
+                if (review.reply() != null && !review.reply().isBlank()) {
+                    H5 divider = new H5("Provider replied to review: ");
+                    card.add(divider);
+                    Paragraph reply = new Paragraph(review.reply());
+                    reply.getStyle().set("white-space","pre-wrap");
+                    card.add(reply);
                 }
                 reviewCards.add(card);
             }
