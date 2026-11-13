@@ -71,6 +71,8 @@ public class ReportDetailsView extends VerticalLayout implements BeforeEnterObse
             decision.setRequiredIndicatorVisible(true);
             ComboBox<ModerationAction> action = new ComboBox<>("Action for a valid report");
             action.setItems(ModerationAction.values());
+            action.setHelperText("A warning becomes a ban at warning #" + reports.warningLimit()
+                    + ". Choose BAN for a severe offense at any time.");
             action.setVisible(false);
             TextArea note = new TextArea("Explanation");
             note.setMaxLength(2000);

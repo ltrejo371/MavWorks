@@ -5,6 +5,7 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.*;
 
 public interface ReportRepository extends JpaRepository<Report, Long> {
+    java.util.List<Report> findByReportedUserIdAndStatusOrderByReviewedAtAscIdAsc(Long userId, ReportStatus status);
     @EntityGraph(attributePaths = "reportedUser")
     java.util.List<Report> findByReporterIdOrderByCreatedAtDescIdDesc(Long reporterId);
     @EntityGraph(attributePaths = {"reporter", "reportedUser"})

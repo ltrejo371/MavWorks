@@ -17,6 +17,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users,
+            com.mavworks.service.ModerationNoticeService notices,
             @org.springframework.beans.factory.annotation.Value("${server.servlet.context-path:}") String contextPath) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/images/uta-maverick.png", "/forgot-password", "/reset-password", "/unlock-account").permitAll()
@@ -28,6 +29,13 @@ public class SecurityConfig {
 
         http.rememberMe(remember -> remember.disable());
         http.formLogin(form -> form.failureHandler((request, response, exception) -> {
+            var session = request.getSession(false);
+            if (session != null) session.removeAttribute("moderationBanNotices");
+            if (exception instanceof BannedLoginException banned) {
+                request.getSession(true).setAttribute("moderationBanNotices", notices.forAccount(banned.accountId(), false));
+                response.sendRedirect(request.getContextPath() + "/login?banned");
+                return;
+            }
             String reason = exception instanceof org.springframework.security.authentication.LockedException ? "locked"
                     : request.getParameter("username") == null || request.getParameter("username").isBlank()
                       || request.getParameter("password") == null || request.getParameter("password").isEmpty()
