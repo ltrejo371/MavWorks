@@ -124,7 +124,9 @@ class ListingCatalogTest {
                 new SearchFilter("", ListingCategory.BOOKS, sort, start, end), ListingType.PRODUCT)
                 .stream().map(com.mavworks.dto.ListingSummary::id).toList();
         assertEquals(java.util.List.of(newer.getId(), older.getId()), ids.apply(ListingSort.NEWEST));
+        assertEquals(java.util.List.of(older.getId(), newer.getId()), ids.apply(ListingSort.OLDEST));
         assertEquals(java.util.List.of(older.getId(), newer.getId()), ids.apply(ListingSort.PRICE_LOW_TO_HIGH));
+        assertEquals(java.util.List.of(newer.getId(), older.getId()), ids.apply(ListingSort.PRICE_HIGH_TO_LOW));
         var context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
         org.springframework.security.core.context.SecurityContextHolder.setContext(context);
         try {
