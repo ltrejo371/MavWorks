@@ -37,6 +37,12 @@ class LoginRecoveryTest {
         return authentication.getAuthenticationManager().authenticate(
                 UsernamePasswordAuthenticationToken.unauthenticated(user.getUsername().toUpperCase(Locale.ROOT), password));
     }
+    @Test void banDetailsRequireCorrectPasswordAndNeverAuthenticate() throws Exception {
+        user.ban(); users.saveAndFlush(user);
+        assertThrows(BadCredentialsException.class, () -> login("wrong"));
+        var failure = assertThrows(com.mavworks.security.BannedLoginException.class, () -> login(PASSWORD));
+        assertEquals(user.getId(), failure.accountId());
+    }
     private User saved() { return users.findById(user.getId()).orElseThrow(); }
     private String token(boolean unlock) {
         var link = org.mockito.ArgumentCaptor.forClass(String.class);
@@ -131,6 +137,25 @@ class LoginRecoveryTest {
     }
 
     @Autowired org.springframework.web.context.WebApplicationContext web;
+    @Test void bannedLoginRedirectCarriesNoticesOnlyAfterPasswordVerification() throws Exception {
+        user.ban(); users.saveAndFlush(user);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup(web)
+                .addFilters(security, (jakarta.servlet.Filter) (request, response, chain) ->
+                        ((jakarta.servlet.http.HttpServletResponse) response).setStatus(204)).build();
+        var session = new org.springframework.mock.web.MockHttpSession();
+        var page = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/login").session(session)).andReturn();
+        var csrf = (org.springframework.security.web.csrf.CsrfToken) page.getRequest()
+                .getAttribute(org.springframework.security.web.csrf.CsrfToken.class.getName());
+        var verified = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/login").session(session)
+                .param(csrf.getParameterName(), csrf.getToken()).param("username", user.getUsername()).param("password", PASSWORD)).andReturn();
+        assertEquals("/login?banned", verified.getResponse().getRedirectedUrl());
+        assertNotNull(session.getAttribute("moderationBanNotices"));
+        assertNull(session.getAttribute("SPRING_SECURITY_CONTEXT"));
+        var incorrect = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/login").session(session)
+                .param(csrf.getParameterName(), csrf.getToken()).param("username", user.getUsername()).param("password", "wrong")).andReturn();
+        assertEquals("/login?error", incorrect.getResponse().getRedirectedUrl());
+        assertNull(session.getAttribute("moderationBanNotices"));
+    }
     @Autowired @org.springframework.beans.factory.annotation.Qualifier("springSecurityFilterChain") jakarta.servlet.Filter security;
     @Test void formLoginShowsRequiredInvalidAndLockedStates() throws Exception {
         jakarta.servlet.Filter terminal = (request, response, chain) -> ((jakarta.servlet.http.HttpServletResponse) response).setStatus(204);

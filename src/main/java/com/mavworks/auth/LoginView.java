@@ -21,6 +21,8 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 public class LoginView extends Main implements BeforeEnterObserver{
     private final LoginForm login;
     private final Button createBtn;
+    @org.springframework.beans.factory.annotation.Value("${mavworks.appeal-email:mavworks0@gmail.com}")
+    private String appealEmail = "mavworks0@gmail.com";
     private final com.vaadin.flow.component.html.Paragraph accountStatus = new com.vaadin.flow.component.html.Paragraph();
 
     public LoginView(){
@@ -62,5 +64,13 @@ public class LoginView extends Main implements BeforeEnterObserver{
                 : "");
         login.setError(params.containsKey("error"));
         login.setEnabled(true);
+        var request = com.vaadin.flow.server.VaadinService.getCurrentRequest();
+        var session = request == null ? null : request.getWrappedSession(false);
+        if (session != null && session.getAttribute("moderationBanNotices") instanceof java.util.List<?> stored) {
+            var notices = stored.stream().filter(com.mavworks.service.ModerationNoticeService.Notice.class::isInstance)
+                    .map(com.mavworks.service.ModerationNoticeService.Notice.class::cast).toList();
+            session.removeAttribute("moderationBanNotices");
+            new com.mavworks.base.ui.ModerationNoticeDialog(notices, true, appealEmail, () -> {}).open();
+        }
     }
 }

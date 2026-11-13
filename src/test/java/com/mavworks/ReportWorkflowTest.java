@@ -29,6 +29,7 @@ class ReportWorkflowTest {
     @Autowired ReportRepository reports;
     @Autowired UserBlockRepository blocks;
     @Autowired EntityManager entityManager;
+    @Autowired com.mavworks.service.ModerationNoticeService notices;
     User reporter, target, admin;
 
     @BeforeEach void setup() {
@@ -96,6 +97,53 @@ class ReportWorkflowTest {
         assertEquals("Deleted account", item.reportedUser());
         assertEquals("Retained evidence", item.reason());
         assertEquals(ReportStatus.PENDING, item.status());
+    }
+
+    @Test void warningsAreNumberedPersistedAndAcknowledgedAndThirdViolationBans() {
+        for (int number = 1; number <= 3; number++) {
+            login(reporter, "USER");
+            Long id = service.reportUser(target.getId(), ReportCategory.HARASSMENT, "Private reporter evidence");
+            login(admin, "ADMIN");
+            service.validateReport(id, ReportStatus.VALID, ModerationAction.WARNING, "Offense " + number);
+            entityManager.flush();
+            entityManager.clear();
+            login(target, "USER");
+            var pending = number == 3 ? notices.forAccount(target.getId(), true) : notices.pending();
+            assertEquals(1, pending.size());
+            assertEquals(number, pending.getFirst().warningNumber());
+            assertEquals("Offense " + number, pending.getFirst().explanation());
+            assertEquals(number == 3, pending.getFirst().banned());
+            assertEquals(number == 3, users.findById(target.getId()).orElseThrow().isBanned());
+            if (number == 3) continue;
+            notices.acknowledge(List.of(id));
+            entityManager.flush();
+            entityManager.clear();
+            assertTrue(notices.pending().isEmpty());
+        }
+        assertEquals(3, notices.forAccount(target.getId(), false).size());
+    }
+
+    @Test void severeFirstOffenseBansAndInvalidReportsProduceNoNotice() {
+        Long invalid = service.reportUser(target.getId(), ReportCategory.OTHER, "Unsubstantiated");
+        Long severe = service.reportUser(target.getId(), ReportCategory.SCAM_OR_FRAUD, "Private evidence");
+        login(admin, "ADMIN");
+        service.validateReport(invalid, ReportStatus.INVALID, null, "Not valid");
+        service.validateReport(severe, ReportStatus.VALID, ModerationAction.BAN, "Fraudulent payment requests");
+        login(target, "USER");
+        var notice = notices.forAccount(target.getId(), false).getFirst();
+        assertEquals(1, notices.forAccount(target.getId(), false).size());
+        assertEquals(1, notice.warningNumber());
+        assertTrue(notice.banned());
+        assertTrue(users.findById(target.getId()).orElseThrow().isBanned());
+    }
+
+    @Test void otherAccountsCannotAcknowledgeNotices() {
+        Long id = service.reportUser(target.getId(), ReportCategory.SPAM, "Evidence");
+        login(admin, "ADMIN");
+        service.validateReport(id, ReportStatus.VALID, ModerationAction.WARNING, "Repeated spam");
+        login(reporter, "USER");
+        assertTrue(notices.pending().isEmpty());
+        assertThrows(AccessDeniedException.class, () -> notices.acknowledge(List.of(id)));
     }
 
     private User account(String name) {
