@@ -58,7 +58,10 @@ public class BlockService {
 
         if (blocks.existsByBlockerIdAndBlockedId(actor.getId(), targetId)){
             var target = users.findById(targetId).orElseThrow(() -> new IllegalArgumentException("Account not available."));
-            blocks.deleteById()
+            String in = blocks.findByBlockerIdandBlockedId(actor.getId(), targetId).get(0);
+            if(in != null && !in.isBlank() && !in.isEmpty()){
+                blocks.deleteById(Long.getLong(blocks.findByBlockerIdandBlockedId(actor.getId(), targetId).get(0)));
+            }
         }
     }
 }
