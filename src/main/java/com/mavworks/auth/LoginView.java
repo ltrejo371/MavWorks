@@ -27,6 +27,8 @@ public class LoginView extends Main implements BeforeEnterObserver{
         addClassName("auth-page");
         login = new LoginForm();
         login.setAction("login");
+        login.setForgotPasswordButtonVisible(true);
+        login.addForgotPasswordListener(event -> getUI().ifPresent(ui -> ui.navigate("forgot-password")));
 
         createBtn = new Button("New Account", event -> gotoCreateAccount());
         createBtn.addThemeVariants(ButtonVariant.PRIMARY);
@@ -40,6 +42,7 @@ public class LoginView extends Main implements BeforeEnterObserver{
                 new com.vaadin.flow.component.html.Paragraph("Your campus marketplace. Sign in to get started."), accountStatus, login, createBtn);
 
         layout.add(new com.vaadin.flow.router.RouterLink("Terms of Service", TermsView.class));
+        layout.add(new com.vaadin.flow.component.html.Anchor("forgot-password?mode=unlock", "Resend account unlock email"));
         add(new com.mavworks.base.ui.UtaBrand(), layout);
     }
 
@@ -49,10 +52,15 @@ public class LoginView extends Main implements BeforeEnterObserver{
 
     @Override 
     public void beforeEnter(BeforeEnterEvent event){
-        accountStatus.setText(event.getLocation().getQueryParameters().getParameters().containsKey("banned")
-                ? "This account has been banned from MavWorks." : "");
-        if(event.getLocation().getQueryParameters().getParameters().containsKey("error")){
-            login.setError(true);
-        }
+        var params = event.getLocation().getQueryParameters().getParameters();
+        accountStatus.setText(params.containsKey("banned") ? "This account has been banned from MavWorks."
+                : params.containsKey("locked") ? "Your account is temporarily locked after three incorrect passwords. Check your email for an unlock link, or request another recovery email."
+                : params.containsKey("required") ? "Username and password are required."
+                : params.containsKey("reset") ? "Your password has been reset. Sign in with your new password."
+                : params.containsKey("unlocked") ? "Your account is unlocked. You can now sign in."
+                : params.containsKey("session-ended") ? "Your session has ended following an account security change. Please sign in again."
+                : "");
+        login.setError(params.containsKey("error"));
+        login.setEnabled(true);
     }
 }

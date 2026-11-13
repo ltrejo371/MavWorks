@@ -6,14 +6,18 @@ Codes expire after 10 minutes and allow at most five incorrect attempts. Failed 
 
 ## Email delivery configuration
 
-Configure these environment variables before enabling registration in deployment:
+For local development, copy [mail.properties.example](mail.properties.example) to `data/mail.properties`, replace every placeholder with your SMTP provider's settings, and restart the app. The file is ignored by Git and loaded automatically by both the default and Supabase profiles. Never commit credentials. If the SMTP provider requires an app password or an SMTP-specific key, use that credential rather than your regular sign-in password.
+
+Alternatively, configure these environment variables before starting the app:
 
 - `SMTP_HOST`: your SMTP provider's hostname.
 - `SMTP_PORT`: defaults to `587`.
 - `SMTP_USERNAME` and `SMTP_PASSWORD`: SMTP credentials.
 - `MAIL_FROM`: a sender address authorized by your email provider.
-- `SMTP_AUTH` and `SMTP_STARTTLS`: default to `true`; turn them off only for an appropriate local test mail server.
+- `SMTP_AUTH` and `SMTP_STARTTLS`: default to `true` for authenticated SMTP with STARTTLS on port 587.
+- `SMTP_SSL`: defaults to `false`. For a provider using implicit TLS on port 465, use `SMTP_SSL=true` and `SMTP_STARTTLS=false`. Authentication should remain enabled.
+- For a local test SMTP server only, authentication and TLS can be disabled.
 
-Credentials are not included in source control. The application uses Spring Boot's SMTP mail support with finite network timeouts. If no sender is configured or delivery fails, registration displays an error and creates no account. There is no console-code fallback or verification bypass. See [Spring Boot email configuration](https://docs.spring.io/spring-boot/reference/io/email.html) for additional provider settings.
+Credentials are not included in source control. The application uses Spring Boot's SMTP mail support with finite network timeouts. Missing configuration and SMTP authentication failures produce distinct setup messages. Connection or delivery failures show a retry message. No account is created on failure, and a retry remains available. Diagnostic logs omit addresses, codes, credentials, and provider exception text. There is no console-code fallback or verification bypass. See [Spring Boot email configuration](https://docs.spring.io/spring-boot/reference/io/email.html) for additional provider settings.
 
 Flyway V13 creates `email_verifications` in the managed database. The local Hibernate profile creates the new table automatically. No live email delivery or production database migration is performed by the code update; deployment needs valid SMTP configuration and a real delivery smoke test.

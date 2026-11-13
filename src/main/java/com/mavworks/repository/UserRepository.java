@@ -6,6 +6,14 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select u from User u where u.email = :email")
+    Optional<User> findForRecoveryEmail(@org.springframework.data.repository.query.Param("email") String email);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select u from User u where u.recoveryTokenHash = :hash")
+    Optional<User> findForRecoveryToken(@org.springframework.data.repository.query.Param("hash") String hash);
+
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
 

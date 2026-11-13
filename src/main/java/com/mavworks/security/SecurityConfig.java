@@ -19,13 +19,23 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users,
             @org.springframework.beans.factory.annotation.Value("${server.servlet.context-path:}") String contextPath) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/images/uta-maverick.png").permitAll()
+                .requestMatchers("/images/uta-maverick.png", "/forgot-password", "/reset-password", "/unlock-account").permitAll()
                 .requestMatchers("/profile-pictures/**").authenticated());
         String logoutTarget = (contextPath.equals("/") ? "" : contextPath) + "/login";
         http.with(VaadinSecurityConfigurer.vaadin(), config -> config.loginView(LoginView.class, logoutTarget).defaultSuccessUrl("/", true));
         http.addFilterAfter(new BannedAccountFilter(users),
                 org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class);
 
+        http.rememberMe(remember -> remember.disable());
+        http.formLogin(form -> form.failureHandler((request, response, exception) -> {
+            String reason = exception instanceof org.springframework.security.authentication.LockedException ? "locked"
+                    : request.getParameter("username") == null || request.getParameter("username").isBlank()
+                      || request.getParameter("password") == null || request.getParameter("password").isEmpty()
+                    ? "required" : "error";
+            response.sendRedirect(request.getContextPath() + "/login?" + reason);
+        }));
+        http.headers(headers -> headers.referrerPolicy(policy -> policy.policy(
+                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)));
         return http.build();
     }
 
@@ -49,7 +59,7 @@ public class SecurityConfig {
                     .roles(admins.contains(user.getId())
                             ? new String[] {"USER", "ADMIN"} : new String[] {"USER"}).build();
             return new AccountPrincipal(user.getId(), details.getUsername(), details.getPassword(),
-                    details.isEnabled(), details.getAuthorities());
+                    details.isEnabled(), !user.isLoginLocked(), user.getSecurityVersion(), details.getAuthorities());
         };
     }
 }
