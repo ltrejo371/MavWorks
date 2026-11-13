@@ -8,18 +8,18 @@ Incoming requests show the recipient whether the entire appointment falls within
 
 Calendar edits save immediately. The scheduling use cases also require Back to discard all changes, so availability edits made on the scheduling screen are drafts: they save in the same transaction as the appointment. Failed requests roll back those edits, and Back discards them. The screen explains this behavior.
 
-Requests expire at the earlier of their start time and 48 hours after creation. Expired requests cannot be accepted even before the background task runs. Every 15 seconds, a background task persists expirations and completes confirmed appointments whose end time has passed. Completion marks product and service listings Sold, posts a message in the appointment’s conversation, and closes that conversation using the existing sale/review flow. Removed listings remain removed and their appointments are cancelled. Jobs resume after application restarts.
+Requests expire at the earlier of their start time and 48 hours after creation. Expired requests cannot be accepted even before the background task runs. Every 15 seconds, a background task persists expirations and completes confirmed appointments whose end time has passed. Completion marks product listings Sold and preserves the existing status of service listings. Active services remain available for future appointments. Completion posts a message in the appointment’s conversation and closes that conversation using the existing sale/review flow. Removed listings remain removed and their appointments are cancelled. Jobs resume after application restarts.
 
 Either participant can reschedule a future confirmed appointment from Calendar (including the Bookings alias) or Messages. The scheduling screen opens on the saved date with the existing time slots selected, supports same-day time changes, and returns to its originating page after saving or Back. Rescheduling returns the appointment to Requested and records the proposing participant as requester. Only the other participant can accept or decline in Messages, just as for a new request. The old confirmed reservation is released; the proposed time becomes reserved only upon acceptance, when conflicts are checked again. Rescheduling restarts the 48-hour request window (still capped at the new start time), checks conflicts for both participants while excluding the appointment itself, and saves availability drafts, the new times, and a conversation notice in one transaction. Direct appointment access is restricted to its participants.
 
 Cancel displays a Yes/No confirmation. Yes deletes the appointment from the database and both calendars and posts a cancellation notice in its listing conversation in the same transaction. No makes no changes. Started or completed appointments cannot be rescheduled or cancelled through these controls.
 
+For an active service, selecting Message after the previous conversation closes starts a new conversation for the same buyer. An existing open conversation is reused. Previous messages, appointments, and review eligibility are retained. Products and unavailable services continue to open their existing conversation history.
+
 ## Current limitations
 
 Confirmed appointments do not clear the underlying availability selections.
 The calendar does not yet distinguish booked time clearly from availability.
-After a service conversation closes, the same buyer's Message action returns
-to that closed conversation instead of starting a new transaction.
 
 ## Database upgrade
 

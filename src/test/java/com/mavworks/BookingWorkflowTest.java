@@ -32,6 +32,7 @@ class BookingWorkflowTest {
     @Autowired AvailabilityRepository slots;
     @Autowired BookingService service;
     @Autowired AvailabilityService availability;
+    @Autowired MessagingService messaging;
     @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     private User buyer, provider, stranger;
     private Listing listing;
@@ -190,34 +191,47 @@ class BookingWorkflowTest {
     }
 
     @Test
-    void completedServiceAppointmentMarksListingSold() {
+    void completedServiceAppointmentAllowsSameBuyerToBookAgain() {
         Booking appointment = completedAppointment(chat);
 
         assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
-        assertEquals(ListingStatus.SOLD, listing.getStatus());
+        assertEquals(ListingStatus.ACTIVE, listing.getStatus());
         assertNotNull(chat.getSaleConfirmedAt());
         assertNotNull(chat.getClosedAt());
         assertEquals(1, messages.count());
         assertEquals(
-                "Appointment completed. The listing has automatically been marked Sold.",
+                "Service appointment completed. The service listing's status has not changed.",
                 messages.findAll().getFirst().getBody());
 
-        // Sold services no longer accept new appointments.
-        login(stranger);
+        login(buyer);
+        Long nextConversationId = messaging.startConversation(listing.getId());
+
+        assertNotEquals(chat.getId(), nextConversationId);
+        assertEquals(nextConversationId,
+                service.conversationForListing(listing.getId()));
+        assertTrue(service.canRequestFromListing(listing.getId()));
+
         Conversation nextChat =
-                conversations.saveAndFlush(new Conversation(stranger, listing));
-        assertThrows(IllegalArgumentException.class, () -> request(nextChat, Set.of(24)));
+                conversations.findById(nextConversationId).orElseThrow();
+        Long nextAppointmentId = request(nextChat, Set.of(24));
+
+        login(provider);
+        service.approve(nextAppointmentId);
+
+        assertEquals(BookingStatus.CONFIRMED,
+                bookings.findById(nextAppointmentId).orElseThrow().getStatus());
+        assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
     }
 
     @Test
-    void completedServiceAppointmentMarksWithdrawnListingSold() {
+    void completedServiceAppointmentPreservesWithdrawnStatus() {
         listing.setStatus(ListingStatus.WITHDRAWN);
         listings.saveAndFlush(listing);
 
         Booking appointment = completedAppointment(chat);
 
         assertEquals(BookingStatus.COMPLETED, appointment.getStatus());
-        assertEquals(ListingStatus.SOLD, listing.getStatus());
+        assertEquals(ListingStatus.WITHDRAWN, listing.getStatus());
         assertEquals(1, messages.count());
     }
 

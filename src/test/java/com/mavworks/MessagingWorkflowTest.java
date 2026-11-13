@@ -882,4 +882,87 @@ class MessagingWorkflowTest {
         context.setAuthentication(new UsernamePasswordAuthenticationToken(user.getUsername(), null, List.of()));
         SecurityContextHolder.setContext(context);
     }
+
+    @Test
+    void sameBuyerCanStartAgainAfterManualServiceCompletion() {
+        listing.setType(ListingType.SERVICE);
+        listings.saveAndFlush(listing);
+
+        Long originalId = service.startConversation(listing.getId());
+        service.sendMessage(originalId, "First service completed.");
+
+        login(provider);
+        sales.confirmSaleAndClose(originalId);
+
+        login(buyer);
+        Long nextId = service.startConversation(listing.getId());
+
+        assertNotEquals(originalId, nextId);
+        assertEquals(nextId, service.startConversation(listing.getId()));
+        assertEquals(2, conversations.count());
+
+        assertTrue(service.getChat(originalId, null).closed());
+        assertEquals("First service completed.",
+                service.getChat(originalId, null).messages().getFirst().body());
+        assertFalse(service.getChat(nextId, null).closed());
+        assertTrue(service.getChat(nextId, null).messages().isEmpty());
+
+        service.sendMessage(nextId, "I'd like to book again.");
+        assertEquals(1, service.getChat(nextId, null).messages().size());
+        assertEquals(1, service.getChat(originalId, null).messages().size());
+
+        assertEquals(
+                List.of(listing.getId()),
+                reviews.getReviewableListings(provider.getId()).stream()
+                        .map(item -> item.id())
+                        .toList());
+    }
+
+    @Test
+    void closedUnavailableServiceOrProductKeepsHistoricalConversation() {
+        listing.setType(ListingType.SERVICE);
+        listings.saveAndFlush(listing);
+
+        Long originalId = service.startConversation(listing.getId());
+        var conversation = conversations.findById(originalId).orElseThrow();
+        conversation.closeConversation();
+        conversations.saveAndFlush(conversation);
+
+        for (ListingStatus status : List.of(
+                ListingStatus.WITHDRAWN,
+                ListingStatus.EXPIRED,
+                ListingStatus.SOLD,
+                ListingStatus.REMOVED)) {
+            listing.setStatus(status);
+            listings.saveAndFlush(listing);
+
+            assertEquals(originalId, service.startConversation(listing.getId()));
+        }
+
+        // Even an active product should not get the repeat-service behavior.
+        listing.setType(ListingType.PRODUCT);
+        listing.setStatus(ListingStatus.ACTIVE);
+        listings.saveAndFlush(listing);
+
+        assertEquals(originalId, service.startConversation(listing.getId()));
+        assertEquals(1, conversations.count());
+    }
+
+    @Test
+    void blockedBuyerCannotStartAnotherServiceConversation() {
+        listing.setType(ListingType.SERVICE);
+        listings.saveAndFlush(listing);
+
+        Long originalId = service.startConversation(listing.getId());
+        service.sendMessage(originalId, "First service completed.");
+
+        login(provider);
+        sales.confirmSaleAndClose(originalId);
+        blocks.saveAndFlush(new UserBlock(provider, buyer));
+
+        login(buyer);
+        assertThrows(MessagingBlockedException.class,
+                () -> service.startConversation(listing.getId()));
+        assertEquals(1, conversations.count());
+    }
 }
