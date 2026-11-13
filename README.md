@@ -203,6 +203,10 @@ support. Restart with the Supabase profile to apply pending migrations.
 ## Calendar and appointments
 
 Open **Calendar** from the sidebar to mark availability in 30-minute slots.
+Expand **Set your availability** to mark selected weekdays and hours available
+or unavailable across up to 90 days. Expand **Adjust a single day** for individual
+changes. Bulk changes save with the action buttons; single-day changes save
+immediately. Existing appointments are unchanged.
 Request an appointment for a product or service through its listing page or
 conversation; an open conversation is required. Select consecutive slots on
 the requesting user's calendar. Times use the UTA/Arlington Central time zone.

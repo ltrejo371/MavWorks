@@ -50,7 +50,11 @@ public class AvailabilityCalendar extends VerticalLayout {
     private void render() {
         title.setText(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US)));
         days.removeAll();
-        for (String day : List.of("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")) days.add(new Span(day));
+        for (String day : List.of("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")) {
+            Span weekday = new Span(day);
+            weekday.getStyle().set("text-align", "center");
+            days.add(weekday);
+        }
         for (int i = 1; i < month.atDay(1).getDayOfWeek().getValue(); i++) days.add(new Span());
         for (int i = 1; i <= month.lengthOfMonth(); i++) {
             LocalDate date = month.atDay(i);
@@ -70,6 +74,7 @@ public class AvailabilityCalendar extends VerticalLayout {
     public static class PeriodPicker extends RadioButtonGroup<String> {
         public PeriodPicker() {
             setLabel("Time of day"); setItems("AM", "PM"); setValue("AM");
+            addClassName("availability-period-picker");
         }
         public boolean isPm() { return "PM".equals(getValue()); }
     }
@@ -90,8 +95,7 @@ public class AvailabilityCalendar extends VerticalLayout {
         for (int i = first; i < first + halfDay; i++) {
             int slot = i;
             if (onlyAvailable && !available.contains(slot)) continue;
-            String startTime = LocalTime.MIDNIGHT.plusMinutes(slot * (long) AvailabilityService.SLOT_MINUTES)
-                    .format(DateTimeFormatter.ofPattern("h:mm", Locale.US));
+            String startTime = timeLabel(slot);
             Button button = new Button(startTime, e -> clicked.accept(slot));
             button.setAriaLabel(slotLabel(slot));
             button.setTooltipText(slotLabel(slot));
