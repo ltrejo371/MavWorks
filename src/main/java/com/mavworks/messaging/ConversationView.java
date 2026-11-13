@@ -141,7 +141,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             composer.addClassName("mav-chat-composer");
             Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"), confirm);
             actions.addClassName("mav-chat-actions");
-            add(header, state, older, history, appointments, feedback, requestAppointment, composer, actions);
+            Paragraph safetyTip = new Paragraph("Safety tip: Meet in a well-lit public place, tell someone your plans, and avoid sharing your home address.");
+            safetyTip.addClassName("mav-chat-safety-tip");
+            safetyTip.getElement().setAttribute("role", "note");
+            add(header, safetyTip, state, older, history, appointments, feedback, requestAppointment, composer, actions);
             append(chat.messages());
             older.setVisible(chat.messages().size() == 100);
             updateState(chat);
