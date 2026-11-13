@@ -67,7 +67,8 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             for (String tag : java.util.List.of(listing.getType().name(), listing.getCategory().name(), listing.getStatus().name())) {
                 var badge = new com.vaadin.flow.component.html.Span(com.mavworks.base.ui.ListingPreview.label(tag)); badge.addClassName("mw-badge"); tags.add(badge);
             }
-            info.add(tags, new ViewTitle(listing.getName()), date, price);
+            info.add(tags, new ViewTitle(listing.getName()), date, price,
+                    new Paragraph(com.mavworks.base.ui.ListingPreview.views(listings.recordView(id))));
             if (listing.getType() == com.mavworks.model.ListingType.SERVICE) {
                 info.add(new Paragraph("Suggested appointment length: "
                         + listing.getAppointmentDurationMinutes() + " minutes"));
@@ -76,7 +77,8 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             }
             var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
             providerCard.addClassName("listing-provider");
-            blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
+
+            blocks.getUserEvenIfBlocked(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
                     new com.mavworks.base.ui.UserOptions(provider.id(), provider.username(), blocks, reports,
                             () -> beforeEnter(event)),
                     new com.vaadin.flow.component.html.Anchor("profiles/" + provider.id(), "View profile and reviews")));

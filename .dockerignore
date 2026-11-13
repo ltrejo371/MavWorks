@@ -1,0 +1,15 @@
+.git
+.idea
+.vscode
+.codex
+.agents
+.aws
+.env
+.env.*
+data
+target
+node_modules
+*.log
+*.mv.db
+*.trace.db
+src/main/resources/application-local.*

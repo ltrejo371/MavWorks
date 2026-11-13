@@ -69,7 +69,16 @@ public class MessagingService {
         if (listing.getOwner().getId().equals(buyer.getId())) throw new IllegalArgumentException("You cannot message yourself about your own listing.");
         checkBlocks(buyer.getId(), listing);
         var existing = conversations.findFirstByBuyerIdAndListingIdOrderByIdDesc(buyer.getId(), listingId);
-        if (existing.isPresent()) return existing.get().getId();
+        if (existing.isPresent()) {
+            var previous = existing.get();
+            boolean canStartAgain =
+                    listing.getType() == ListingType.SERVICE
+                            && listing.getStatus() == ListingStatus.ACTIVE
+                            && previous.getClosedAt() != null;
+            if (!canStartAgain) {
+                return previous.getId();
+            }
+        }
         if (listing.getStatus() != ListingStatus.ACTIVE) throw new IllegalArgumentException("This listing is no longer available for new conversations.");
         return conversations.saveAndFlush(new Conversation(buyer, listing)).getId();
     }

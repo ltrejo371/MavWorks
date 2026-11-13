@@ -28,12 +28,36 @@ public class ListingCatalogService {
     @Transactional(readOnly = true)
     public List<ListingSummary> search(SearchFilter filter, ListingType type) {
         String keyword = filter.keyword() == null ? "" : filter.keyword().trim();
-        return listings.searchPublished(ListingStatus.ACTIVE, keyword, filter.category(), type)
+        return listings.searchPublished(ListingStatus.ACTIVE, keyword, filter.category(), type, filter.from(), filter.until(), filter.sort().ordering())
                 .stream().map(listing -> new ListingSummary(listing.getId(), listing.getName(),
                         listing.getDescription(), listing.getPrice(), listing.getCategory(),
                         listing.getType(), listing.getImages().isEmpty() ? null
                                 : listing.getImages().getFirst().getStorageReference(),
                         listing.getViewCount(), listing.getCreatedAt())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ListingSummary> search(SearchFilter filter, ListingType type, int page) {
+        if (page < 0) throw new IllegalArgumentException("Page must not be negative.");
+        String keyword = filter.keyword() == null ? "" : filter.keyword().trim();
+        return searchPage(keyword, filter.category(), type, filter.from(), filter.until(),
+                filter.sort().ordering(), page);
+    }
+
+    private Page<ListingSummary> searchPage(String keyword, com.mavworks.model.ListingCategory category,
+            ListingType type, Instant from, Instant until, Sort ordering, int page) {
+        Page<Listing> result = listings.searchPublishedPage(ListingStatus.ACTIVE, keyword,
+                category, type, from, until, PageRequest.of(page, PAGE_SIZE, ordering));
+        var imageReferences = new java.util.HashMap<Long, String>();
+        if (!result.isEmpty()) {
+            for (Object[] row : listings.findImageReferences(result.getContent().stream()
+                    .map(Listing::getId).toList())) {
+                imageReferences.putIfAbsent((Long) row[0], (String) row[1]);
+            }
+        }
+        return result.map(listing -> new ListingSummary(listing.getId(), listing.getName(),
+                listing.getDescription(), listing.getPrice(), listing.getCategory(), listing.getType(),
+                imageReferences.get(listing.getId()), listing.getViewCount(), listing.getCreatedAt()));
     }
 
     @Transactional(readOnly = true)
@@ -70,18 +94,6 @@ public class ListingCatalogService {
             case MOST_VIEWED -> Sort.by(Sort.Order.desc("viewCount"), Sort.Order.desc("id"));
         };
         String keyword = filter.keyword() == null ? "" : filter.keyword().trim();
-        Page<Listing> result = listings.searchPublishedPage(ListingStatus.ACTIVE, keyword,
-                filter.category(), type, from, until, PageRequest.of(page, PAGE_SIZE, ordering));
-        var imageReferences = new java.util.HashMap<Long, String>();
-        if (!result.isEmpty()) {
-            for (Object[] row : listings.findImageReferences(result.getContent().stream()
-                    .map(Listing::getId).toList())) {
-                imageReferences.putIfAbsent((Long) row[0], (String) row[1]);
-            }
-        }
-        return result.map(listing -> new ListingSummary(listing.getId(), listing.getName(),
-                listing.getDescription(), listing.getPrice(), listing.getCategory(), listing.getType(),
-                imageReferences.get(listing.getId()),
-                listing.getViewCount(), listing.getCreatedAt()));
+        return searchPage(keyword, filter.category(), type, from, until, ordering, page);
     }
 }

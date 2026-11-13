@@ -148,7 +148,9 @@ the liability provisions, and a separate privacy notice reflecting actual practi
 The old demo logins (user/user, mod/mod and admin/admin) are no longer available.
 With the default H2 profile, accounts are saved in data/mavworks and survive restarts. Always run from the
 project root, and do not run two instances against the same database.
-Password reset is not implemented yet. Live email delivery still needs verification.
+Password reset and three-attempt login lockout are available; see [Login recovery](docs/login-recovery.md).
+For local email delivery, copy [the mail configuration example](docs/mail.properties.example) to
+`data/mail.properties`, enter your provider settings, and restart. Live mailbox delivery requires valid SMTP credentials.
 
 ## Create a listing
 
@@ -274,6 +276,9 @@ available. These are implementation defaults, not a measured response-time SLA;
 loading and sending still depend on the database and network.
 Confirmed, closed conversations retain read-only history and unlock the review
 flow on the provider profile. An empty conversation cannot be confirmed as a sale.
+For an active service, selecting Message after a conversation closes starts a new
+conversation for the same buyer. Open conversations are reused, and previous
+messages and review eligibility are retained.
 Flyway V5 adds messages and block-list tables; restart with the Supabase profile
 to apply it. Existing conversations and reviews are retained.
 

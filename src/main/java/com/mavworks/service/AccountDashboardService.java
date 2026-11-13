@@ -26,7 +26,7 @@ public class AccountDashboardService {
             ListingType type,
             ListingStatus status,
             Instant expiresAt,
-            int appointmentDurationMinutes) {}
+            int appointmentDurationMinutes, long viewCount) {}
 
     public record DashboardData(String username, String email, String name, String bio,
             String contactInformation, List<OwnerListing> listings, List<com.mavworks.dto.AccountWarning> warnings,
@@ -64,7 +64,7 @@ public class AccountDashboardService {
                         listing.getType(),
                         listing.getStatus(),
                         listing.getExpiresAt(),
-                        listing.getAppointmentDurationMinutes()))
+                        listing.getAppointmentDurationMinutes(), listing.getViewCount()))
                 .toList();
         return new DashboardData(user.getUsername(), user.getEmail(),
                 profile == null ? null : profile.getName(),

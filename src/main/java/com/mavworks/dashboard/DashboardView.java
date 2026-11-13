@@ -52,6 +52,7 @@ public class DashboardView extends VerticalLayout {
             Anchor profileLink = new Anchor("profiles/" + data.userId(), "Your profile →");
             profileLink.getElement().setAttribute("aria-label", "View your public profile");
             profileTitle.add(profileLink);
+            profile.add(new Anchor("profiles/" + data.userId() + "#reviews", "View and reply to your reviews"));
             Div identity = new Div(); identity.addClassName("dashboard-identity");
             if (data.hasPicture()) identity.add(EditAccountDialog.picture(data.userId()));
             else {
@@ -78,7 +79,7 @@ public class DashboardView extends VerticalLayout {
                         "listings/" + listing.id(), listing.name());
                 Span status = new Span(listing.status().name());
                 status.addClassName("dashboard-status");
-                Div listingInfo = new Div(link, status);
+                Div listingInfo = new Div(link, status, new Span(com.mavworks.base.ui.ListingPreview.views(listing.viewCount())));
                 Span price = new Span(
                         NumberFormat.getCurrencyInstance(Locale.US)
                                 .format(listing.price()));
@@ -106,7 +107,9 @@ public class DashboardView extends VerticalLayout {
             });
             Div blocked = card("Blocked accounts", data.blockedAccounts().size());
             if (data.blockedAccounts().isEmpty()) blocked.add(empty("You haven't blocked any accounts."));
-            data.blockedAccounts().forEach(name -> blocked.add(row(new Span(name), new Span("Blocked"))));
+            data.blockedAccounts().forEach(name -> {
+                blocked.add(row(new Span(name), new Span("Blocked")));
+            });
             grid.add(listings, reports, blocked); account.add(grid);
         } catch (DataAccessException ex) {
             Paragraph error = new Paragraph("Your account could not be loaded. Select Refresh to try again.");

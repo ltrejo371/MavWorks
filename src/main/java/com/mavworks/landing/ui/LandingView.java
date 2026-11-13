@@ -26,6 +26,7 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.*;
 import jakarta.annotation.security.PermitAll;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.text.NumberFormat;
 import java.util.Locale;
@@ -41,10 +42,10 @@ public class LandingView extends VerticalLayout {
     private final TextField search = new TextField("Search listings");
     private final ComboBox<ListingCategory> category = new ComboBox<>("Category");
     private final ComboBox<ListingType> type = new ComboBox<>("Listing type");
-    private final ComboBox<ListingCatalogService.SortOption> sort = new ComboBox<>("Sort by");
-    private final ComboBox<ListingCatalogService.DateRange> dateRange = new ComboBox<>("Uploaded");
-    private final DatePicker fromDate = new DatePicker("From");
-    private final DatePicker throughDate = new DatePicker("Through");
+    private final ComboBox<com.mavworks.model.ListingSort> sort = new ComboBox<>("Sort by");
+    private final ComboBox<String> posted = new ComboBox<>("Posted");
+    private final DatePicker from = new DatePicker("From date");
+    private final DatePicker to = new DatePicker("To date");
     private final Paragraph status = new Paragraph();
     private final Div results = new Div();
     private final Button previous = new Button("Previous");
@@ -72,35 +73,15 @@ public class LandingView extends VerticalLayout {
         type.setItemLabelGenerator(value -> label(value.name()));
         type.setPlaceholder("Products and services");
         type.setClearButtonVisible(true);
-        sort.setItems(ListingCatalogService.SortOption.values());
-        sort.setItemLabelGenerator(value -> switch (value) {
-            case NEWEST -> "Newest";
-            case PRICE_LOW_TO_HIGH -> "Price: low to high";
-            case PRICE_HIGH_TO_LOW -> "Price: high to low";
-            case MOST_VIEWED -> "Most viewed";
-        });
-        sort.setValue(ListingCatalogService.SortOption.NEWEST);
-        dateRange.setItems(ListingCatalogService.DateRange.values());
-        dateRange.setItemLabelGenerator(value -> switch (value) {
-            case ANY_TIME -> "Any time";
-            case TODAY -> "Today";
-            case LAST_7_DAYS -> "Last 7 days";
-            case LAST_30_DAYS -> "Last 30 days";
-            case LAST_365_DAYS -> "Last year";
-            case CUSTOM -> "Custom dates";
-        });
-        dateRange.setValue(ListingCatalogService.DateRange.ANY_TIME);
-        fromDate.setVisible(false);
-        throughDate.setVisible(false);
-        dateRange.addValueChangeListener(event -> {
-            boolean custom = event.getValue() == ListingCatalogService.DateRange.CUSTOM;
-            fromDate.setVisible(custom);
-            throughDate.setVisible(custom);
-            filtersChanged();
-        });
+        sort.setItems(com.mavworks.model.ListingSort.values());
+        sort.setItemLabelGenerator(com.mavworks.model.ListingSort::label);
+        sort.setValue(com.mavworks.model.ListingSort.NEWEST);
+        posted.setItems("All time", "Today", "Past week", "Past month", "Past year", "Custom range");
+        posted.setValue("All time");
+        from.setVisible(false);
+        to.setVisible(false);
         Button refresh = new Button("Refresh", event -> loadListings());
-        HorizontalLayout filters = new HorizontalLayout(search, category, type, sort, dateRange,
-                fromDate, throughDate, refresh);
+        HorizontalLayout filters = new HorizontalLayout(search, sort, category, type, posted, from, to, refresh);
         filters.setAlignItems(Alignment.END);
         filters.setWidthFull();
         filters.getStyle().set("flex-wrap", "wrap");
@@ -124,8 +105,13 @@ public class LandingView extends VerticalLayout {
         category.addValueChangeListener(event -> filtersChanged());
         type.addValueChangeListener(event -> filtersChanged());
         sort.addValueChangeListener(event -> filtersChanged());
-        fromDate.addValueChangeListener(event -> filtersChanged());
-        throughDate.addValueChangeListener(event -> filtersChanged());
+        posted.addValueChangeListener(event -> {
+            boolean custom = "Custom range".equals(posted.getValue());
+            from.setVisible(custom); to.setVisible(custom);
+            filtersChanged();
+        });
+        from.addValueChangeListener(event -> filtersChanged());
+        to.addValueChangeListener(event -> filtersChanged());
         loadListings();
     }
 
@@ -137,12 +123,10 @@ public class LandingView extends VerticalLayout {
     private void loadListings() {
         results.removeAll();
         try {
-            var listings = catalog.search(new SearchFilter(search.getValue(), category.getValue()),
-                    type.getValue(), sort.getValue(), dateRange.getValue(), fromDate.getValue(),
-                    throughDate.getValue(), page);
+            var listings = catalog.search(searchFilter(), type.getValue(), page);
             boolean filtered = !search.getValue().isBlank() || category.getValue() != null
                     || type.getValue() != null
-                    || dateRange.getValue() != ListingCatalogService.DateRange.ANY_TIME;
+                    || !"All time".equals(posted.getValue());
             status.setText(listings.getTotalElements() == 0
                     ? (filtered ? "No listings match your filters. Try another search."
                                 : "No listings have been published yet.")
@@ -164,6 +148,29 @@ public class LandingView extends VerticalLayout {
         }
     }
 
+    private SearchFilter searchFilter() {
+        // Marketplace dates follow the campus time zone, including daylight-saving changes.
+        var zone = java.time.ZoneId.of("America/Chicago");
+        var today = LocalDate.now(zone);
+        String range = posted.getValue() == null ? "All time" : posted.getValue();
+        LocalDate start = switch (range) {
+            case "Today" -> today;
+            case "Past week" -> today.minusWeeks(1);
+            case "Past month" -> today.minusMonths(1);
+            case "Past year" -> today.minusYears(1);
+            case "Custom range" -> from.getValue();
+            default -> null;
+        };
+        LocalDate end = "Custom range".equals(range) ? to.getValue() : today;
+        if ("Custom range".equals(range) && (start == null || end == null || from.isInvalid() || to.isInvalid())) {
+            throw new IllegalArgumentException("Choose valid From and To dates for the custom range.");
+        }
+        Instant startInstant = start == null ? null : start.atStartOfDay(zone).toInstant();
+        Instant endInstant = start == null ? null : end.plusDays(1).atStartOfDay(zone).toInstant();
+        return new SearchFilter(search.getValue(), category.getValue(), sort.getValue(),
+                startInstant, endInstant);
+    }
+
     private Div card(ListingSummary listing) {
         Div card = new Div();
         card.addClassName("marketplace-card");
@@ -181,7 +188,7 @@ public class LandingView extends VerticalLayout {
         summary.addClassName("marketplace-description");
         Paragraph category = new Paragraph(label(listing.type().name()) + " · " + label(listing.category().name()));
         category.addClassName("marketplace-category");
-        Paragraph views = new Paragraph(listing.viewCount() + " views");
+        Paragraph views = new Paragraph(com.mavworks.base.ui.ListingPreview.views(listing.viewCount()));
         views.addClassName("marketplace-views");
         details.add(title, price, summary, category, views);
         card.add(preview(listing), details);

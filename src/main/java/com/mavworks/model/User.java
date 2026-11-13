@@ -29,6 +29,47 @@ public class User implements UserActions {
     @Column(name = "username_last_changed_at")
     private Instant usernameLastChangedAt;
 
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int failedLoginAttempts;
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean loginLocked;
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    private long securityVersion;
+    private String recoveryTokenHash;
+    private String recoveryPurpose;
+    private java.time.Instant recoveryExpiresAt;
+    private java.time.Instant recoverySentAt;
+    private java.time.Instant recoveryWindowStart;
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int recoverySends;
+
+    public int getFailedLoginAttempts() { return failedLoginAttempts; }
+    public boolean isLoginLocked() { return loginLocked; }
+    public long getSecurityVersion() { return securityVersion; }
+    public void failedLogin() {
+        failedLoginAttempts = Math.min(3, failedLoginAttempts + 1);
+        if (failedLoginAttempts == 3 && !loginLocked) { loginLocked = true; securityVersion++; }
+    }
+    public void successfulLogin() { failedLoginAttempts = 0; }
+    public boolean canSendRecovery(java.time.Instant now) {
+        return (recoverySentAt == null || !recoverySentAt.plusSeconds(60).isAfter(now))
+                && (recoveryWindowStart == null || !recoveryWindowStart.plusSeconds(3600).isAfter(now) || recoverySends < 5);
+    }
+    public void issueRecovery(String hash, String purpose, java.time.Instant now) {
+        if (recoveryWindowStart == null || !recoveryWindowStart.plusSeconds(3600).isAfter(now)) {
+            recoveryWindowStart = now; recoverySends = 0;
+        }
+        recoverySends++; recoverySentAt = now;
+        recoveryTokenHash = hash; recoveryPurpose = purpose; recoveryExpiresAt = now.plusSeconds(1800);
+    }
+    public boolean acceptsRecovery(String purpose, java.time.Instant now) {
+        return purpose.equals(recoveryPurpose) && recoveryExpiresAt != null && recoveryExpiresAt.isAfter(now);
+    }
+    public void recoverAccess() {
+        loginLocked = false; failedLoginAttempts = 0; securityVersion++;
+        recoveryTokenHash = null; recoveryPurpose = null; recoveryExpiresAt = null;
+    }
+
     public boolean isBanned() { return banned; }
     public void ban() { banned = true; }
     public Instant getUsernameLastChangedAt() { return usernameLastChangedAt; }

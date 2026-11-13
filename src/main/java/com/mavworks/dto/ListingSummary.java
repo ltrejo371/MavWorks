@@ -17,4 +17,9 @@ public record ListingSummary(Long id, String name, String description, BigDecima
             ListingCategory category, ListingType type, String imageReference) {
         this(id, name, description, price, category, type, imageReference, 0, null);
     }
+
+    public ListingSummary(Long id, String name, String description, BigDecimal price,
+            ListingCategory category, ListingType type, String imageReference, long viewCount) {
+        this(id, name, description, price, category, type, imageReference, viewCount, null);
+    }
 }

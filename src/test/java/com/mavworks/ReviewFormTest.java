@@ -55,6 +55,62 @@ class ReviewFormTest {
         verify(service, never()).leaveReview(any(), any());
     }
 
+    @Test void providerCanRetryReplyWithoutLosingTextAndIgnoreReview() {
+        var service = mock(ReviewService.class);
+        when(service.canReplyToProfile(2L)).thenReturn(true);
+        var view = view(service);
+        when(service.getProviderProfile(2L)).thenReturn(Optional.of(profileWithReviews()));
+        enter(view);
+        button(view, "Reply").click();
+        var text = (TextArea) components(view).filter(TextArea.class::isInstance).findFirst().orElseThrow();
+        text.setValue("Thanks for your feedback");
+        doThrow(new DataAccessResourceFailureException("unavailable")).doNothing()
+                .when(service).replyToReview(7L, "Thanks for your feedback");
+        button(view, "Confirm reply").click();
+        assertEquals("Thanks for your feedback", text.getValue());
+        assertTrue(components(view).anyMatch(c -> c instanceof Paragraph p && p.getText().contains("could not be saved")));
+        button(view, "Confirm reply").click();
+        verify(service, times(2)).replyToReview(7L, "Thanks for your feedback");
+        button(view, "Ignore").click();
+        verify(service).ignoreReview(7L);
+    }
+
+    @Test void visitorsHaveNoReplyControlsAndCanSortReviewsAndRetryLoading() {
+        var service = mock(ReviewService.class);
+        var view = view(service);
+        when(service.getProviderProfile(2L)).thenThrow(new DataAccessResourceFailureException("unavailable"))
+                .thenReturn(Optional.of(profileWithReviews()));
+        enter(view);
+        button(view, "Try again").click();
+        assertFalse(components(view).anyMatch(c -> c instanceof Button b && b.getText().equals("Reply")));
+        @SuppressWarnings("unchecked") var sort = (ComboBox<String>) components(view)
+                .filter(c -> c instanceof ComboBox<?> b && b.getLabel().equals("Sort reviews")).findFirst().orElseThrow();
+        assertEquals("Newest first", sort.getValue());
+        assertEquals(List.of("Recent review", "Older review"), reviewComments(view));
+        sort.setValue("Highest rating");
+        assertEquals(List.of("Older review", "Recent review"), reviewComments(view));
+        sort.setValue("Lowest rating");
+        assertEquals(List.of("Recent review", "Older review"), reviewComments(view));
+    }
+
+    private List<String> reviewComments(ProfileView view) {
+        return components(view).filter(Paragraph.class::isInstance).map(Paragraph.class::cast)
+                .map(Paragraph::getText).filter(t -> t.endsWith(" review")).toList();
+    }
+
+    private ReviewService.ProviderProfile profileWithReviews() {
+        return new ReviewService.ProviderProfile(new PublicProfileData(2L, "provider", "Provider", "", null, ""),
+                List.of(new ReviewSummary(7L, "buyer", 10L, "Tutoring", 2, "Recent review", java.time.Instant.now(), 3L, null),
+                        new ReviewSummary(8L, "buyer", 11L, "Book", 5, "Older review", java.time.Instant.EPOCH, 3L, null)),
+                List.of(), 3.5, 2);
+    }
+
+    private void enter(ProfileView view) {
+        var event = mock(BeforeEnterEvent.class);
+        when(event.getRouteParameters()).thenReturn(new RouteParameters("userId", "2"));
+        view.beforeEnter(event);
+    }
+
     private ProfileView view(ReviewService service) {
         when(service.getProviderProfile(2L)).thenReturn(Optional.of(new ReviewService.ProviderProfile(
                 new PublicProfileData(2L, "provider", "Provider", "", null, ""), List.of(), List.of(), null, 0)));

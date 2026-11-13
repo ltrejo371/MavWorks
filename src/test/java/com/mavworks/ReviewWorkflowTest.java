@@ -274,6 +274,39 @@ class ReviewWorkflowTest {
         assertTrue(service.getReviewableListings(provider.getId()).isEmpty());
         assertThrows(IllegalArgumentException.class, () -> service.leaveReview(provider.getId(), request(5, "")));
     }
+
+    @Test void providerReplyPersistsAndIsVisibleToOtherUsers() {
+        completeSale();
+        Long id = service.leaveReview(provider.getId(), request(4, "Good"));
+        assertThrows(AccessDeniedException.class, () -> service.replyToReview(id, "Not the provider"));
+        login(stranger);
+        assertFalse(service.canReplyToProfile(provider.getId()));
+        assertThrows(AccessDeniedException.class, () -> service.ignoreReview(id));
+        login(provider);
+        assertTrue(service.canReplyToProfile(provider.getId()));
+        assertThrows(IllegalArgumentException.class, () -> service.replyToReview(id, "  "));
+        assertThrows(IllegalArgumentException.class, () -> service.replyToReview(id, "x".repeat(2001)));
+        service.replyToReview(id, "  Thank you!  ");
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals("Thank you!", reviews.findById(id).orElseThrow().getReply());
+        assertThrows(IllegalArgumentException.class, () -> service.ignoreReview(id));
+        login(buyer);
+        assertEquals("Thank you!", service.getProviderProfile(provider.getId()).orElseThrow().reviews().getFirst().reply());
+    }
+
+    @Test void ignorePersistsDeclinedResponseAndRequiresAuthentication() {
+        completeSale();
+        Long id = service.leaveReview(provider.getId(), request(3, "Fine"));
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> service.replyToReview(id, "Unauthorized"));
+        login(provider);
+        service.ignoreReview(id);
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals("Provider declined to review", reviews.findById(id).orElseThrow().getReply());
+        assertThrows(IllegalArgumentException.class, () -> service.replyToReview(id, "Overwrite"));
+    }
     private CreateReviewRequest request(Integer rating, String comment) { return new CreateReviewRequest(listing.getId(), rating, comment); }
     private void completeSale() {
         login(buyer);

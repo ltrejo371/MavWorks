@@ -1,54 +1,43 @@
 package com.mavworks.auth;
 
-import com.mavworks.service.PasswordResetService;
+import com.mavworks.service.AccountAccessService;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.Main;
-import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.RouterLink;
+import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-import org.springframework.dao.DataAccessException;
 
 @Route(value = "forgot-password", autoLayout = false)
-@PageTitle("Forgot Password")
+@PageTitle("Account recovery")
 @AnonymousAllowed
-public class ForgotPasswordView extends Main {
-    private final EmailField email = new EmailField("Email");
-    private final Paragraph feedback = new Paragraph();
-    private final Button submit = new Button("Send reset link");
-    private final PasswordResetService resets;
-
-    public ForgotPasswordView(PasswordResetService resets) {
-        this.resets = resets;
+public class ForgotPasswordView extends Main implements BeforeEnterObserver {
+    private final ComboBox<String> action = new ComboBox<>("Recovery option");
+    public ForgotPasswordView(AccountAccessService access) {
         addClassName("auth-page");
-        email.setWidthFull();
-        email.setMaxLength(254);
-        email.setRequiredIndicatorVisible(true);
+        var email = new EmailField("Account email"); email.setRequiredIndicatorVisible(true); email.setWidthFull();
         email.setAutocomplete(com.vaadin.flow.component.textfield.Autocomplete.EMAIL);
-        feedback.getElement().setAttribute("role", "status");
-        submit.setDisableOnClick(true);
-        submit.addClickListener(event -> requestReset());
-        var form = new VerticalLayout(new H1("Reset your password"),
-                new Paragraph("Enter the email address associated with your account."),
-                email, submit, feedback, new RouterLink("Back to login", LoginView.class));
-        form.setMaxWidth("36rem");
-        form.addClassName("auth-card");
-        form.getStyle().set("margin", "auto");
-        add(new com.mavworks.base.ui.UtaBrand(), form);
+        action.setItems("Reset password", "Unlock account"); action.setValue("Reset password"); action.setWidthFull();
+        var status = new Paragraph(); status.getElement().setAttribute("role", "status");
+        var send = new Button("Send recovery link"); send.setDisableOnClick(true);
+        send.addClickListener(event -> {
+            try {
+                if (email.isEmpty() || email.isInvalid()) throw new IllegalArgumentException("Enter a valid email address.");
+                access.requestRecovery(email.getValue(), "Unlock account".equals(action.getValue())
+                        ? AccountAccessService.UNLOCK : AccountAccessService.RESET);
+                status.setText(AccountAccessService.REQUEST_MESSAGE);
+            } catch (IllegalArgumentException ex) { status.setText(ex.getMessage()); }
+            catch (org.springframework.dao.DataAccessException ex) { status.setText("Recovery is unavailable. Please try again later."); }
+            finally { send.setEnabled(true); }
+        });
+        var card = new VerticalLayout(new H1("Account recovery"),
+                new Paragraph("Enter the email associated with your MavWorks account."), email, action, send, status,
+                new RouterLink("Back to login", LoginView.class));
+        card.addClassName("auth-card"); add(new com.mavworks.base.ui.UtaBrand(), card);
     }
-
-    private void requestReset() {
-        try {
-            resets.request(email.getValue());
-            feedback.setText("If an account exists for that email, a password reset link has been sent.");
-        } catch (DataAccessException ex) {
-            feedback.setText("We could not process the request right now. Please try again later.");
-        } finally {
-            submit.setEnabled(true);
-        }
+    @Override public void beforeEnter(BeforeEnterEvent event) {
+        action.setValue("unlock".equals(event.getLocation().getQueryParameters().getSingleParameter("mode").orElse(""))
+                ? "Unlock account" : "Reset password");
     }
 }

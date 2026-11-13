@@ -58,7 +58,7 @@ public class ReviewService {
                                     listing.getPrice(),
                                     listing.getCategory(),
                                     listing.getType(),
-                                    listing.getImages().isEmpty() ? null : listing.getImages().getFirst().getStorageReference()))
+                                    listing.getImages().isEmpty() ? null : listing.getImages().getFirst().getStorageReference(), listing.getViewCount()))
                             .toList();
             var allReviews = reviews.findPublicReviews(providerId);
 
@@ -92,6 +92,32 @@ public class ReviewService {
                 .filter(c -> c.qualifiesForReview(user)).map(c -> c.getListing())
                 .filter(l -> !reviewed.contains(l.getId()))
                 .map(l -> new ReviewableListing(l.getId(), l.getName())).distinct().toList();
+    }
+
+    public boolean canReplyToProfile(Long providerId) {
+        return author(false).getId().equals(providerId);
+    }
+
+    @Transactional
+    public void replyToReview(Long reviewId, String reply) {
+        respondToReview(reviewId, reply);
+    }
+
+    @Transactional
+    public void ignoreReview(Long reviewId) {
+        respondToReview(reviewId, "Provider declined to review");
+    }
+
+    private void respondToReview(Long reviewId, String text) {
+        var provider = author(false);
+        if (reviewId == null) throw new IllegalArgumentException("Review not found.");
+        var review = reviews.findForReply(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found."));
+        if (!review.getListing().getOwner().getId().equals(provider.getId())) {
+            throw new AccessDeniedException("Only the listing provider can respond to this review.");
+        }
+        review.respond(text);
+        reviews.flush();
     }
 
     @Transactional

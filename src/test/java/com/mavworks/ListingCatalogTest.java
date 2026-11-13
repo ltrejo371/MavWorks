@@ -212,6 +212,55 @@ class ListingCatalogTest {
         return listings.saveAndFlush(listing);
     }
 
+    @Test
+    void sortsFiltersDatesAndCountsOnlyOtherUsersViews() {
+        User seller = new User(); seller.setUsername("discovery-seller");
+        seller.setEmail("discovery-seller@mavs.uta.edu"); seller.setHashedPassword("test-only");
+        users.saveAndFlush(seller);
+        User buyer = new User(); buyer.setUsername("discovery-buyer");
+        buyer.setEmail("discovery-buyer@mavs.uta.edu"); buyer.setHashedPassword("test-only");
+        users.saveAndFlush(buyer);
+        var start = java.time.Instant.parse("2026-11-01T06:00:00Z");
+        var end = java.time.Instant.parse("2026-11-03T06:00:00Z");
+        Listing older = discoveryListing(seller, "Older", "5.00", start);
+        Listing newer = discoveryListing(seller, "Newer", "25.00", end.minusSeconds(1));
+        Listing outside = discoveryListing(seller, "Outside", "1.00", end);
+        java.util.function.Function<ListingSort, java.util.List<Long>> ids = sort -> catalog.search(
+                new SearchFilter("", ListingCategory.BOOKS, sort, start, end), ListingType.PRODUCT)
+                .stream().map(com.mavworks.dto.ListingSummary::id).toList();
+        assertEquals(java.util.List.of(newer.getId(), older.getId()), ids.apply(ListingSort.NEWEST));
+        assertEquals(java.util.List.of(older.getId(), newer.getId()), ids.apply(ListingSort.OLDEST));
+        assertEquals(java.util.List.of(older.getId(), newer.getId()), ids.apply(ListingSort.PRICE_LOW_TO_HIGH));
+        assertEquals(java.util.List.of(newer.getId(), older.getId()), ids.apply(ListingSort.PRICE_HIGH_TO_LOW));
+        var context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+        try {
+            context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    seller.getUsername(), null, java.util.List.of()));
+            assertEquals(0, publishing.recordView(older.getId()));
+            context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    buyer.getUsername(), null, java.util.List.of()));
+            assertEquals(1, publishing.recordView(older.getId()));
+            assertEquals(2, publishing.recordView(older.getId()));
+            outside.setStatus(ListingStatus.REMOVED); listings.flush();
+            assertEquals(0, publishing.recordView(outside.getId()));
+            entityManager.clear();
+            assertEquals(java.util.List.of(older.getId(), newer.getId()), ids.apply(ListingSort.MOST_VIEWED));
+            assertEquals(2, catalog.search(new SearchFilter("Older", null), null).getFirst().viewCount());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> new SearchFilter("", null, ListingSort.NEWEST, end, start));
+    }
+
+    private Listing discoveryListing(User seller, String name, String price, java.time.Instant created) {
+        Listing listing = new Listing(); listing.setOwner(seller); listing.setName(name);
+        listing.setDescription("Date and sort test"); listing.setPrice(new BigDecimal(price));
+        listing.setCategory(ListingCategory.BOOKS); listing.setType(ListingType.PRODUCT);
+        listing.setCreatedAt(created); return listings.saveAndFlush(listing);
+    }
+
     private void add(User owner, String name, String description, ListingType type, ListingStatus status) {
         Listing listing = new Listing();
         listing.setOwner(owner);

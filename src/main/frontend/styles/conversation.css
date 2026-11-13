@@ -65,6 +65,11 @@
 .mav-chat-actions a { color: #6e6e73; }
 .mav-chat-feedback, .mav-chat-state { margin: 0; padding: 8px 20px; font-size: 13px; color: #6e6e73; }
 .mav-chat-feedback:empty { display: none; }
+.mav-chat-safety-tip {
+    margin: 0; padding: 10px 20px; width: 100%; box-sizing: border-box;
+    flex-shrink: 0; background: #fff8e6; color: #654b16;
+    border-bottom: 1px solid #f0dfb3; font-size: 13px; line-height: 1.5;
+}
 .mav-chat-older { align-self: center; background: transparent; color: #007aff; font-size: 12px; flex-shrink: 0; }
 @media (max-width: 600px) {
     .mav-chat { height: calc(100dvh - 4rem); margin: 0; border-radius: 0; border: 0; }
