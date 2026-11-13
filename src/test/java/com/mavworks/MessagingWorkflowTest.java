@@ -185,6 +185,42 @@ class MessagingWorkflowTest {
         assertTrue(service.getMyConversations().getFirst().closed());
     }
 
+    @Test void unblockingRestoresProfileConversationAndMessaging() {
+        Long conversationId = service.startConversation(listing.getId());
+        service.sendMessage(conversationId, "Before blocking");
+        blocking.blockUser(provider.getId());
+        assertTrue(blocking.isNotVisible(provider.getId()));
+        assertTrue(reviews.getProviderProfile(provider.getId()).isEmpty());
+        blocking.unblockUser(provider.getId());
+        assertFalse(blocking.isNotVisible(provider.getId()));
+        assertEquals(0, blocks.count());
+        assertTrue(reviews.getProviderProfile(provider.getId()).isPresent());
+        assertEquals(1, service.getMyConversations().size());
+        assertNotNull(service.sendMessage(conversationId, "After unblocking"));
+        blocking.unblockUser(provider.getId());
+        assertEquals(0, blocks.count());
+    }
+
+    @Test void unblockingCannotRemoveTheOtherPersonsBlock() {
+        blocking.blockUser(provider.getId());
+        login(provider);
+        blocking.unblockUser(buyer.getId());
+        assertEquals(1, blocks.count());
+        blocking.blockUser(buyer.getId());
+        login(buyer);
+        blocking.unblockUser(provider.getId());
+        assertEquals(1, blocks.count());
+        assertTrue(blocking.visibleUser(provider.getId()).isEmpty());
+        assertThrows(MessagingBlockedException.class, () -> service.startConversation(listing.getId()));
+    }
+
+    @Test void unblockingRejectsSelfNullAndAnonymousRequests() {
+        assertThrows(IllegalArgumentException.class, () -> blocking.unblockUser(buyer.getId()));
+        assertThrows(IllegalArgumentException.class, () -> blocking.unblockUser(null));
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> blocking.unblockUser(provider.getId()));
+    }
+
     @Test void blockingIsIdempotentAndRejectsSelfMissingAndAnonymousAccounts() {
         assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(buyer.getId()));
         assertThrows(IllegalArgumentException.class, () -> blocking.blockUser(null));

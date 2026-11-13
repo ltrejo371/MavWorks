@@ -24,11 +24,18 @@ public class UserOptions extends Button {
                     new Button("Report", click -> {
                         options.close();
                         new ReportDialog(userId, reports).open();
-                    }),
-                    new Button("Block", click -> {
+                    }));
+            if(blocks.isNotVisible(userId)){
+                options.getFooter().add(new Button("Unblock", click -> {
+                        options.close();
+                        blocks.unblockUser(userId);
+                    }));
+            }else{
+                options.getFooter().add(new Button("Block", click -> {
                         options.close();
                         confirmation(userId, blocks, afterBlock).open();
                     }));
+            }
             options.open();
         });
     }
