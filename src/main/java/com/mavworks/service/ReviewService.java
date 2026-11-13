@@ -94,6 +94,32 @@ public class ReviewService {
                 .map(l -> new ReviewableListing(l.getId(), l.getName())).distinct().toList();
     }
 
+    public boolean canReplyToProfile(Long providerId) {
+        return author(false).getId().equals(providerId);
+    }
+
+    @Transactional
+    public void replyToReview(Long reviewId, String reply) {
+        respondToReview(reviewId, reply);
+    }
+
+    @Transactional
+    public void ignoreReview(Long reviewId) {
+        respondToReview(reviewId, "Provider declined to review");
+    }
+
+    private void respondToReview(Long reviewId, String text) {
+        var provider = author(false);
+        if (reviewId == null) throw new IllegalArgumentException("Review not found.");
+        var review = reviews.findForReply(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found."));
+        if (!review.getListing().getOwner().getId().equals(provider.getId())) {
+            throw new AccessDeniedException("Only the listing provider can respond to this review.");
+        }
+        review.respond(text);
+        reviews.flush();
+    }
+
     @Transactional
     public Long leaveReview(Long providerId, CreateReviewRequest request) {
         // Serialize submissions by author; the database unique constraint also protects duplicates.

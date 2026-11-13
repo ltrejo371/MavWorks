@@ -27,7 +27,7 @@ public class Review {
     private String comment;
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
-    @Column(length = 2000, updatable = false)
+    @Column(length = 2000)
     private String reply;
 
     protected Review() {}
@@ -55,4 +55,12 @@ public class Review {
     public String getComment() { return comment; }
     public Instant getCreatedAt() { return createdAt; }
     public String getReply() { return reply; }
+
+    public void respond(String text) {
+        if (reply != null) throw new IllegalArgumentException("This review already has a provider response.");
+        String value = text == null ? "" : text.trim();
+        if (value.isBlank()) throw new IllegalArgumentException("Enter a reply before confirming.");
+        if (value.length() > 2000) throw new IllegalArgumentException("Replies must be at most 2000 characters.");
+        reply = value;
+    }
 }

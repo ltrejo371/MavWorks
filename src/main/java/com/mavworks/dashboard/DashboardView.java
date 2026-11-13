@@ -52,6 +52,7 @@ public class DashboardView extends VerticalLayout {
             Anchor profileLink = new Anchor("profiles/" + data.userId(), "Your profile →");
             profileLink.getElement().setAttribute("aria-label", "View your public profile");
             profileTitle.add(profileLink);
+            profile.add(new Anchor("profiles/" + data.userId() + "#reviews", "View and reply to your reviews"));
             Div identity = new Div(); identity.addClassName("dashboard-identity");
             if (data.hasPicture()) identity.add(EditAccountDialog.picture(data.userId()));
             else {

@@ -35,6 +35,7 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
     private Long providerId;
     private final VerticalLayout form = new VerticalLayout();
     private final Paragraph feedback = new Paragraph();
+    private final ComboBox<String> reviewSort = new ComboBox<>("Sort reviews");
 
     public ProfileView(ReviewService service, com.mavworks.service.BlockService blocks,
             com.mavworks.service.ReportService reports, com.mavworks.service.ImageStorageService images) {
@@ -46,6 +47,12 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
         form.setPadding(false);
         form.addClassNames("mw-panel", "review-form");
         feedback.getElement().setAttribute("role", "status");
+        reviewSort.setItems("Newest first", "Highest rating", "Lowest rating");
+        reviewSort.setValue("Newest first");
+        reviewSort.setAllowCustomValue(false);
+        reviewSort.addValueChangeListener(event -> {
+            if (providerId != null) loadProfile();
+        });
     }
 
     @Override
@@ -109,8 +116,11 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             if (data.listings().isEmpty()) listingCards.add(new Paragraph("No available listings right now."));
             add(listingCards);
             Button reviewButton = new Button("Review", event -> openReviewForm());
+            boolean canReply = service.canReplyToProfile(providerId);
+            reviewButton.setVisible(!canReply);
             reviewButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.PRIMARY);
-            var reviewsHeader = new com.vaadin.flow.component.html.Div(new H2("Reviews"), reviewButton);
+            var reviewsHeader = new com.vaadin.flow.component.html.Div(new H2("Reviews"), reviewSort, reviewButton);
+            reviewsHeader.setId("reviews");
             reviewsHeader.addClassName("mw-section-header");
             add(reviewsHeader, feedback, form);
             var reviewCards = new com.vaadin.flow.component.html.Div(); reviewCards.addClassName("profile-reviews"); add(reviewCards);
@@ -119,7 +129,13 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
                         ? "No reviews yet. Reviews appear after a completed sale."
                         : "No reviews available to display."));
             }
-            for (var review : data.reviews()) {
+            var ordered = new java.util.ArrayList<>(data.reviews());
+            var newest = java.util.Comparator.comparing(com.mavworks.dto.ReviewSummary::createdAt)
+                    .thenComparing(com.mavworks.dto.ReviewSummary::id).reversed();
+            var byRating = java.util.Comparator.comparingInt(com.mavworks.dto.ReviewSummary::rating);
+            ordered.sort("Highest rating".equals(reviewSort.getValue()) ? byRating.reversed().thenComparing(newest)
+                    : "Lowest rating".equals(reviewSort.getValue()) ? byRating.thenComparing(newest) : newest);
+            for (var review : ordered) {
                 VerticalLayout card = new VerticalLayout();
                 card.setPadding(false);
                 card.addClassNames("mw-panel", "review-card");
@@ -137,12 +153,49 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
                     Paragraph reply = new Paragraph(review.reply());
                     reply.getStyle().set("white-space","pre-wrap");
                     card.add(reply);
+                } else if (canReply) {
+                    addReplyForm(card, review.id());
                 }
                 reviewCards.add(card);
             }
         } catch (DataAccessException ex) {
-            add(new Paragraph("The profile could not be loaded."),
+            add(new Paragraph("The profile and reviews could not be loaded."),
                     new Button("Try again", event -> loadProfile()));
+        }
+    }
+
+    private void addReplyForm(VerticalLayout card, Long reviewId) {
+        var editor = new VerticalLayout();
+        editor.setPadding(false);
+        editor.setVisible(false);
+        var text = new TextArea("Your reply");
+        text.setMaxLength(2000);
+        text.setWidthFull();
+        text.setHelperText("Up to 2000 characters. Each review accepts one provider response.");
+        var error = new Paragraph();
+        error.getElement().setAttribute("role", "alert");
+        var confirm = new Button("Confirm reply");
+        var ignore = new Button("Ignore");
+        confirm.setDisableOnClick(true);
+        ignore.setDisableOnClick(true);
+        confirm.addClickListener(event -> saveReply(reviewId, text.getValue(), false, error, confirm));
+        ignore.addClickListener(event -> saveReply(reviewId, null, true, error, ignore));
+        editor.add(text, confirm, new Button("Cancel", event -> editor.setVisible(false)));
+        card.add(new Button("Reply", event -> editor.setVisible(true)), ignore, editor, error);
+    }
+
+    private void saveReply(Long reviewId, String text, boolean ignore, Paragraph error, Button submit) {
+        try {
+            if (ignore) service.ignoreReview(reviewId);
+            else service.replyToReview(reviewId, text);
+            feedback.setText(ignore ? "Review marked as declined." : "Your reply was published.");
+            loadProfile();
+        } catch (IllegalArgumentException | AccessDeniedException ex) {
+            error.setText(ex.getMessage());
+        } catch (DataAccessException ex) {
+            error.setText("Your response could not be saved. Your text is preserved; please try again.");
+        } finally {
+            submit.setEnabled(true);
         }
     }
 

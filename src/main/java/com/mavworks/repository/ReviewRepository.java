@@ -7,6 +7,10 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Review r where r.id = :id")
+    java.util.Optional<Review> findForReply(@Param("id") Long id);
+
     boolean existsByAuthorIdAndListingId(Long authorId, Long listingId);
 
     @Query("select r.listing.id from Review r where r.author.id = :authorId")
