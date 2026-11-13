@@ -23,11 +23,15 @@ public class DashboardView extends VerticalLayout {
     private final AccountEditingService editing;
     private final ImageStorageService storage;
     private final ListingManagementService listingManagement;
+    private final BlockService blocks;
+    private final ReportService reports;
 
-    public DashboardView(AccountDashboardService service, AccountEditingService editing, ImageStorageService storage, ListingManagementService listingManagement, com.vaadin.flow.spring.security.AuthenticationContext authentication) {
+    public DashboardView(AccountDashboardService service, AccountEditingService editing, ImageStorageService storage, ListingManagementService listingManagement, com.vaadin.flow.spring.security.AuthenticationContext authentication, BlockService blocks, ReportService reports) {
         this.editing = editing;
         this.storage = storage;
         this.listingManagement = listingManagement;
+        this.blocks = blocks;
+        this.reports = reports;
         addClassName("dashboard"); setPadding(false);
         Div heading = new Div(new ViewTitle("Dashboard"), new Paragraph("Manage your profile and marketplace activity."));
         Button addListing = new Button("Add listing", e -> getUI().ifPresent(ui -> ui.navigate(com.mavworks.listing.CreateListingView.class)));
@@ -98,7 +102,8 @@ public class DashboardView extends VerticalLayout {
             Div reports = card("Your reports", data.submittedReports().size());
             if (data.submittedReports().isEmpty()) reports.add(empty("You haven't submitted any reports."));
             data.submittedReports().forEach(report -> {
-                Div text = new Div(new Span(report.reportedUser()), new Paragraph("#" + report.id() + " · " + report.category().getLabel()));
+                boolean isBlocked = data.blockedAccounts().stream().anyMatch(b -> b.userId().equals(report.reportedUserId()));
+                Div text = new Div(username(report.reportedUserId(), report.reportedUser(), data.userId(), isBlocked, service), new Paragraph("#" + report.id() + " · " + report.category().getLabel()));
                 Span status = new Span(switch (report.status()) {
                     case PENDING -> "Pending"; case VALID -> "Valid"; case INVALID -> "Invalid";
                 });
@@ -107,14 +112,19 @@ public class DashboardView extends VerticalLayout {
             });
             Div blocked = card("Blocked accounts", data.blockedAccounts().size());
             if (data.blockedAccounts().isEmpty()) blocked.add(empty("You haven't blocked any accounts."));
-            data.blockedAccounts().forEach(name -> {
-                blocked.add(row(new Span(name), new Span("Blocked")));
+            data.blockedAccounts().forEach(blockedAccount -> {
+                blocked.add(row(username(blockedAccount.userId(), blockedAccount.username(), data.userId(), true, service), new Span("Blocked")));
             });
             grid.add(listings, reports, blocked); account.add(grid);
         } catch (DataAccessException ex) {
             Paragraph error = new Paragraph("Your account could not be loaded. Select Refresh to try again.");
             error.getElement().setAttribute("role", "alert"); account.add(error);
         }
+    }
+    private Component username(Long userId, String name, Long viewerId, boolean isBlocked, AccountDashboardService service) {
+        if (userId == null || userId.equals(viewerId)) return new Span(name);
+        if (isBlocked) return new com.mavworks.base.ui.UserOptions(userId, name, blocks, reports, () -> loadAccount(service));
+        return new Anchor("profiles/" + userId, name);
     }
     private static Div card(String title) {
         Div card = new Div(new H3(title)); card.addClassName("dashboard-card"); return card;
