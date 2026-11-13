@@ -276,6 +276,9 @@ available. These are implementation defaults, not a measured response-time SLA;
 loading and sending still depend on the database and network.
 Confirmed, closed conversations retain read-only history and unlock the review
 flow on the provider profile. An empty conversation cannot be confirmed as a sale.
+For an active service, selecting Message after a conversation closes starts a new
+conversation for the same buyer. Open conversations are reused, and previous
+messages and review eligibility are retained.
 Flyway V5 adds messages and block-list tables; restart with the Supabase profile
 to apply it. Existing conversations and reviews are retained.
 
