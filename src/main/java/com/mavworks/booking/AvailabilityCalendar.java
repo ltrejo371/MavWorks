@@ -25,8 +25,14 @@ public class AvailabilityCalendar extends VerticalLayout {
         this.service = service; this.onDate = onDate;
         days.getStyle().set("display", "grid").set("grid-template-columns", "repeat(7, minmax(0, 1fr))").set("gap", "4px");
         days.setWidthFull();
-        add(new Div(new Button("Previous month", e -> move(-1)), title, new Button("Next month", e -> move(1))), days);
-        reload();
+        Div navigation = new Div(new Button("Previous month", e -> move(-1)), new Button("Next month", e -> move(1)));
+        navigation.getStyle().set("display", "flex").set("gap", "8px").set("flex-wrap", "wrap");
+        title.getStyle().set("margin", "0");
+        Div header = new Div(title, navigation);
+        header.setWidthFull();
+        header.getStyle().set("display", "flex").set("align-items", "center").set("justify-content", "space-between").set("gap", "12px").set("flex-wrap", "wrap");
+
+        add(header, days);        reload();
     }
     private void move(int delta) {
         YearMonth previous = month;

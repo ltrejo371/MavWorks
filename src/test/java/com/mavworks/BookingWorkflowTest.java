@@ -372,6 +372,83 @@ class BookingWorkflowTest {
         assertThrows(IllegalArgumentException.class, () -> BookingService.toInstant(LocalDateTime.of(2027, 3, 14, 2, 15)));
         assertThrows(IllegalArgumentException.class, () -> BookingService.toInstant(LocalDateTime.of(2027, 11, 7, 1, 15)));
     }
+
+    @Test
+    void bulkAvailabilityChangesOnlySelectedDaysAndTimes() {
+        LocalDate monday = date.with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
+        Set<DayOfWeek> weekdays = Set.of(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY);
+
+        // An existing selection outside the edited range must survive.
+        availability.setAvailable(monday, 30, true);
+        assertEquals(4, availability.setAvailableRange(monday, monday.plusDays(13), weekdays, 18, 20, true));
+        // Applying the same selection again must not create duplicate records.
+        availability.setAvailableRange(monday, monday.plusDays(13), weekdays, 18, 20, true);
+        assertEquals(Set.of(18, 19, 30), availability.day(monday));
+        assertEquals(Set.of(18, 19), availability.day(monday.plusDays(2)));
+        assertEquals(Set.of(18, 19), availability.day(monday.plusDays(7)));
+        assertEquals(Set.of(18, 19), availability.day(monday.plusDays(9)));
+        assertTrue(availability.day(monday.plusDays(1)).isEmpty());
+        assertTrue(availability.day(monday.plusDays(14)).isEmpty());
+        assertEquals(3, slots.findByUserIdAndDate(buyer.getId(), monday).size());
+        availability.setAvailableRange(monday, monday.plusDays(13), weekdays, 19, 20, false);
+        assertEquals(Set.of(18, 30), availability.day(monday));
+        assertEquals(Set.of(18), availability.day(monday.plusDays(2)));
+        assertEquals(Set.of(18), availability.day(monday.plusDays(7)));
+        assertEquals(Set.of(18), availability.day(monday.plusDays(9)));
+    }
+
+    @Test
+    void bulkAvailabilityIsPrivateAndSupportsEndOfDay() {
+        LocalDate monday = date.with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
+        availability.setAvailableRange(monday, monday, Set.of(DayOfWeek.MONDAY), 0, 48, true);assertEquals(48, availability.day(monday).size());
+        login(stranger);
+        assertTrue(availability.day(monday).isEmpty());
+        availability.setAvailableRange(monday, monday, Set.of(DayOfWeek.MONDAY), 0, 48, false);
+        login(buyer);
+        assertEquals(48, availability.day(monday).size());
+    }
+
+    @Test
+    void changingAvailabilityDoesNotCancelConfirmedAppointments() {
+        Long appointmentId = request(chat, Set.of(24, 25));
+        login(provider);
+        service.approve(appointmentId);
+
+        login(buyer);
+        availability.setAvailableRange(date, date, Set.of(date.getDayOfWeek()), 24, 26, false);
+        assertTrue(availability.day(date).isEmpty());
+        assertEquals(BookingStatus.CONFIRMED, bookings.findById(appointmentId).orElseThrow().getStatus());
+
+        // Another overlapping appointment must still be rejected.
+        availability.setAvailableRange(date, date, Set.of(date.getDayOfWeek()), 24, 26, true);
+        assertThrows(IllegalArgumentException.class, () -> request(chat, Set.of(24, 25)));
+    }
+
+    @Test
+    void bulkAvailabilityRejectsInvalidSelectionsWithoutSaving() {
+        Set<DayOfWeek> weekdays = Set.of(date.getDayOfWeek());
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(null, date, weekdays, 18, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date.minusDays(1), weekdays, 18, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date.minusYears(1), date, weekdays, 18, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date.plusDays(90), weekdays, 18, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date, Set.of(), 18, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date, Set.of(date.plusDays(1).getDayOfWeek()), 18, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date, weekdays, 20, 18, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date, weekdays, -1, 20, true));
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(date, date, weekdays, 18, 49, true));
+        assertTrue(availability.day(date).isEmpty());
+    }
+
+    @Test
+    void bulkAvailabilityRejectsClockChangeBeforeSavingAnyDates() {
+        int year = LocalDate.now(BookingService.BOOKING_ZONE).getYear() + 1;
+        LocalDate clockChange = LocalDate.of(year, Month.MARCH, 1).with(java.time.temporal.TemporalAdjusters.dayOfWeekInMonth(2, DayOfWeek.SUNDAY));
+        LocalDate previousSunday = clockChange.minusWeeks(1);
+        // 2:00–3:00 AM includes nonexistent times on the spring clock change.
+        assertThrows(IllegalArgumentException.class, () -> availability.setAvailableRange(previousSunday, clockChange, Set.of(DayOfWeek.SUNDAY), 4, 6, true));
+        assertTrue(availability.day(previousSunday).isEmpty());
+        assertTrue(availability.day(clockChange).isEmpty());
+    }
     private Long request(Conversation conversation, Set<Integer> selected) {
         selected.forEach(slot -> availability.setAvailable(date, slot, true));
         return service.requestAppointment(conversation.getId(), date, selected);
