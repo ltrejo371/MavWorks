@@ -76,7 +76,8 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             }
             var providerCard = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H3("Listed by"));
             providerCard.addClassName("listing-provider");
-            blocks.visibleUser(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
+            
+            blocks.getUserEvenIfBlocked(listing.getOwner().getId()).ifPresent(provider -> providerCard.add(
                     new com.mavworks.base.ui.UserOptions(provider.id(), provider.username(), blocks, reports,
                             () -> beforeEnter(event)),
                     new com.vaadin.flow.component.html.Anchor("profiles/" + provider.id(), "View profile and reviews")));

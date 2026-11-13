@@ -43,12 +43,17 @@ public class BlockService {
         return users.findById(id).map(user -> new VisibleUser(user.getId(), user.getUsername()));
     }
 
+    public Optional<VisibleUser> getUserEvenIfBlocked(Long id){
+        return users.findById(id).map(user -> new VisibleUser(user.getId(), user.getUsername()));
+    }
+
     public boolean isNotVisible(Long targetId){
         var viewer = current.username().flatMap(users::findByUsername)
             .orElseThrow(() -> new AccessDeniedException("Failed to load options. Sign in to load"));
         return blocks.existsByBlockerIdAndBlockedId(viewer.getId(), targetId);
     }
 
+    @Transactional
     public void unblockUser(Long targetId) {
         var actor = current.username().flatMap(users::findForBlock)
                 .orElseThrow(() -> new AccessDeniedException("Sign in to unblock an account."));
@@ -57,10 +62,11 @@ public class BlockService {
         }
 
         if (blocks.existsByBlockerIdAndBlockedId(actor.getId(), targetId)){
-            var target = users.findById(targetId).orElseThrow(() -> new IllegalArgumentException("Account not available."));
-            String in = blocks.findByBlockerIdandBlockedId(actor.getId(), targetId).get(0);
-            if(in != null && !in.isBlank() && !in.isEmpty()){
-                blocks.deleteById(Long.getLong(blocks.findByBlockerIdandBlockedId(actor.getId(), targetId).get(0)));
+            users.findById(targetId).orElseThrow(() -> new IllegalArgumentException("Account not available."));
+            java.util.List<String> stringIn = blocks.findByBlockerIdAndBlockedId(actor.getId(), targetId);
+            Long in = Long.parseLong(stringIn.get(0));
+            if(in != null){
+                blocks.deleteById(in);
             }
         }
     }

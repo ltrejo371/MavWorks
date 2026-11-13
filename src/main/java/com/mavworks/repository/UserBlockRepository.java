@@ -8,8 +8,8 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     java.util.List<String> findBlockedUsernames(@org.springframework.data.repository.query.Param("userId") Long userId);
     boolean existsByBlockerIdAndBlockedId(Long blockerId, Long blockedId);
 
-    @org.springframework.data.jpa.repository.Query("select b.id from UserBlock b where b.blocker.id = :blockerId AND b.blocked.id = :blockedId")
-    java.util.List<String> findByBlockerIdandBlockedId(@org.springframework.data.repository.query.Param("blockerId") Long blockerId, @org.springframework.data.repository.query.Param("blockedId") Long blockedId);
+    @org.springframework.data.jpa.repository.Query("select b.id from UserBlock b where b.blocker.id = :blockerId and b.blocked.id = :blockedId")
+    java.util.List<String> findByBlockerIdAndBlockedId(@org.springframework.data.repository.query.Param("blockerId") Long blockerId, @org.springframework.data.repository.query.Param("blockedId") Long blockedId);
     
 
     @org.springframework.data.jpa.repository.Query("""

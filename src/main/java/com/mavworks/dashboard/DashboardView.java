@@ -103,7 +103,9 @@ public class DashboardView extends VerticalLayout {
             });
             Div blocked = card("Blocked accounts", data.blockedAccounts().size());
             if (data.blockedAccounts().isEmpty()) blocked.add(empty("You haven't blocked any accounts."));
-            data.blockedAccounts().forEach(name -> blocked.add(row(new Span(name), new Span("Blocked"))));
+            data.blockedAccounts().forEach(name -> {
+                blocked.add(row(new Span(name), new Span("Blocked")));
+            });
             grid.add(listings, reports, blocked); account.add(grid);
         } catch (DataAccessException ex) {
             Paragraph error = new Paragraph("Your account could not be loaded. Select Refresh to try again.");
