@@ -134,3 +134,52 @@ vaadin-radio-group.availability-period-picker::part(group-field) {
   flex-direction: row;
   gap: 12px;
 }
+
+/* Keep intrinsic form and calendar widths inside the viewport. */
+.auth-page { grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; }
+.auth-card { min-width: 0; max-width: min(460px, 100%); }
+.auth-card > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.auth-card vaadin-login-form { --vaadin-login-form-width: 100%; min-width: 0; }
+.auth-card vaadin-login-form::part(form) { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.marketplace-search > vaadin-text-field { min-width: 0; }
+.marketplace-filter-fields { gap: 12px; }
+.marketplace-filter-fields > * { min-width: 0; max-width: 100%; }
+.marketplace-filters { box-sizing: border-box; }
+.listing-about { margin: 20px 0; }
+.availability-date-picker { min-width: 0; box-sizing: border-box; }
+.availability-date-grid > vaadin-button { min-width: 0; width: 100%; padding-left: 0; padding-right: 0; }
+@media (max-width: 700px) {
+    .auth-card { padding: 16px; }
+    .auth-page { gap: 16px; }
+    .auth-card > p, .auth-card > a { overflow-wrap: anywhere; }
+    .marketplace-filter-fields > * { width: 100%; }
+    .availability-date-picker { padding: 0; }
+    .availability-date-grid { font-size: 12px; }
+    .availability-date-picker > div:first-child { gap: 8px; }
+}
+.marketplace-search-card { display: flex; flex-direction: column; gap: 8px; }
+.marketplace-search-card .marketplace-search { flex-wrap: wrap; gap: 12px; }
+.marketplace-search-card .marketplace-filters { margin: 0; }
+.appointment-details-list { display: grid; gap: 10px; max-height: 22rem; overflow-y: auto; }
+.appointment-detail-card { padding: 8px 0; min-width: 0; }
+.appointment-detail-card + .appointment-detail-card { border-top: 1px solid var(--mw-border); }
+.appointment-detail-title { font-weight: 600; }
+.appointment-detail-card > p { margin: 3px 0 6px; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; }
+.appointment-action-links { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; font-size: 0.875rem; }
+.appointment-action-links a,
+.appointment-action-links .appointment-cancel-link {
+    color: var(--vaadin-text-color-link, #0064b1);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.appointment-action-links .appointment-cancel-link {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    height: auto;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    cursor: pointer;
+}

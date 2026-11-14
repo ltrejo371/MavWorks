@@ -38,22 +38,23 @@ class CalendarViewTest {
         verify(availability).setAvailable(date, 24, false);
         assertEquals("false", button(view, "12:00 PM–12:30 PM").getElement().getAttribute("aria-pressed"));
     }
-    @Test void schedulingDisplaysSavedSlotsAndRejectsGaps() {
+    @Test void schedulingDisplaysAllSlotsAndRejectsGaps() {
         when(availability.day(date)).thenReturn(Set.of(24, 25, 26));
         var view = schedule(); chooseDate(view);
         period(view).setValue("PM");
-        assertEquals(3, components(view).filter(c -> c instanceof Button b && b.getAriaLabel().orElse("").contains("–")).count());
+        assertEquals(24, components(view).filter(c -> c instanceof Button b && b.getAriaLabel().orElse("").contains("–")).count());
         button(view, "12:00 PM–12:30 PM").click();
         button(view, "1:00 PM–1:30 PM").click();
         assertEquals("false", button(view, "1:00 PM–1:30 PM").getElement().getAttribute("aria-pressed"));
         assertTrue(button(view, "Request Appointment").isEnabled());
         verify(bookings, never()).requestAppointment(any(), any(), any(), any());
     }
-    @Test void unavailableDateNoKeepsAppointmentUnselected() {
+    @Test void unavailableDateAllowsDirectSelection() {
         when(availability.day(date)).thenReturn(Set.of());
         var view = schedule(); chooseDate(view);
-        button(ui, "No").click();
         assertFalse(button(view, "Request Appointment").isEnabled());
+        button(view, "9:00 AM–9:30 AM").click();
+        assertTrue(button(view, "Request Appointment").isEnabled());
         verify(availability, never()).setAvailable(any(), anyInt(), anyBoolean());
     }
     @Test void periodsStartAtMidnightAndNoonAndEndWithElevenThirty() {
@@ -77,17 +78,16 @@ class CalendarViewTest {
         assertTrue(components(view).anyMatch(c -> c instanceof com.vaadin.flow.component.html.Paragraph p
                 && p.getText().equals("Selected appointment: 11:30 AM–12:30 PM")));
     }
-    @Test void availabilityEditsDuringSchedulingRemainDrafts() {
+    @Test void schedulingDoesNotEditAvailability() {
         when(availability.day(date)).thenReturn(Set.of());
         var view = schedule(); chooseDate(view);
-        button(ui, "Yes").click();
         period(view).setValue("PM");
-        button(view, "12:00 PM–12:30 PM").click();
-        button(view, "Choose appointment times").click();
         button(view, "12:00 PM–12:30 PM").click();
         assertTrue(button(view, "Request Appointment").isEnabled());
         verify(availability, never()).setAvailable(any(), anyInt(), anyBoolean());
-        verify(bookings, never()).requestAppointment(any(), any(), any(), any());
+        ui.remove(view); // Submission is tested without browser navigation.
+        button(view, "Request Appointment").click();
+        verify(bookings).requestAppointment(eq(3L), eq(date), eq(Set.of(24)), eq(Map.of()));
     }
     @Test void reschedulePrefillsOriginalDateSlotsAndReturnLink() {
         when(bookings.listingForConversation(3L)).thenReturn(10L);
@@ -122,7 +122,8 @@ class CalendarViewTest {
         ui.add(view);
         List<Component> children = view.getChildren().toList();
         List<Details> sections = children.stream().filter(Details.class::isInstance).map(Details.class::cast).toList();
-        assertEquals(2, sections.size());
+        assertEquals(3, sections.size());
+        assertFalse(sections.get(2).isOpened());
         assertFalse(sections.get(0).isOpened());
         assertFalse(sections.get(1).isOpened());
         assertTrue(components(sections.get(0)).anyMatch(AvailabilityEditor.class::isInstance));

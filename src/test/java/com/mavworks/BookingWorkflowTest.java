@@ -48,6 +48,39 @@ class BookingWorkflowTest {
     }
     @AfterEach void clearAuthentication() { SecurityContextHolder.clearContext(); }
 
+    @Test void calendarRangeIsPrivateOrderedAndUsesExclusiveBoundaries() {
+        Instant start = date.atStartOfDay(BookingService.BOOKING_ZONE).toInstant();
+        Instant end = date.plusDays(1).atStartOfDay(BookingService.BOOKING_ZONE).toInstant();
+        Booking later = bookings.saveAndFlush(new Booking(chat, buyer, end.minusSeconds(1800), end.plusSeconds(1800)));
+        Booking earlier = bookings.saveAndFlush(new Booking(chat, buyer, start.minusSeconds(1800), start.plusSeconds(1800)));
+        bookings.saveAndFlush(new Booking(chat, buyer, start.minusSeconds(3600), start));
+        bookings.saveAndFlush(new Booking(chat, buyer, end, end.plusSeconds(3600)));
+        List<Long> expected = List.of(earlier.getId(), later.getId());
+        assertEquals(expected, service.getMyBookingsInRange(date, date.plusDays(1)).stream().map(BookingService.BookingSummary::id).toList());
+        login(provider);
+        assertEquals(expected, service.getMyBookingsInRange(date, date.plusDays(1)).stream().map(BookingService.BookingSummary::id).toList());
+        login(stranger);
+        assertTrue(service.getMyBookingsInRange(date, date.plusDays(1)).isEmpty());
+    }
+
+    @Test void calendarRangeRejectsInvalidDatesAndRequiresSignIn() {
+        assertThrows(IllegalArgumentException.class, () -> service.getMyBookingsInRange(null, date));
+        assertThrows(IllegalArgumentException.class, () -> service.getMyBookingsInRange(date, null));
+        assertThrows(IllegalArgumentException.class, () -> service.getMyBookingsInRange(date, date));
+        assertThrows(IllegalArgumentException.class, () -> service.getMyBookingsInRange(date.plusDays(1), date));
+        SecurityContextHolder.clearContext();
+        assertThrows(AccessDeniedException.class, () -> service.getMyBookingsInRange(date, date.plusDays(1)));
+    }
+
+    @Test void calendarRangeFollowsCentralTimeOnShortAndLongDstDays() {
+        for (LocalDate dstDate : List.of(LocalDate.of(2030, 3, 10), LocalDate.of(2030, 11, 3))) {
+            Instant end = dstDate.plusDays(1).atStartOfDay(BookingService.BOOKING_ZONE).toInstant();
+            Booking inside = bookings.saveAndFlush(new Booking(chat, buyer, end.minusSeconds(1800), end));
+            bookings.saveAndFlush(new Booking(chat, buyer, end, end.plusSeconds(1800)));
+            assertEquals(List.of(inside.getId()), service.getMyBookingsInRange(dstDate, dstDate.plusDays(1))
+                    .stream().map(BookingService.BookingSummary::id).toList());
+        }
+    }
     @Test void availabilityTogglesAndIsPrivate() {
         availability.setAvailable(date, 0, true);
         availability.setAvailable(date, 47, true);
@@ -148,8 +181,20 @@ class BookingWorkflowTest {
         assertThrows(AccessDeniedException.class, () -> service.approve(id));
         assertThrows(AccessDeniedException.class, () -> service.decline(id));
     }
-    @Test void rejectsMissingAvailabilityGapsAndClosedConversations() {
-        assertThrows(IllegalArgumentException.class, () -> service.requestAppointment(chat.getId(), date, Set.of(24)));
+    @Test void requestAndRescheduleOutsideAvailabilityDoNotChangeSavedAvailability() {
+        availability.setAvailable(date, 18, true);
+        Long id = service.requestAppointment(chat.getId(), date, Set.of(24, 25));
+        assertEquals(Set.of(18), availability.day(date));
+        login(provider);
+        service.approve(id);
+        login(buyer);
+        service.reschedule(id, date.plusDays(1), Set.of(28, 29), Map.of());
+        assertTrue(availability.day(date.plusDays(1)).isEmpty());
+        assertEquals(Set.of(18), availability.day(date));
+        assertEquals(BookingStatus.REQUESTED, service.getAppointment(id).status());
+        assertEquals(BookingService.toInstant(date.plusDays(1).atTime(14, 0)), service.getAppointment(id).startAt());
+    }
+    @Test void rejectsGapsAndClosedConversations() {
         assertThrows(IllegalArgumentException.class, () -> request(chat, Set.of(24, 26)));
         chat.confirmSale(provider);
         assertThrows(IllegalArgumentException.class, () -> request(chat, Set.of(24)));

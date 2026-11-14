@@ -81,7 +81,32 @@ public class LandingView extends VerticalLayout {
         from.setVisible(false);
         to.setVisible(false);
         Button refresh = new Button("Refresh", event -> loadListings());
-        HorizontalLayout filters = new HorizontalLayout(search, sort, category, type, posted, from, to, refresh);
+        HorizontalLayout filters = new HorizontalLayout(sort, category, type, posted, from, to);
+        filters.addClassName("marketplace-filter-fields");
+        var filterSection = new com.vaadin.flow.component.details.Details("Filters and sorting", filters);
+        filterSection.setOpened(false);
+        addAttachListener(attached -> {
+            var page = attached.getUI().getPage();
+            boolean[] desktop = {false};
+            java.util.function.IntConsumer resize = width -> {
+                boolean wide = width > 700;
+                if (wide != desktop[0]) {
+                    desktop[0] = wide;
+                    filterSection.setOpened(wide);
+                }
+            };
+            page.retrieveExtendedClientDetails(details -> resize.accept(details.getWindowInnerWidth()));
+            var listener = page.addBrowserWindowResizeListener(event -> resize.accept(event.getWidth()));
+            addDetachListener(detached -> listener.remove());
+        });
+        filterSection.setWidthFull();
+        filterSection.addClassName("marketplace-filters");
+        HorizontalLayout searchBar = new HorizontalLayout(search, refresh);
+        searchBar.setWidthFull();
+        searchBar.setAlignItems(Alignment.END);
+        searchBar.addClassName("marketplace-search");
+        search.setWidthFull();
+        searchBar.setFlexGrow(1, search);
         filters.setAlignItems(Alignment.END);
         filters.setWidthFull();
         filters.getStyle().set("flex-wrap", "wrap");
@@ -100,7 +125,9 @@ public class LandingView extends VerticalLayout {
         });
         previous.setEnabled(false);
         next.setEnabled(false);
-        add(filters, status, results, new HorizontalLayout(previous, next));
+        Div searchCard = new Div(searchBar, filterSection);
+        searchCard.addClassNames("mw-panel", "marketplace-search-card");
+        add(searchCard, status, results, new HorizontalLayout(previous, next));
         search.addValueChangeListener(event -> filtersChanged());
         category.addValueChangeListener(event -> filtersChanged());
         type.addValueChangeListener(event -> filtersChanged());

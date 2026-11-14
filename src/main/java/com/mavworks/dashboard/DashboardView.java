@@ -96,7 +96,7 @@ public class DashboardView extends VerticalLayout {
             names.addClassName("dashboard-names"); identity.add(names);
             Button edit = new Button("Edit profile", e -> new EditAccountDialog(data, editing, storage, () -> loadAccount(service)).open());
             Div profileHeader = new Div(identity, edit); profileHeader.addClassName("dashboard-profile-header");
-            Div details = new Div(field("Name", data.name()), field("Contact information", data.contactInformation()));
+            Div details = new Div(field("Contact information", data.contactInformation()));
             details.addClassName("dashboard-details");
             profile.add(profileHeader, field("Bio", data.bio()), details); account.add(profile);
             if (!data.warnings().isEmpty()) {

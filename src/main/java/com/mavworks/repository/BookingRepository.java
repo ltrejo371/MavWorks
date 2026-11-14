@@ -34,6 +34,25 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             """)
     List<Booking> findForParticipant(@Param("userId") Long userId);
 
+    @Query("""
+        select b from Booking b
+        join fetch b.listing l
+        join fetch l.owner
+        join fetch b.buyer
+        join fetch b.requester
+        join fetch b.conversation
+        where (b.buyer.id = :userId or l.owner.id = :userId)
+          and b.startAt < :end
+          and b.endAt > :start
+        order by b.startAt asc, b.id asc
+        """)
+
+    List<Booking> findForParticipantInRange(
+            @Param("userId") Long userId,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from Booking b where b.id = :id")
     Optional<Booking> findForUpdate(@Param("id") Long id);

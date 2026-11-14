@@ -198,8 +198,9 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         var format = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm z").withZone(BookingService.BOOKING_ZONE);
         try {
             for (var booking : bookings.getConversationBookings(conversationId)) {
-                Div card = new Div(new Paragraph("Appointment · " + format.format(booking.startAt()) + "–"
-                        + format.format(booking.endAt()) + " · " + booking.status()));
+                Div card = new Div(new Paragraph("Appointment · "
+                        + com.mavworks.booking.AppointmentActions.timeRange(booking) + " · " + booking.status()));
+                card.addClassName("appointment-detail-card");
                 card.add(new com.mavworks.booking.AppointmentAvailabilityNotice(booking));
                 if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
                         new Button("Decline", e -> respond(booking.id(), false)));
