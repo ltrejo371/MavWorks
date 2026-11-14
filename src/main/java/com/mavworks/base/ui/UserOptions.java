@@ -27,8 +27,16 @@ public class UserOptions extends Button {
                     }));
             if(blocks.isNotVisible(userId)){
                 options.getFooter().add(new Button("Unblock", click -> {
-                        options.close();
+                    try {
                         blocks.unblockUser(userId);
+                        options.close();
+                        Notification.show("The account has been unblocked.");
+                        afterBlock.run();
+                    } catch (IllegalArgumentException | AccessDeniedException ex) {
+                        Notification.show(ex.getMessage());
+                    } catch (DataAccessException ex) {
+                        Notification.show("The account could not be unblocked. Please try again.");
+                    }
                     }));
             }else{
                 options.getFooter().add(new Button("Block", click -> {

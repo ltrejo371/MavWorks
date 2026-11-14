@@ -36,6 +36,10 @@ public class Report {
     private ModerationAction action;
     @Column(length = 2000)
     private String decisionNote;
+    private Instant noticeAcknowledgedAt;
+
+    public Instant getNoticeAcknowledgedAt() { return noticeAcknowledgedAt; }
+    public void acknowledgeNotice() { noticeAcknowledgedAt = Instant.now(); }
 
     /** Authorization and locking are enforced by ReportService. */
     public void resolve(User admin, ReportStatus decision, ModerationAction action, String note) {

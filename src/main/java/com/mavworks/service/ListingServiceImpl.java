@@ -47,9 +47,9 @@ public class ListingServiceImpl implements ListingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<Listing> getListingDetails(Long listingId) {
         var viewer = owner();
-        listings.recordView(listingId, viewer.getId());
         return listings.findById(listingId).filter(l -> l.getStatus() != ListingStatus.REMOVED
                 || l.getOwner().getId().equals(viewer.getId()))
                 .map(l -> { l.getImages().size(); return l; });

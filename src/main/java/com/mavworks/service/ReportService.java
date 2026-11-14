@@ -19,6 +19,17 @@ public class ReportService {
     private final CurrentUser current;
     private final UserRepository users;
     private final ReportRepository reports;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+    @org.springframework.beans.factory.annotation.Value("${mavworks.warning-limit:3}")
+    private int warningLimit = 3;
+
+    public int warningLimit() { return warningLimit; }
+
+    @jakarta.annotation.PostConstruct
+    void validateConfiguration() {
+        if (warningLimit < 1) throw new IllegalArgumentException("mavworks.warning-limit must be positive.");
+    }
 
     public ReportService(CurrentUser current, UserRepository users, ReportRepository reports) {
         this.current = current;
@@ -81,8 +92,20 @@ public class ReportService {
         var admin = administrator();
         if (id == null) throw new IllegalArgumentException("Select a report.");
         var report = reports.findForDecision(id).orElseThrow(() -> new IllegalArgumentException("Report not found."));
+        if (report.getStatus() != ReportStatus.PENDING)
+            throw new IllegalStateException("This report has already been reviewed. Reload to see the saved decision.");
         if (report.getReportedUser() != null && report.getReportedUser().getId().equals(admin.getId())) {
             throw new AccessDeniedException("Another administrator must review a report against your own account.");
+        }
+        // Serialize decisions for the same account, including decisions on different reports.
+        if (decision == ReportStatus.VALID && report.getReportedUser() != null) {
+            var target = users.findForReview(report.getReportedUser().getUsername()).orElseThrow();
+            entityManager.refresh(target);
+            if (target.isBanned()) throw new IllegalArgumentException("This account is already banned.");
+            if (action == ModerationAction.WARNING
+                    && reports.countByReportedUserIdAndStatus(target.getId(), ReportStatus.VALID) + 1 >= warningLimit) {
+                action = ModerationAction.BAN;
+            }
         }
         report.resolve(admin, decision, action, explanation);
         reports.flush();

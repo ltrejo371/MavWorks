@@ -133,10 +133,10 @@ class ListingCatalogTest {
         authenticate("page-viewer");
         for (int i = 0; i < 3; i++) {
             entityManager.clear();
-            publishing.getListingDetails(ids.get(13));
+            publishing.recordView(ids.get(13));
         }
         entityManager.clear();
-        publishing.getListingDetails(ids.get(12));
+        publishing.recordView(ids.get(12));
         entityManager.clear();
 
         var firstPage = catalog.search(new SearchFilter("", null), null,
@@ -160,7 +160,7 @@ class ListingCatalogTest {
         assertEquals(ids.get(13), mostViewed.getContent().getFirst().id());
         authenticate("page-seller");
         entityManager.clear();
-        publishing.getListingDetails(ids.get(13));
+        publishing.recordView(ids.get(13));
         entityManager.clear();
         assertEquals(3, listings.findById(ids.get(13)).orElseThrow().getViewCount());
         var secondPage = catalog.search(new SearchFilter("", null), null,
@@ -240,6 +240,7 @@ class ListingCatalogTest {
             assertEquals(0, publishing.recordView(older.getId()));
             context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                     buyer.getUsername(), null, java.util.List.of()));
+            assertTrue(publishing.getListingDetails(older.getId()).isPresent());
             assertEquals(1, publishing.recordView(older.getId()));
             assertEquals(2, publishing.recordView(older.getId()));
             outside.setStatus(ListingStatus.REMOVED); listings.flush();

@@ -53,7 +53,10 @@ public class AccountAccessService {
             passwords.matches(password, dummyHash);
             throw new BadCredentialsException("Invalid credentials");
         }
-        if (user.isBanned()) throw new DisabledException("Account unavailable");
+        if (user.isBanned()) {
+            if (!passwords.matches(password, user.getHashedPassword())) throw new BadCredentialsException("Invalid credentials");
+            throw new com.mavworks.security.BannedLoginException(user.getId());
+        }
         if (user.isLoginLocked()) throw new LockedException("Account locked");
         if (!passwords.matches(password, user.getHashedPassword())) {
             user.failedLogin();

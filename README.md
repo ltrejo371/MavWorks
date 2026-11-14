@@ -203,6 +203,10 @@ support. Restart with the Supabase profile to apply pending migrations.
 ## Calendar and appointments
 
 Open **Calendar** from the sidebar to mark availability in 30-minute slots.
+Expand **Set your availability** to mark selected weekdays and hours available
+or unavailable across up to 90 days. Expand **Adjust a single day** for individual
+changes. Bulk changes save with the action buttons; single-day changes save
+immediately. Existing appointments are unchanged.
 Request an appointment for a product or service through its listing page or
 conversation; an open conversation is required. Select consecutive slots on
 the requesting user's calendar. Times use the UTA/Arlington Central time zone.
@@ -333,6 +337,14 @@ Admins open a report to inspect its category, reason, participants, current TOS,
 and previous valid-report count. **Save decision** archives it as VALID or INVALID.
 A VALID decision requires a warning or ban and an explanation for the reported
 user. Warnings appear on that user's dashboard without revealing the reporter.
+At the next login, unacknowledged warnings also appear in a popup with the offense,
+admin explanation, and warning number. Acknowledgment persists across sessions.
+`MAVWORKS_WARNING_LIMIT` defaults to 3: the third valid offense automatically becomes
+a ban even when the admin selects WARNING. Admins can select BAN for a severe first
+offense. After a banned user submits the correct password, a popup shows the offense
+history, warning numbers, ban status, and a clickable appeal email. Incorrect passwords
+never disclose moderation details. `MAVWORKS_APPEAL_EMAIL` defaults to
+`mavworks0@gmail.com`. Flyway V20 adds persistent notice acknowledgments.
 Bans disable login, invalidate existing sessions on their next request, and deny
 authenticated service actions. Leaving without saving keeps the report PENDING.
 Use the status filter to inspect archived VALID and INVALID reports. The first

@@ -44,6 +44,56 @@ public class AvailabilityService {
         if (available && !exists) slots.saveAndFlush(new Availability(viewer, date, slot));
         if (!available && exists) { slots.deleteByUserIdAndDateAndSlot(viewer.getId(), date, slot); slots.flush(); }
     }
+
+    @Transactional
+    public int setAvailableRange(LocalDate firstDate, LocalDate lastDate, Set<DayOfWeek> weekdays, int firstSlot, int endSlot, boolean available) {
+
+        if (firstDate == null || lastDate == null || firstDate.isBefore(LocalDate.now(BookingService.BOOKING_ZONE)) || lastDate.isBefore(firstDate)) {
+            throw new IllegalArgumentException("Choose a current or future date range.");
+        }
+        if (java.time.temporal.ChronoUnit.DAYS.between(firstDate, lastDate) >= 90) {
+            throw new IllegalArgumentException("Choose a date range of at most 90 days.");
+        }
+        if (weekdays == null || weekdays.isEmpty() || weekdays.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Choose at least one weekday.");
+        }
+        if (firstSlot < 0 || endSlot > SLOTS_PER_DAY || firstSlot >= endSlot) {
+            throw new IllegalArgumentException("Choose an end time after the start time.");
+        }
+        List<LocalDate> dates = firstDate.datesUntil(lastDate.plusDays(1)).filter(date -> weekdays.contains(date.getDayOfWeek())).toList();
+        if (dates.isEmpty()) {
+            throw new IllegalArgumentException("The date range does not include your selected weekdays.");
+        }
+        // Validate the whole selection before making changes.
+        for (LocalDate date : dates) {
+            for (int slot = firstSlot; slot < endSlot; slot++) {
+                validate(date, slot);
+            }
+        }
+        User viewer = user();
+        users.findForMessaging(viewer.getUsername()).orElseThrow();
+        List<Availability> existing = slots.findByUserIdAndDateBetween(viewer.getId(), firstDate, lastDate);
+        Map<LocalDate, Set<Integer>> existingSlots = existing.stream().collect(Collectors.groupingBy(Availability::getDate, Collectors.mapping(Availability::getSlot, Collectors.toSet())));
+        if (available) {
+            List<Availability> additions = new ArrayList<>();
+            for (LocalDate date : dates) {
+                Set<Integer> marked = existingSlots.getOrDefault(date, Set.of());
+                for (int slot = firstSlot; slot < endSlot; slot++) {
+                    if (!marked.contains(slot)) {
+                        additions.add(new Availability(viewer, date, slot));
+                    }
+                }
+            }
+            slots.saveAll(additions);
+        } else {
+            Set<LocalDate> selectedDates = new HashSet<>(dates);
+            List<Availability> removals = existing.stream().filter(item -> selectedDates.contains(item.getDate())).filter(item -> item.getSlot() >= firstSlot && item.getSlot() < endSlot).toList();
+            slots.deleteAll(removals);
+        }
+        slots.flush();
+        return dates.size();
+    }
+
     public static void validate(LocalDate date, int slot) {
         if (date == null || date.isBefore(LocalDate.now(BookingService.BOOKING_ZONE)) || slot < 0 || slot >= SLOTS_PER_DAY)
             throw new IllegalArgumentException("Choose a current or future date and a 30-minute slot.");

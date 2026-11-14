@@ -12,6 +12,11 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.vaadin.flow.component.checkbox.CheckboxGroup;
+import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.details.Details;
+import com.vaadin.flow.component.html.Paragraph;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 class CalendarViewTest {
     private final AvailabilityService availability = mock(AvailabilityService.class);
@@ -111,6 +116,74 @@ class CalendarViewTest {
         button(actions, "Cancel").click(); button(ui, "Yes").click();
         verify(bookings).cancelAppointment(7L); verify(refresh).run();
     }
+    @Test
+    void availabilityEditorsStartCollapsedWithBulkFirst() {
+        var view = new BookingView(availability, bookings);
+        ui.add(view);
+        List<Component> children = view.getChildren().toList();
+        List<Details> sections = children.stream().filter(Details.class::isInstance).map(Details.class::cast).toList();
+        assertEquals(2, sections.size());
+        assertFalse(sections.get(0).isOpened());
+        assertFalse(sections.get(1).isOpened());
+        assertTrue(components(sections.get(0)).anyMatch(AvailabilityEditor.class::isInstance));
+        assertTrue(components(sections.get(1)).anyMatch(AvailabilityCalendar.class::isInstance));
+    }
+
+    @Test
+    void bulkEditorAppliesBothActionsAndRefreshesAfterSaving() {
+        Runnable refresh = mock(Runnable.class);
+        var editor = new AvailabilityEditor(availability, refresh);
+        ui.add(editor);
+        configureBulkEditor(editor);
+
+        Set<DayOfWeek> weekdays = Set.of(date.getDayOfWeek());
+        when(availability.setAvailableRange(date, date, weekdays, 18, 34, true)).thenReturn(1);
+        when(availability.setAvailableRange(date, date, weekdays, 18, 34, false)).thenReturn(1);
+        button(editor, "Mark available").click();
+        verify(availability).setAvailableRange(date, date, weekdays, 18, 34, true);
+        assertTrue(hasParagraph(editor, "Marked selected times available across 1 day."));
+        button(editor, "Mark unavailable").click();
+        verify(availability).setAvailableRange(date, date, weekdays, 18, 34, false);
+        verify(refresh, times(2)).run();
+        assertTrue(hasParagraph(editor, "Marked selected times unavailable across 1 day."));
+    }
+
+    @Test
+    void bulkEditorShowsValidationAndSaveErrorsWithoutRefreshing() {
+        Runnable refresh = mock(Runnable.class);
+        var editor = new AvailabilityEditor(availability, refresh);
+        ui.add(editor);
+        configureBulkEditor(editor);
+        when(availability.setAvailableRange(date, date, Set.of(date.getDayOfWeek()), 18, 34, true)).thenThrow(new IllegalArgumentException("Choose at least one weekday.")).thenThrow(new DataAccessResourceFailureException("offline"));
+        button(editor, "Mark available").click();
+        assertTrue(hasParagraph(editor, "Choose at least one weekday."));
+        button(editor, "Mark available").click();
+        assertTrue(hasParagraph(editor, "Unable to save availability changes. Please try again later."));
+        verifyNoInteractions(refresh);
+    }
+
+    @Test
+    void bulkEditorDistinguishesSavedChangesFromRefreshFailure() {
+        Runnable refresh = mock(Runnable.class);
+        var editor = new AvailabilityEditor(availability, refresh);
+        ui.add(editor);
+        configureBulkEditor(editor);
+        when(availability.setAvailableRange(date, date, Set.of(date.getDayOfWeek()), 18, 34, true)).thenReturn(1);
+        doThrow(new DataAccessResourceFailureException("offline")).when(refresh).run();
+        button(editor, "Mark available").click();
+        assertTrue(components(editor).filter(Paragraph.class::isInstance).map(Paragraph.class::cast).anyMatch(p -> p.getText().contains("Changes were saved") && p.getText().contains("could not refresh")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void configureBulkEditor(AvailabilityEditor editor) {
+        components(editor).filter(DatePicker.class::isInstance).map(DatePicker.class::cast).forEach(picker -> picker.setValue(date));
+        CheckboxGroup<DayOfWeek> weekdays = (CheckboxGroup<DayOfWeek>) components(editor).filter(CheckboxGroup.class::isInstance).findFirst().orElseThrow();
+        weekdays.setValue(Set.of(date.getDayOfWeek()));
+    }
+
+    private boolean hasParagraph(Component root, String text) {
+        return components(root).filter(Paragraph.class::isInstance).map(Paragraph.class::cast).anyMatch(p -> p.getText().equals(text));
+    }
     private AppointmentView schedule() {
         when(bookings.listingForConversation(3L)).thenReturn(10L);
         var view = new AppointmentView(bookings, availability); ui.add(view);
@@ -120,6 +193,7 @@ class CalendarViewTest {
         view.beforeEnter(event); return view;
     }
     private void chooseDate(Component view) {
+        components(view).filter(Details.class::isInstance).map(Details.class::cast).forEach(details -> details.setOpened(true));
         if (!YearMonth.from(date).equals(YearMonth.now(BookingService.BOOKING_ZONE))) button(view, "Next month").click();
         components(view).filter(c -> c instanceof Button b && b.getAriaLabel().orElse("").startsWith(date.toString()))
                 .map(Button.class::cast).findFirst().orElseThrow().click();

@@ -16,7 +16,7 @@ class DashboardLogoutTest {
         when(account.load()).thenThrow(new DataAccessResourceFailureException("offline"));
         var authentication = mock(AuthenticationContext.class);
         var view = new DashboardView(account, mock(AccountEditingService.class), mock(LocalImageStorageService.class),
-                mock(ListingManagementService.class), authentication);
+                mock(ListingManagementService.class), authentication, mock(BlockService.class), mock(ReportService.class));
         var logout = components(view).filter(c -> c instanceof Button b && b.getText().equals("Logout"))
                 .map(Button.class::cast).findFirst().orElseThrow();
         logout.click();

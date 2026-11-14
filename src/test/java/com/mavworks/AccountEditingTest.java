@@ -104,7 +104,8 @@ class AccountEditingTest {
         Long id = reporting.reportUser(other.getId(), ReportCategory.SPAM, "reason");
         blocking.blockUser(other.getId());
         assertEquals(ReportStatus.PENDING, dashboard.load().submittedReports().getFirst().status());
-        assertEquals(List.of("other"), dashboard.load().blockedAccounts());
+        assertEquals(other.getId(), dashboard.load().submittedReports().getFirst().reportedUserId());
+        assertEquals(List.of(new AccountDashboardService.BlockedAccount(other.getId(), "other")), dashboard.load().blockedAccounts());
         login(other, "USER");
         assertTrue(dashboard.load().submittedReports().isEmpty());
         assertTrue(dashboard.load().blockedAccounts().isEmpty());

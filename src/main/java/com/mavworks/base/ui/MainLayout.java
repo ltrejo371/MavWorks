@@ -23,8 +23,14 @@ import jakarta.annotation.security.PermitAll;
 public final class MainLayout extends AppLayout implements com.vaadin.flow.router.AfterNavigationObserver {
     private final java.util.Map<String, com.vaadin.flow.component.html.Anchor> mobileLinks = new java.util.LinkedHashMap<>();
     private final com.mavworks.messaging.MessageNotifications notifications;
+    private final com.mavworks.service.ModerationNoticeService moderation;
+    private final String appealEmail;
+    private boolean noticesChecked;
 
-    MainLayout(com.mavworks.service.MessagingService messaging) {
+    MainLayout(com.mavworks.service.MessagingService messaging, com.mavworks.service.ModerationNoticeService moderation,
+            @org.springframework.beans.factory.annotation.Value("${mavworks.appeal-email:mavworks0@gmail.com}") String appealEmail) {
+        this.moderation = moderation;
+        this.appealEmail = appealEmail;
         notifications = new com.mavworks.messaging.MessageNotifications(messaging);
         setPrimarySection(Section.DRAWER);
         addToDrawer(createApplicationHeader(), createApplicationDrawer(), createApplicationFooter());
@@ -61,6 +67,12 @@ public final class MainLayout extends AppLayout implements com.vaadin.flow.route
             else link.getElement().removeAttribute("aria-current");
         });
         notifications.refresh();
+        if (!noticesChecked) {
+            var pending = moderation.pending();
+            noticesChecked = true;
+            if (!pending.isEmpty()) new ModerationNoticeDialog(pending, false, appealEmail,
+                    () -> moderation.acknowledge(pending.stream().map(n -> n.reportId()).toList())).open();
+        }
     }
 
     private Component createApplicationHeader() {

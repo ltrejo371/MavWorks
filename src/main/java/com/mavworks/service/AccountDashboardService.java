@@ -30,8 +30,9 @@ public class AccountDashboardService {
 
     public record DashboardData(String username, String email, String name, String bio,
             String contactInformation, List<OwnerListing> listings, List<com.mavworks.dto.AccountWarning> warnings,
-            Long userId, boolean hasPicture, List<SubmittedReport> submittedReports, List<String> blockedAccounts) {}
-    public record SubmittedReport(Long id, String reportedUser, com.mavworks.model.ReportCategory category,
+            Long userId, boolean hasPicture, List<SubmittedReport> submittedReports, List<BlockedAccount> blockedAccounts) {}
+    public record BlockedAccount(Long userId, String username) {}
+    public record SubmittedReport(Long id, String reportedUser, Long reportedUserId, com.mavworks.model.ReportCategory category,
             com.mavworks.model.ReportStatus status, java.time.Instant createdAt) {}
 
     private final CurrentUser currentUser;
@@ -73,6 +74,8 @@ public class AccountDashboardService {
                 user.getId(), profile != null && profile.getProfilePictureUrl() != null,
                 reports.findByReporterIdOrderByCreatedAtDescIdDesc(user.getId()).stream().map(r -> new SubmittedReport(
                         r.getId(), r.getReportedUser() == null ? "Deleted account" : r.getReportedUser().getUsername(),
-                        r.getCategory(), r.getStatus(), r.getCreatedAt())).toList(), blocks.findBlockedUsernames(user.getId()));
+                        r.getReportedUser() == null ? null : r.getReportedUser().getId(),
+                        r.getCategory(), r.getStatus(), r.getCreatedAt())).toList(), blocks.findBlockedUsers(user.getId()).stream()
+                        .map(blocked -> new BlockedAccount(blocked.getId(), blocked.getUsername())).toList());
     }
 }
