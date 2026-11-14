@@ -58,7 +58,7 @@
 }
 .mav-chat-send {
     flex: 0 0 36px; width: 36px; min-width: 36px; height: 36px; margin: 0 0 3px;
-    padding: 0; border-radius: 50%; background: #007aff; color: white; font-size: 25px; font-weight: 600;
+    padding: 0; border-radius: 50%; background: #e9e9eb; color: #76767c; font-size: 25px; font-weight: 600;
 }
 .mav-chat-send[disabled] { opacity: .45; }
 .mav-chat-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 0 12px 10px; box-sizing: border-box; font-size: 12px; }
@@ -78,3 +78,26 @@
     .mav-chat-message { max-width: 86%; }
     .mav-chat-listing { max-width: 18ch; }
 }
+
+/* App guidance scrolls with history, separate from conversation bubbles. */
+.mav-chat-history > .mav-chat-safety-tip {
+    border: 1px solid #f0dfb3;
+    border-radius: 8px;
+    font-size: 12px;
+    padding: 10px 12px;
+}
+.mav-chat-appointments {
+    width: 100%;
+    box-sizing: border-box;
+    max-height: 30%;
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 0 12px;
+}
+.mav-chat-appointments[hidden] { display: none; }
+.mav-chat-appointments { margin: 0; font-size: 0.85rem; }
+.mav-chat-input { --vaadin-input-field-min-height: 36px; }
+.mav-chat-input::part(input-field) { min-height: 36px; padding-top: 4px; padding-bottom: 4px; }
+.mav-chat-composer { padding-top: 8px; padding-bottom: 8px; align-items: center; }
+.mav-chat-header { grid-template-columns: 1fr auto 1fr; }
+.mav-chat-send.has-draft:not([disabled]) { background: #007aff; color: white; }

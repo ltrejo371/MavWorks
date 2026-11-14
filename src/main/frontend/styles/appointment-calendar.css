@@ -1,0 +1,213 @@
+.appointment-month-view {
+    --calendar-border: #dce3eb;
+    --calendar-muted: #64748b;
+}
+
+.appointment-calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+}
+
+.appointment-calendar-header h2 {
+    margin: 0;
+}
+
+.appointment-calendar-navigation {
+    display: flex;
+    gap: 8px;
+}
+
+.appointment-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    width: 100%;
+    border-top: 1px solid var(--calendar-border);
+    border-left: 1px solid var(--calendar-border);
+}
+
+.appointment-calendar-weekday,
+.appointment-calendar-day {
+    box-sizing: border-box;
+    min-width: 0;
+    border-right: 1px solid var(--calendar-border);
+    border-bottom: 1px solid var(--calendar-border);
+}
+
+.appointment-calendar-weekday {
+    padding: 10px 4px;
+    text-align: center;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.appointment-calendar-day {
+    min-height: 140px;
+    padding: 8px;
+    background: var(--vaadin-background-color, #fff);
+}
+
+.appointment-calendar-day.outside-month {
+    background: #f8fafc;
+}
+
+.appointment-calendar-day.outside-month .appointment-calendar-date {
+    color: var(--calendar-muted);
+}
+
+.appointment-calendar-date {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    font-weight: 600;
+}
+
+.appointment-calendar-day.is-today .appointment-calendar-date {
+    background: #0064b1;
+    color: white;
+}
+
+.appointment-calendar-entry {
+    margin-top: 5px;
+    padding: 6px;
+    border-left: 3px solid #64748b;
+    border-radius: 4px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+}
+
+.appointment-calendar-entry a {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.appointment-calendar-entry a:hover {
+    text-decoration: underline;
+}
+
+.appointment-calendar-entry a:focus-visible {
+    outline: 2px solid #0064b1;
+    outline-offset: 2px;
+}
+
+.appointment-calendar-entry.status-confirmed {
+    border-left-color: #0064b1;
+    background: #eaf3fc;
+    color: #174a77;
+}
+
+.appointment-calendar-entry.status-requested {
+    border-left-color: #b66a00;
+    background: #fff4df;
+    color: #784400;
+}
+
+.appointment-calendar-status {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.7rem;
+}
+
+.appointment-calendar-more {
+    max-width: 100%;
+    margin-top: 5px;
+    font-size: 0.75rem;
+}
+
+/* A day-by-day appointment list keeps times readable on phones. */
+@media (max-width: 700px) {
+    .appointment-month-view,
+    .appointment-calendar-scroll { width: 100%; min-width: 0; }
+    .appointment-calendar-header { align-items: flex-start; }
+    .appointment-calendar-navigation { flex-wrap: wrap; }
+    .appointment-calendar-grid { display: block; border: 0; min-width: 0; }
+    .appointment-calendar-weekday,
+    .appointment-calendar-day.outside-month,
+    .appointment-calendar-day:not(.has-appointments) { display: none; }
+    .appointment-calendar-day {
+        min-height: 0;
+        margin-bottom: 12px;
+        padding: 12px;
+        border: 1px solid var(--calendar-border);
+        border-radius: 10px;
+    }
+    .appointment-calendar-date,
+    .appointment-calendar-day.is-today .appointment-calendar-date {
+        display: block;
+        width: auto;
+        height: auto;
+        background: none;
+        color: inherit;
+        font-size: 0;
+        border-radius: 0;
+    }
+    .appointment-calendar-date::after {
+        content: attr(data-full-date);
+        font-size: 1rem;
+    }
+    .appointment-calendar-day.is-today { border-color: #0064b1; }
+    .appointment-calendar-entry { font-size: 0.9rem; padding: 10px; }
+}
+/* Keep the page controls compact and the month attached to its calendar. */
+.calendar-page { gap: 8px; }
+.calendar-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+}
+.calendar-page > vaadin-details { margin: 0; }
+.appointment-month-view { gap: 8px; margin-top: 8px; }
+.appointment-calendar-month-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    min-width: 0;
+}
+.appointment-calendar-timezone {
+    font-size: 0.8rem;
+    color: var(--calendar-muted);
+    white-space: nowrap;
+}
+.calendar-page .appointment-calendar-feedback {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--calendar-muted);
+}
+.appointment-calendar-feedback:empty { display: none; }
+/* Busy days keep the same footprint as quiet days in the desktop month. */
+.appointment-calendar-meta { display: block; font-size: 0.7rem; line-height: 1.4; }
+.appointment-calendar-title { display: block; line-height: 1.4; }
+.appointment-day-schedule { display: grid; gap: 8px; }
+.appointment-day-schedule .appointment-calendar-title { white-space: normal; overflow-wrap: anywhere; }
+.appointment-day-schedule p { margin: 4px 0 0; font-size: 0.85rem; }
+@media (min-width: 701px) {
+    .appointment-calendar-day { height: 190px; min-height: 190px; overflow: hidden; }
+    .appointment-calendar-day .appointment-calendar-entry { padding: 5px 6px; }
+    .appointment-calendar-day .appointment-calendar-title,
+    .appointment-calendar-day .appointment-calendar-meta {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    .appointment-calendar-mobile-extra { display: none; }
+    .appointment-calendar-more { height: 26px; min-height: 26px; margin: 4px 0 0; padding: 0 5px; }
+}
+@media (max-width: 700px) {
+    .appointment-calendar-more { display: none; }
+    .appointment-calendar-meta { font-size: 0.8rem; }
+}

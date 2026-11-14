@@ -6,11 +6,14 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
+import com.vaadin.flow.component.UI;
 import org.springframework.dao.DataAccessResourceFailureException;
 import static org.mockito.Mockito.*;
 
 class DashboardLogoutTest {
+    @BeforeEach void setup() { UI.setCurrent(new UI()); }
+    @AfterEach void cleanup() { UI.setCurrent(null); }
     @Test void logoutUsesAuthenticationContextEvenWhenAccountLoadingFails() {
         var account = mock(AccountDashboardService.class);
         when(account.load()).thenThrow(new DataAccessResourceFailureException("offline"));

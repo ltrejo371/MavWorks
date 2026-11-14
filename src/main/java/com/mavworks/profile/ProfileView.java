@@ -89,7 +89,7 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             var identity = new com.vaadin.flow.component.html.Div(new ViewTitle(profile.username()),
                     new com.mavworks.base.ui.UserOptions(profile.userId(), "Account options", blocks, reports, this::loadProfile));
             identity.addClassName("profile-identity");
-            if (profile.name() != null && !profile.name().isBlank()) identity.add(new Paragraph(profile.name()));
+
             if (profile.bio() != null && !profile.bio().isBlank()) {
                 Paragraph bio = new Paragraph(profile.bio()); bio.addClassName("mw-prose"); identity.add(bio);
             }

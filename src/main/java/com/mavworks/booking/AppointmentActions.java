@@ -11,10 +11,11 @@ import java.time.Instant;
 public class AppointmentActions extends Div {
     public AppointmentActions(BookingService service, BookingService.BookingSummary booking,
             String returnPath, Runnable refresh) {
+        addClassName("appointment-action-links");
         if (booking.status() != BookingStatus.CONFIRMED || !booking.startAt().isAfter(Instant.now())) return;
         add(new Anchor("listings/" + booking.listingId() + "/appointment?booking=" + booking.id()
                 + "&from=" + (returnPath.equals("calendar") ? "calendar" : "messages"), "Reschedule"));
-        add(new Button("Cancel", e -> {
+        Button cancelAction = new Button("Cancel", e -> {
             Dialog dialog = new Dialog();
             dialog.setHeaderTitle("Cancel appointment");
             dialog.add(new Paragraph("You are cancelling this appointment and it will no longer be saved or displayed for you or the other party. Are you sure?"));
@@ -34,6 +35,18 @@ public class AppointmentActions extends Div {
                 if (!change.isOpened()) remove(dialog);
             });
             dialog.open();
-        }));
+        });
+        cancelAction.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_TERTIARY_INLINE);
+        cancelAction.addClassName("appointment-cancel-link");
+        add(cancelAction);
+    }
+    public static String timeRange(BookingService.BookingSummary booking) {
+        var start = booking.startAt().atZone(BookingService.BOOKING_ZONE);
+        var end = booking.endAt().atZone(BookingService.BOOKING_ZONE);
+        var date = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.US);
+        var time = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US);
+        return date.format(start) + " · " + time.format(start) + "–"
+                + (start.toLocalDate().equals(end.toLocalDate()) ? "" : date.format(end) + " ")
+                + time.format(end) + " CT";
     }
 }

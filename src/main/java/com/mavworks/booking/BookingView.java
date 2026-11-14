@@ -20,6 +20,7 @@ public class BookingView extends VerticalLayout {
     private final AvailabilityService availability;
     private final BookingService bookings;
     private AvailabilityCalendar calendar;
+    private AppointmentCalendar appointmentCalendar;
     private LocalDate date;
     private Set<Integer> marked = Set.of();
     private final Div times = new Div();
@@ -28,9 +29,21 @@ public class BookingView extends VerticalLayout {
     public BookingView(AvailabilityService availability, BookingService bookings) {
         this.availability = availability; this.bookings = bookings;
         period.addValueChangeListener(e -> { if (date != null) renderTimes(); });
-        addClassName("mw-page");
+        addClassNames("mw-page", "calendar-page");
         times.setWidthFull();
-        add(new H1("Calendar"));
+        appointments.addClassName("appointment-details-list");
+        Button refreshButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.REFRESH.create(), event -> {
+            if (appointmentCalendar != null) {
+                appointmentCalendar.reload();
+                refresh();
+            }
+        });
+        refreshButton.setAriaLabel("Refresh appointments");
+        refreshButton.setTooltipText("Refresh appointments");
+        refreshButton.setEnabled(false);
+        Div pageHeader = new Div(new H1("Calendar"), refreshButton);
+        pageHeader.addClassName("calendar-page-header");
+        add(pageHeader);
         try {
             calendar = new AvailabilityCalendar(availability, selected -> {
                 try { marked = availability.day(selected); date = selected; renderTimes(); }
@@ -56,7 +69,18 @@ public class BookingView extends VerticalLayout {
             adjustments.setOpened(false);
             adjustments.setWidthFull();
 
-            add(bulkAvailability, adjustments, new H2("Your appointments"), new Button("Refresh appointments", e -> refresh()), appointments);
+            appointmentCalendar = new AppointmentCalendar(bookings);
+            refreshButton.setEnabled(true);
+
+            Details appointmentList = new Details("Appointment details and actions", appointments);
+            appointmentList.setOpened(false);
+            appointmentList.setWidthFull();
+
+            add(
+                    bulkAvailability,
+                    adjustments,
+                    appointmentCalendar,
+                    appointmentList);
             refresh();
         } catch (org.springframework.dao.DataAccessException ex) { add(new Paragraph("Unable to load calendar. Please try again later.")); }
     }
@@ -89,12 +113,20 @@ public class BookingView extends VerticalLayout {
                     .map(b -> b.startAt().atZone(BookingService.BOOKING_ZONE).toLocalDate()).collect(java.util.stream.Collectors.toSet()));
             if (items.isEmpty()) appointments.add(new Paragraph("No appointments yet. Request one from a listing or its conversation."));
             for (var b : items) {
-                var card = new Div(new Paragraph(b.listingName() + " · " + format.format(b.startAt()) + "–"
-                        + format.format(b.endAt()) + " · " + b.status()));
-                if (b.conversationId() != null) card.add(new Anchor("messages/" + b.conversationId(), "Open conversation"));
+                Span title = new Span(b.listingName());
+                title.addClassName("appointment-detail-title");
+                String status = b.status().name().toLowerCase(Locale.ROOT);
+                var card = new Div(title, new Paragraph(AppointmentActions.timeRange(b) + " · "
+                        + Character.toUpperCase(status.charAt(0)) + status.substring(1)));
+                card.addClassName("appointment-detail-card");
                 card.add(new AppointmentAvailabilityNotice(b));
-                card.add(new AppointmentActions(bookings, b, "calendar", this::refresh));
-                if (b.status() == com.mavworks.model.BookingStatus.COMPLETED) card.add(new Paragraph("Appointment completed."));
+                var actions = new AppointmentActions(bookings, b, "calendar", () -> {
+                    appointmentCalendar.reload();
+                    refresh();
+                });
+                if (b.conversationId() != null)
+                    actions.addComponentAsFirst(new Anchor("messages/" + b.conversationId(), "Open conversation"));
+                card.add(actions);
                 appointments.add(card);
             }
         } catch (org.springframework.dao.DataAccessException ex) { AvailabilityCalendar.error("Unable to load appointments. Please try again later."); }

@@ -208,8 +208,14 @@ or unavailable across up to 90 days. Expand **Adjust a single day** for individu
 changes. Bulk changes save with the action buttons; single-day changes save
 immediately. Existing appointments are unchanged.
 Request an appointment for a product or service through its listing page or
-conversation; an open conversation is required. Select consecutive slots on
-the requesting user's calendar. Times use the UTA/Arlington Central time zone.
+conversation; an open conversation is required. Select a date and consecutive
+30-minute slots, then submit. Saved availability is a hint, not a requirement;
+requesting or rescheduling does not change it. Times use the UTA/Arlington Central time zone.
+
+Desktop Calendar shows a month grid with two compact previews per day.
+**+N more** opens the full day's appointments. Mobile shows a day-by-day list.
+Appointment links open their conversations; **Appointment details and actions**
+provides reschedule and cancel controls.
 
 The other participant accepts or declines the request in the conversation.
 Confirmation reserves both participants across listings; conflicting confirmed
@@ -275,8 +281,11 @@ direction prevent opening and sending, including when a block is added after the
 chat is opened. Select a username to open its account options and block it.
 
 Chats load the most recent 100 messages, offer **Load older messages**, and check
-for new messages every three seconds while open. A **Refresh** button is also
-available. These are implementation defaults, not a measured response-time SLA;
+for new messages every three seconds while open. The Messages list updates
+automatically every five seconds. Neither screen needs a Refresh button.
+The safety notice scrolls with the message history. One **Appointments** section
+groups requests and confirmations; its heading counts requests needing a response.
+These are implementation defaults, not a measured response-time SLA;
 loading and sending still depend on the database and network.
 Confirmed, closed conversations retain read-only history and unlock the review
 flow on the provider profile. An empty conversation cannot be confirmed as a sale.

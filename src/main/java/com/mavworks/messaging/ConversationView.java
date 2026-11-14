@@ -32,8 +32,9 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private final ReportService reports;
     private final BookingService bookings;
     private final Div appointments = new Div();
-    private final Button appointmentMenu = new Button("+");
-    private final Button requestAppointment = new Button("Request Appointment");
+    private final com.vaadin.flow.component.details.Details appointmentSection =
+            new com.vaadin.flow.component.details.Details("Appointments", appointments);
+    private boolean appointmentSectionInitialized;
     private Long conversationId;
     private Long listingId;
     private Long firstId;
@@ -52,6 +53,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private final Button older = new Button("Load older messages");
     private Registration poll;
     private int previousPollInterval;
+    private boolean refreshFailed;
 
     public ConversationView(MessagingService service, ConversationService sales, BlockService blocks, ReportService reports, BookingService bookings) {
         this.service = service;
@@ -59,11 +61,6 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         this.blocks = blocks;
         this.reports = reports;
         this.bookings = bookings;
-        appointmentMenu.setAriaLabel("Conversation actions");
-        appointmentMenu.addClickListener(e -> requestAppointment.setVisible(!requestAppointment.isVisible()));
-        requestAppointment.setVisible(false);
-        requestAppointment.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate(
-                "listings/" + listingId + "/appointment", QueryParameters.simple(java.util.Map.of("conversation", conversationId.toString())))));
         addClassName("mav-chat");
         setPadding(false);
         setSpacing(false);
@@ -76,11 +73,16 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         state.addClassName("mav-chat-state");
         feedback.getElement().setAttribute("role", "status");
         draft.setMaxLength(4000);
+        draft.addValueChangeListener(event -> {
+            if (event.getValue().isBlank()) send.removeClassName("has-draft");
+            else send.addClassName("has-draft");
+        });
         draft.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.EAGER);
         draft.setWidthFull();
         draft.setPlaceholder("Message");
         draft.setAriaLabel("Message");
         draft.addClassName("mav-chat-input");
+        draft.setMinRows(1);
         draft.setMaxHeight("9rem");
         draft.getElement().addEventListener("keydown", event -> {
             if (draft.isEnabled() && send.isEnabled() && conversationId != null) {
@@ -110,6 +112,9 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         history.removeAll();
         appointments.removeAll();
         messageTimes.clear();
+        appointmentSectionInitialized = false;
+        appointmentSection.setOpened(false);
+        appointmentSection.setVisible(false);
         draft.clear();
         firstId = null;
         lastId = null;
@@ -133,12 +138,9 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             identity.addClassName("mav-chat-identity");
             Anchor back = new Anchor("listings/" + chat.listingId(), "‹ Listing");
             back.addClassName("mav-chat-back");
-            Button refresh = new Button("Refresh", click -> refresh());
-            refresh.addClassName("mav-chat-refresh");
-            Div header = new Div(back, identity, refresh);
+            Div header = new Div(back, identity);
             header.addClassName("mav-chat-header");
-            requestAppointment.setVisible(false);
-            Div composer = new Div(appointmentMenu, draft, send);
+            Div composer = new Div(draft, send);
             composer.addClassName("mav-chat-composer");
             bookAppointment.setHref("listings/" + chat.listingId() + "/appointment?conversation=" + conversationId);
             bookAppointment.setText("Book appointment");
@@ -148,7 +150,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             Paragraph safetyTip = new Paragraph("Safety tip: Meet in a well-lit public place, tell someone your plans, and avoid sharing your home address.");
             safetyTip.addClassName("mav-chat-safety-tip");
             safetyTip.getElement().setAttribute("role", "note");
-            add(header, safetyTip, state, older, history, appointments, feedback, requestAppointment, composer, actions);
+            history.add(safetyTip);
+            appointmentSection.addClassName("mav-chat-appointments");
+            appointmentSection.setWidthFull();
+            add(header, state, older, history, appointmentSection, feedback, composer, actions);
             append(chat.messages());
             older.setVisible(chat.messages().size() == 100);
             updateState(chat);
@@ -187,8 +192,6 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         confirm.setVisible(chat.provider() && !chat.closed());
         confirm.setEnabled(!chat.closed());
         bookAppointment.setVisible(!chat.closed());
-        appointmentMenu.setEnabled(!chat.closed());
-        requestAppointment.setEnabled(!chat.closed());
         refreshAppointments();
     }
 
@@ -197,9 +200,19 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         if (conversationId == null) return;
         var format = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm z").withZone(BookingService.BOOKING_ZONE);
         try {
-            for (var booking : bookings.getConversationBookings(conversationId)) {
-                Div card = new Div(new Paragraph("Appointment · " + format.format(booking.startAt()) + "–"
-                        + format.format(booking.endAt()) + " · " + booking.status()));
+            var items = bookings.getConversationBookings(conversationId);
+            long responses = items.stream().filter(BookingService.BookingSummary::canRespond).count();
+            appointmentSection.setSummaryText("Appointments (" + items.size() + ")"
+                    + (responses > 0 ? " · " + responses + " awaiting your response" : ""));
+            appointmentSection.setVisible(!items.isEmpty());
+            if (!appointmentSectionInitialized && !items.isEmpty()) {
+                appointmentSection.setOpened(responses > 0);
+                appointmentSectionInitialized = true;
+            }
+            for (var booking : items) {
+                Div card = new Div(new Paragraph("Appointment · "
+                        + com.mavworks.booking.AppointmentActions.timeRange(booking) + " · " + booking.status()));
+                card.addClassName("appointment-detail-card");
                 card.add(new com.mavworks.booking.AppointmentAvailabilityNotice(booking));
                 if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
                         new Button("Decline", e -> respond(booking.id(), false)));
@@ -208,7 +221,9 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
                 appointments.add(card);
             }
         } catch (DataAccessException ex) {
-            appointments.add(new Paragraph("Appointments could not be loaded. Refresh to try again."));
+            appointmentSection.setVisible(true);
+            appointmentSection.setSummaryText("Appointments · Unable to update");
+            appointments.add(new Paragraph("Appointments could not be updated. Retrying automatically."));
         }
     }
     private void respond(Long id, boolean accept) {
@@ -227,9 +242,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             var chat = service.getChat(conversationId, lastId);
             append(chat.messages());
             updateState(chat);
+            if (refreshFailed) { feedback.setText(""); refreshFailed = false; }
         } catch (MessagingBlockedException ex) { blocked(ex); }
         catch (AccessDeniedException ex) { denied(); }
-        catch (DataAccessException ex) { feedback.setText("New messages could not be loaded. Select Refresh to retry."); }
+        catch (DataAccessException ex) { refreshFailed = true; feedback.setText("New messages could not be loaded. Retrying automatically."); }
     }
 
     private void send() {
@@ -269,7 +285,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private void loadOlder() {
         try {
             var messages = service.getOlderMessages(conversationId, firstId);
-            for (int i = messages.size() - 1; i >= 0; i--) history.addComponentAtIndex(0, message(messages.get(i)));
+            for (int i = messages.size() - 1; i >= 0; i--) history.addComponentAtIndex(1, message(messages.get(i)));
             updateTimestampGroups();
             if (!messages.isEmpty()) firstId = messages.getFirst().id();
             older.setVisible(messages.size() == 100);
@@ -333,12 +349,13 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         history.removeAll();
         appointments.removeAll();
         messageTimes.clear();
+        appointmentSectionInitialized = false;
+        appointmentSection.setOpened(false);
+        appointmentSection.setVisible(false);
         draft.clear();
         draft.setEnabled(false);
         send.setEnabled(false);
         bookAppointment.setVisible(false);
-        appointmentMenu.setEnabled(false);
-        requestAppointment.setVisible(false);
         confirm.setVisible(false);
         older.setVisible(false);
         feedback.setText("Conversation not available.");

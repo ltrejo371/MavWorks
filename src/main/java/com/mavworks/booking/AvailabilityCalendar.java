@@ -23,6 +23,9 @@ public class AvailabilityCalendar extends VerticalLayout {
     private final H2 title = new H2();
     public AvailabilityCalendar(AvailabilityService service, Consumer<LocalDate> onDate) {
         this.service = service; this.onDate = onDate;
+        addClassName("availability-date-picker");
+        setWidthFull();
+        days.addClassName("availability-date-grid");
         days.getStyle().set("display", "grid").set("grid-template-columns", "repeat(7, minmax(0, 1fr))").set("gap", "4px");
         days.setWidthFull();
         Div navigation = new Div(new Button("Previous month", e -> move(-1)), new Button("Next month", e -> move(1)));
@@ -102,6 +105,8 @@ public class AvailabilityCalendar extends VerticalLayout {
             boolean marked = selected.contains(slot);
             button.getElement().setAttribute("aria-pressed", String.valueOf(marked));
             if (marked) button.addThemeVariants(ButtonVariant.PRIMARY);
+            else if (available.contains(slot)) button.addThemeVariants(ButtonVariant.SUCCESS);
+            if (available.contains(slot)) button.setTooltipText(slotLabel(slot) + " · Saved availability");
             try { AvailabilityService.validate(date, slot); }
             catch (IllegalArgumentException ex) { button.setEnabled(false); button.setTooltipText(ex.getMessage()); }
             bar.add(button);

@@ -82,7 +82,10 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
                     new com.mavworks.base.ui.UserOptions(provider.id(), provider.username(), blocks, reports,
                             () -> beforeEnter(event)),
                     new com.vaadin.flow.component.html.Anchor("profiles/" + provider.id(), "View profile and reviews")));
-            info.add(providerCard);
+            var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
+            var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);
+            about.addClassName("listing-about");
+            info.add(about, providerCard);
             Paragraph messageStatus = new Paragraph();
             messageStatus.getElement().setAttribute("role", "status");
             var messageButton = new com.vaadin.flow.component.button.Button("Message");
@@ -108,9 +111,7 @@ public class ListingDetailsView extends VerticalLayout implements com.vaadin.flo
             appointmentButton.setVisible(listing.getStatus() == com.mavworks.model.ListingStatus.ACTIVE
                     && bookings.canRequestFromListing(id));
             var overview = new com.vaadin.flow.component.html.Div(gallery, info); overview.addClassName("listing-overview");
-            var description = new Paragraph(listing.getDescription()); description.addClassName("mw-prose");
-            var about = new com.vaadin.flow.component.html.Div(new com.vaadin.flow.component.html.H2("About this listing"), description);
-            about.addClassName("mw-panel"); add(overview, about);
+            add(overview);
         } catch (NumberFormatException ex) {
             add(new Paragraph("Listing not found."));
         } catch (org.springframework.dao.DataAccessException ex) {

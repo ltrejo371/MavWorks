@@ -42,7 +42,10 @@ public class DashboardView extends VerticalLayout {
         Button bookings = new Button("Bookings & availability", e -> getUI().ifPresent(ui -> ui.navigate("bookings")));
         Button logout = new Button("Logout", com.vaadin.flow.component.icon.VaadinIcon.SIGN_OUT.create(), e -> authentication.logout());
         logout.setDisableOnClick(true);
-        Div actions = new Div(new Button("Refresh", e -> loadAccount(service)), bookings, addListing, logout);
+        Button refresh = new Button(com.vaadin.flow.component.icon.VaadinIcon.REFRESH.create(), e -> loadAccount(service));
+        refresh.setAriaLabel("Refresh dashboard");
+        refresh.setTooltipText("Refresh dashboard");
+        Div actions = new Div(refresh, bookings, addListing, logout);
         actions.addClassName("dashboard-actions");
         Div header = new Div(heading, actions); header.addClassName("dashboard-header");
         account.addClassName("dashboard-content"); add(header, account, sleepyVisitor());
@@ -96,7 +99,7 @@ public class DashboardView extends VerticalLayout {
             names.addClassName("dashboard-names"); identity.add(names);
             Button edit = new Button("Edit profile", e -> new EditAccountDialog(data, editing, storage, () -> loadAccount(service)).open());
             Div profileHeader = new Div(identity, edit); profileHeader.addClassName("dashboard-profile-header");
-            Div details = new Div(field("Name", data.name()), field("Contact information", data.contactInformation()));
+            Div details = new Div(field("Contact information", data.contactInformation()));
             details.addClassName("dashboard-details");
             profile.add(profileHeader, field("Bio", data.bio()), details); account.add(profile);
             if (!data.warnings().isEmpty()) {

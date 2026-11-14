@@ -70,6 +70,25 @@ public class BookingService {
         User viewer = user();
         return bookings.findForParticipant(viewer.getId()).stream().map(b -> summary(b, viewer)).toList();
     }
+    public List<BookingSummary> getMyBookingsInRange(
+            LocalDate firstDate,
+            LocalDate endDateExclusive) {
+
+        if (firstDate == null || endDateExclusive == null
+                || !firstDate.isBefore(endDateExclusive)) {
+            throw new IllegalArgumentException("Choose a valid calendar date range.");
+        }
+
+        User viewer = user();
+
+        Instant start = firstDate.atStartOfDay(BOOKING_ZONE).toInstant();
+        Instant end = endDateExclusive.atStartOfDay(BOOKING_ZONE).toInstant();
+
+        return bookings.findForParticipantInRange(viewer.getId(), start, end)
+                .stream()
+                .map(booking -> summary(booking, viewer))
+                .toList();
+    }
     public List<BookingSummary> getConversationBookings(Long id) {
         conversation(id, false);
         User viewer = user();
@@ -171,8 +190,6 @@ public class BookingService {
         if (sorted.last() - sorted.first() + 1 != sorted.size())
             throw new IllegalArgumentException("Appointment times have to be in consecutive slots.");
         sorted.forEach(slot -> AvailabilityService.validate(date, slot));
-        var available = availability.findByUserIdAndDate(requester.getId(), date).stream().map(Availability::getSlot).toList();
-        if (!available.containsAll(sorted)) throw new IllegalArgumentException("Mark the selected times available first.");
         Instant start = toInstant(date.atStartOfDay().plusMinutes(sorted.first() * (long) AvailabilityService.SLOT_MINUTES));
         Instant end = toInstant(date.atStartOfDay().plusMinutes((sorted.last() + 1) * (long) AvailabilityService.SLOT_MINUTES));
         if (!start.isAfter(Instant.now())) throw new IllegalArgumentException("Choose a future appointment time.");
