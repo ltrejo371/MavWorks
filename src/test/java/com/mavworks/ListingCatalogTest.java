@@ -5,6 +5,9 @@ import com.mavworks.model.*;
 import com.mavworks.repository.*;
 import com.mavworks.service.ListingCatalogService;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +35,11 @@ class ListingCatalogTest {
     @org.springframework.test.context.DynamicPropertySource
     static void imageDirectory(org.springframework.test.context.DynamicPropertyRegistry properties) {
         properties.add("mavworks.images-directory", () -> imageDirectory.toString());
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearAuthentication() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -108,6 +116,103 @@ class ListingCatalogTest {
     }
 
     @Test
+    void marketplacePagesTwelveListingsAndSortsByPriceAndViews() {
+        User seller = user("page-seller");
+        User viewer = user("page-viewer");
+        java.util.List<Long> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < 14; i++) {
+            Listing listing = new Listing();
+            listing.setOwner(seller);
+            listing.setName("Paged listing " + i);
+            listing.setDescription("Listing " + i);
+            listing.setType(ListingType.PRODUCT);
+            listing.setPrice(new BigDecimal(20 - i + ".00"));
+            listing.setStatus(ListingStatus.ACTIVE);
+            ids.add(listings.saveAndFlush(listing).getId());
+        }
+        authenticate("page-viewer");
+        for (int i = 0; i < 3; i++) {
+            entityManager.clear();
+            publishing.recordView(ids.get(13));
+        }
+        entityManager.clear();
+        publishing.recordView(ids.get(12));
+        entityManager.clear();
+
+        var firstPage = catalog.search(new SearchFilter("", null), null,
+                ListingCatalogService.SortOption.PRICE_LOW_TO_HIGH,
+                ListingCatalogService.DateRange.ANY_TIME, null, null, 0);
+        assertEquals(14, firstPage.getTotalElements());
+        assertEquals(12, firstPage.getNumberOfElements());
+        assertTrue(firstPage.hasNext());
+        assertEquals(ids.get(13), firstPage.getContent().getFirst().id());
+        assertEquals(1L, firstPage.getContent().stream()
+                .filter(item -> item.id().equals(ids.get(12))).findFirst().orElseThrow().viewCount());
+        assertEquals(3L, firstPage.getContent().stream()
+                .filter(item -> item.id().equals(ids.get(13))).findFirst().orElseThrow().viewCount());
+        var highestPrice = catalog.search(new SearchFilter("", null), null,
+                ListingCatalogService.SortOption.PRICE_HIGH_TO_LOW,
+                ListingCatalogService.DateRange.ANY_TIME, null, null, 0);
+        assertEquals(ids.get(0), highestPrice.getContent().getFirst().id());
+        var mostViewed = catalog.search(new SearchFilter("", null), null,
+                ListingCatalogService.SortOption.MOST_VIEWED,
+                ListingCatalogService.DateRange.ANY_TIME, null, null, 0);
+        assertEquals(ids.get(13), mostViewed.getContent().getFirst().id());
+        authenticate("page-seller");
+        entityManager.clear();
+        publishing.recordView(ids.get(13));
+        entityManager.clear();
+        assertEquals(3, listings.findById(ids.get(13)).orElseThrow().getViewCount());
+        var secondPage = catalog.search(new SearchFilter("", null), null,
+                ListingCatalogService.SortOption.PRICE_LOW_TO_HIGH,
+                ListingCatalogService.DateRange.ANY_TIME, null, null, 1);
+        assertEquals(2, secondPage.getNumberOfElements());
+        assertFalse(secondPage.hasNext());
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void marketplaceFiltersCustomInclusiveUploadDates() {
+        User seller = user("date-seller");
+        LocalDate uploaded = LocalDate.of(2026, 6, 15);
+        Listing included = listingWithDate(seller, "Included date", uploaded.atTime(12, 0)
+                .atZone(ZoneId.of("America/Chicago")).toInstant());
+        listingWithDate(seller, "Before range", uploaded.minusDays(1).atStartOfDay()
+                .atZone(ZoneId.of("America/Chicago")).toInstant());
+        var result = catalog.search(new SearchFilter("", null), null,
+                ListingCatalogService.SortOption.NEWEST, ListingCatalogService.DateRange.CUSTOM,
+                uploaded, uploaded, 0);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(included.getId(), result.getContent().getFirst().id());
+    }
+
+    private User user(String username) {
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@mavs.uta.edu");
+        user.setHashedPassword("test-only");
+        return users.saveAndFlush(user);
+    }
+
+    private void authenticate(String username) {
+        var context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                username, null, java.util.List.of()));
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+    }
+
+    private Listing listingWithDate(User owner, String name, Instant createdAt) {
+        Listing listing = new Listing();
+        listing.setOwner(owner);
+        listing.setName(name);
+        listing.setDescription(name);
+        listing.setType(ListingType.PRODUCT);
+        listing.setPrice(BigDecimal.TEN);
+        listing.setCreatedAt(createdAt);
+        return listings.saveAndFlush(listing);
+    }
+
+    @Test
     void sortsFiltersDatesAndCountsOnlyOtherUsersViews() {
         User seller = new User(); seller.setUsername("discovery-seller");
         seller.setEmail("discovery-seller@mavs.uta.edu"); seller.setHashedPassword("test-only");
@@ -135,6 +240,7 @@ class ListingCatalogTest {
             assertEquals(0, publishing.recordView(older.getId()));
             context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                     buyer.getUsername(), null, java.util.List.of()));
+            assertTrue(publishing.getListingDetails(older.getId()).isPresent());
             assertEquals(1, publishing.recordView(older.getId()));
             assertEquals(2, publishing.recordView(older.getId()));
             outside.setStatus(ListingStatus.REMOVED); listings.flush();

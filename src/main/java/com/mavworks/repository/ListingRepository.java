@@ -38,6 +38,38 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
     @Query("select l.viewCount from Listing l where l.id = :id")
     long viewCount(@Param("id") Long id);
 
+    @Query(value = """
+            select l from Listing l
+            where l.status = :status
+              and l.expiresAt > CURRENT_TIMESTAMP
+              and (:keyword = '' or locate(lower(:keyword), lower(l.name)) > 0
+                   or locate(lower(:keyword), lower(l.description)) > 0)
+              and (:category is null or l.category = :category)
+              and (:type is null or l.type = :type)
+              and (:from is null or l.createdAt >= :from)
+              and (:until is null or l.createdAt < :until)
+            """,
+            countQuery = """
+            select count(l) from Listing l
+            where l.status = :status
+              and l.expiresAt > CURRENT_TIMESTAMP
+              and (:keyword = '' or locate(lower(:keyword), lower(l.name)) > 0
+                   or locate(lower(:keyword), lower(l.description)) > 0)
+              and (:category is null or l.category = :category)
+              and (:type is null or l.type = :type)
+              and (:from is null or l.createdAt >= :from)
+              and (:until is null or l.createdAt < :until)
+            """)
+    org.springframework.data.domain.Page<Listing> searchPublishedPage(
+            @Param("status") ListingStatus status, @Param("keyword") String keyword,
+            @Param("category") ListingCategory category, @Param("type") ListingType type,
+            @Param("from") java.time.Instant from, @Param("until") java.time.Instant until,
+            org.springframework.data.domain.Pageable page);
+
+    @Query("select l.id, image.storageReference from Listing l join l.images image "
+            + "where l.id in :ids order by l.id, image.displayOrder")
+    List<Object[]> findImageReferences(@Param("ids") List<Long> ids);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select l from Listing l where l.id = :id")
     java.util.Optional<Listing> findForManagement(@Param("id") Long id);

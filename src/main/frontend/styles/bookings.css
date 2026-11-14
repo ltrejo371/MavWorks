@@ -1,0 +1,49 @@
+.booking-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.booking-calendar-weekday,
+.booking-calendar-day {
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--lumo-contrast-10pct);
+  border-radius: var(--lumo-border-radius-m);
+}
+
+.booking-calendar-weekday {
+  text-align: center;
+  font-weight: 600;
+}
+
+.booking-calendar-day {
+  min-height: 5rem;
+  overflow-wrap: anywhere;
+}
+
+.booking-calendar-day h2 {
+  margin: 0;
+  font-size: var(--lumo-font-size-m);
+}
+
+.booking-calendar-day p {
+  margin: 0.25rem 0 0;
+  font-size: var(--lumo-font-size-xs);
+}
+
+@media (max-width: 600px) {
+  .booking-calendar-grid {
+    gap: 0.15rem;
+  }
+
+  .booking-calendar-weekday,
+  .booking-calendar-day {
+    padding: 0.25rem;
+  }
+
+  .booking-calendar-day {
+    min-height: 3.5rem;
+  }
+}

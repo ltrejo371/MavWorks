@@ -48,6 +48,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
     private final Paragraph state = new Paragraph();
     private final Button send = new Button("Send");
     private final Button confirm = new Button("Confirm sale and close");
+    private final Anchor bookAppointment = new Anchor();
     private final Button older = new Button("Load older messages");
     private Registration poll;
     private int previousPollInterval;
@@ -139,7 +140,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             requestAppointment.setVisible(false);
             Div composer = new Div(appointmentMenu, draft, send);
             composer.addClassName("mav-chat-composer");
-            Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"), confirm);
+            bookAppointment.setHref("listings/" + chat.listingId() + "/appointment?conversation=" + conversationId);
+            bookAppointment.setText("Book appointment");
+            Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"),
+                    bookAppointment, confirm);
             actions.addClassName("mav-chat-actions");
             Paragraph safetyTip = new Paragraph("Safety tip: Meet in a well-lit public place, tell someone your plans, and avoid sharing your home address.");
             safetyTip.addClassName("mav-chat-safety-tip");
@@ -182,6 +186,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         send.setEnabled(!chat.closed());
         confirm.setVisible(chat.provider() && !chat.closed());
         confirm.setEnabled(!chat.closed());
+        bookAppointment.setVisible(!chat.closed());
         appointmentMenu.setEnabled(!chat.closed());
         requestAppointment.setEnabled(!chat.closed());
         refreshAppointments();
@@ -191,14 +196,19 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         appointments.removeAll();
         if (conversationId == null) return;
         var format = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm z").withZone(BookingService.BOOKING_ZONE);
-        for (var booking : bookings.getConversationBookings(conversationId)) {
-            Div card = new Div(new Paragraph("Appointment · " + format.format(booking.startAt()) + "–"
-                    + format.format(booking.endAt()) + " · " + booking.status()));
-            card.add(new com.mavworks.booking.AppointmentAvailabilityNotice(booking));
-            if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
-                    new Button("Decline", e -> respond(booking.id(), false)));
-            card.add(new com.mavworks.booking.AppointmentActions(bookings, booking, "messages/" + conversationId, this::refresh));
-            appointments.add(card);
+        try {
+            for (var booking : bookings.getConversationBookings(conversationId)) {
+                Div card = new Div(new Paragraph("Appointment · " + format.format(booking.startAt()) + "–"
+                        + format.format(booking.endAt()) + " · " + booking.status()));
+                card.add(new com.mavworks.booking.AppointmentAvailabilityNotice(booking));
+                if (booking.canRespond()) card.add(new Button("Accept", e -> respond(booking.id(), true)),
+                        new Button("Decline", e -> respond(booking.id(), false)));
+                card.add(new com.mavworks.booking.AppointmentActions(bookings, booking,
+                        "messages/" + conversationId, this::refresh));
+                appointments.add(card);
+            }
+        } catch (DataAccessException ex) {
+            appointments.add(new Paragraph("Appointments could not be loaded. Refresh to try again."));
         }
     }
     private void respond(Long id, boolean accept) {
@@ -326,6 +336,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         draft.clear();
         draft.setEnabled(false);
         send.setEnabled(false);
+        bookAppointment.setVisible(false);
         appointmentMenu.setEnabled(false);
         requestAppointment.setVisible(false);
         confirm.setVisible(false);

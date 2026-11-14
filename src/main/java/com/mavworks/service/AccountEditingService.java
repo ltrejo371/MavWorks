@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 @Service
 public class AccountEditingService {
+    private static final java.time.Duration USERNAME_CHANGE_COOLDOWN = java.time.Duration.ofDays(30);
     private final CurrentUser current;
     private final UserRepository users;
     private final ImageStorageService images;
@@ -33,7 +34,13 @@ public class AccountEditingService {
         String contact = contactInformation == null ? null : contactInformation.trim();
         if (contact != null && contact.length() > 255)
             throw new IllegalArgumentException("Contact information must be at most 255 characters.");
-        if (!name.equals(user.getUsername()) && users.existsByUsername(name))
+        boolean usernameChanged = !name.equals(user.getUsername());
+        java.time.Instant now = java.time.Instant.now();
+        if (usernameChanged && user.getUsernameLastChangedAt() != null
+                && now.isBefore(user.getUsernameLastChangedAt().plus(USERNAME_CHANGE_COOLDOWN))) {
+            throw new IllegalArgumentException("You can change your username once every 30 days. Please try again later.");
+        }
+        if (usernameChanged && users.existsByUsername(name))
             throw new IllegalArgumentException("This username is unavailable. Choose another username.");
         if (pictureReference != null) images.validateOwnedReference(pictureReference);
         if (user.getProfile() == null) user.setProfile(new Profile());
@@ -41,6 +48,7 @@ public class AccountEditingService {
         if (contact != null) user.getProfile().setContactInformation(contact);
         if (pictureReference != null) user.getProfile().setProfilePictureUrl(pictureReference);
         user.setUsername(name);
+        if (usernameChanged) user.recordUsernameChange(now);
         users.flush();
     }
 }

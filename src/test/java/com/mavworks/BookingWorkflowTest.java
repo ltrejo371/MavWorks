@@ -227,7 +227,6 @@ class BookingWorkflowTest {
     void completedServiceAppointmentPreservesWithdrawnStatus() {
         listing.setStatus(ListingStatus.WITHDRAWN);
         listings.saveAndFlush(listing);
-
         Booking appointment = completedAppointment(chat);
 
         assertEquals(BookingStatus.COMPLETED, appointment.getStatus());

@@ -33,7 +33,9 @@ the same project and bucket configuration.
 
 New account registration also requires SMTP configuration; see
 [Email verification](email-verification.md). Existing accounts can sign in
-without email delivery configured.
+without email delivery configured. Forgot-password requests use the same SMTP
+settings. Set `PUBLIC_URL` to the public application base URL so reset emails
+contain a link that can reach the deployed instance.
 
 ## Start from PowerShell
 
@@ -49,7 +51,7 @@ $storageSecret = Read-Host "Supabase storage secret key" -AsSecureString
 $env:SUPABASE_STORAGE_SECRET_KEY = [System.Net.NetworkCredential]::new("", $storageSecret).Password
 Remove-Variable storageSecret
 
-.\mvnw.cmd clean spring-boot:run "-Dspring-boot.run.profiles=supabase"
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=supabase"
 ```
 
 For another restart in the same terminal, run only the Maven launch command.
@@ -136,6 +138,9 @@ user availability. V12 converts availability to 30-minute slots.
 V13 adds registration email verification records. V14 adds the optional reply
 column to reviews if absent and aligns an existing column to VARCHAR(2000).
 V14 has been applied to the shared database; keep the applied migration unchanged.
+V15 adds message read markers for unread-message notifications. V16 adds
+single-use, expiring password-reset tokens.
+V17 records successful username changes to enforce the 30-day change interval.
 When sharing the database, keep the team's application code and migrations in
 sync; a schema ahead of an older checkout can cause validation or insert errors.
 With development terms seeding enabled, startup publishes the bundled terms for

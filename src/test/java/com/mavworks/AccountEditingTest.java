@@ -52,6 +52,7 @@ class AccountEditingTest {
     }
     @Test void renamePersistsAndSessionKeepsOriginalIdentityEvenIfOldNameIsReused() {
         editing.save(" New.Name ", "Updated bio", null);
+        assertNotNull(users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt());
         assertEquals("new.name", dashboard.load().username());
         assertEquals("Updated bio", profiles.getProviderProfile(owner.getId()).orElseThrow().profile().bio());
         assertEquals("new.name", profiles.getProviderProfile(owner.getId()).orElseThrow().profile().username());
@@ -61,6 +62,19 @@ class AccountEditingTest {
         assertEquals("Still original account", users.findById(owner.getId()).orElseThrow().getProfile().getBio());
         assertNull(users.findByUsername("owner").orElseThrow().getProfile());
         assertNull(users.findById(other.getId()).orElseThrow().getProfile());
+    }
+    @Test void usernameCanChangeAgainAfterThirtyDaysButProfileEditsDoNotRestartCooldown() {
+        editing.save("first-name", "Bio", null);
+        var changedAt = users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt();
+        assertThrows(IllegalArgumentException.class, () -> editing.save("second-name", "Bio", null));
+        assertEquals(changedAt, users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt());
+
+        owner.recordUsernameChange(java.time.Instant.now().minus(java.time.Duration.ofDays(30)));
+        users.saveAndFlush(owner);
+        editing.save("second-name", "Updated bio", null);
+        assertEquals("second-name", dashboard.load().username());
+        assertTrue(users.findById(owner.getId()).orElseThrow().getUsernameLastChangedAt()
+                .isAfter(changedAt));
     }
     @Test void invalidFieldsAndAnonymousUpdatesAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> editing.save(" OTHER ", "bad", null));

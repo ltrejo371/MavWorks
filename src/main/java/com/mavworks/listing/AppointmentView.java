@@ -8,7 +8,8 @@ import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.*;
 import jakarta.annotation.security.PermitAll;
-import java.time.*;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import org.springframework.dao.DataAccessException;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,36 +31,64 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
     private AvailabilityCalendar calendar;
     private final AvailabilityCalendar.PeriodPicker period = new AvailabilityCalendar.PeriodPicker();
     private boolean editingAvailability;
-    private final Button request = new Button("Request Appointment", e -> submit());
+    private BookingService.BookingSummary original;
+    private final Button request = new Button("Request Appointment", event -> submit());
+
     public AppointmentView(BookingService bookings, AvailabilityService availability) {
-        this.bookings = bookings; this.availability = availability;
-        period.addValueChangeListener(e -> {
+        this.bookings = bookings;
+        this.availability = availability;
+        period.addValueChangeListener(event -> {
             if (date == null) return;
-            if (editingAvailability) renderEditor(); else renderTimes();
+            if (editingAvailability) renderEditor();
+            else renderTimes();
         });
-        addClassName("mw-page"); times.setWidthFull();
+        addClassName("mw-page");
+        times.setWidthFull();
     }
-    @Override public void beforeEnter(BeforeEnterEvent event) {
-        removeAll(); selected.clear(); edits.clear(); date = null; times.removeAll(); request.setEnabled(false);
-        bookingId = null; editingAvailability = false; request.setText("Request Appointment");
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        removeAll();
+        conversationId = null;
+        bookingId = null;
+        returnPath = null;
+        selected.clear();
+        edits.clear();
+        date = null;
+        available = Set.of();
+        times.removeAll();
+        request.setEnabled(false);
+        editingAvailability = false;
+        request.setText("Request Appointment");
+        original = null;
         try {
             Long listingId = Long.valueOf(event.getRouteParameters().get("listingId").orElse(""));
             var params = event.getLocation().getQueryParameters().getParameters();
-            var chat = params.get("conversation");
-            BookingService.BookingSummary original = null;
+            var query = params.get("conversation");
             if (params.containsKey("booking")) {
                 bookingId = Long.valueOf(params.get("booking").getFirst());
                 original = bookings.getAppointment(bookingId);
-                if (!listingId.equals(original.listingId())) throw new IllegalArgumentException("Appointment does not match this listing.");
-                if (original.status() != com.mavworks.model.BookingStatus.CONFIRMED || !original.startAt().isAfter(Instant.now()))
+                if (!listingId.equals(original.listingId())) {
+                    throw new IllegalArgumentException("Appointment does not match this listing.");
+                }
+                if (original.status() != com.mavworks.model.BookingStatus.CONFIRMED
+                        || !original.startAt().isAfter(java.time.Instant.now())) {
                     throw new IllegalArgumentException("Only future confirmed appointments can be changed.");
+                }
                 conversationId = original.conversationId();
                 request.setText("Request Reschedule");
-            } else conversationId = chat == null ? bookings.conversationForListing(listingId) : Long.valueOf(chat.getFirst());
-            if (!listingId.equals(bookings.listingForConversation(conversationId))) throw new IllegalArgumentException("Conversation does not match this listing.");
-            returnPath = chat == null ? "listings/" + listingId : "messages/" + conversationId;
-            if (original != null) returnPath = params.getOrDefault("from", List.of("messages")).getFirst().equals("calendar")
-                    ? "calendar" : "messages/" + conversationId;
+            } else {
+                conversationId = query == null
+                        ? bookings.conversationForListing(listingId)
+                        : Long.valueOf(query.getFirst());
+            }
+            if (!listingId.equals(bookings.listingForConversation(conversationId))) {
+                throw new IllegalArgumentException("Conversation does not match this listing.");
+            }
+            returnPath = query == null ? "listings/" + listingId : "messages/" + conversationId;
+            if (original != null) {
+                returnPath = params.getOrDefault("from", List.of("messages")).getFirst().equals("calendar")
+                        ? "calendar" : "messages/" + conversationId;
+            }
             calendar = new AvailabilityCalendar(availability, this::selectDate);
             add(new Anchor(returnPath, "← Back"), new H1(original == null ? "Schedule Appointment" : "Reschedule Appointment"),
                     new Paragraph("Select consecutive 30-minute slots from your availability. Times are Central Time."),
@@ -83,34 +112,56 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
             }
         } catch (IllegalArgumentException | AccessDeniedException ex) {
             add(new Paragraph(ex.getMessage()), new Anchor("messages", "Open a listing conversation"));
-        } catch (DataAccessException ex) { add(new Paragraph("Unable to load calendar. Please try again later.")); }
+        } catch (DataAccessException ex) {
+            add(new Paragraph("Unable to load calendar. Please try again later."));
+        }
     }
+
     private Set<Integer> availableOn(LocalDate day) {
         var result = new HashSet<>(availability.day(day));
-        edits.getOrDefault(day, Map.of()).forEach((slot, value) -> { if (value) result.add(slot); else result.remove(slot); });
+        edits.getOrDefault(day, Map.of()).forEach((slot, value) -> {
+            if (value) result.add(slot);
+            else result.remove(slot);
+        });
         return result;
     }
+
     private void selectDate(LocalDate day) {
         try {
             Set<Integer> daySlots = availableOn(day);
             if (daySlots.isEmpty()) {
                 Dialog prompt = new Dialog();
                 prompt.add(new Paragraph("You did not mark this day available, would you like to mark it available?"),
-                        new Button("Yes", e -> { prompt.close(); editAvailability(day); }), new Button("No", e -> prompt.close()));
+                        new Button("Yes", event -> {
+                            prompt.close();
+                            editAvailability(day);
+                        }),
+                        new Button("No", event -> prompt.close()));
                 add(prompt);
                 prompt.open();
                 return;
             }
-            date = day; available = daySlots; selected.clear(); renderTimes();
-        } catch (DataAccessException ex) { AvailabilityCalendar.error("Unable to load availability. Please try again later."); }
+            date = day;
+            available = daySlots;
+            selected.clear();
+            renderTimes();
+        } catch (DataAccessException ex) {
+            AvailabilityCalendar.error("Unable to load availability. Please try again later.");
+        }
     }
+
     private void editAvailability(LocalDate day) {
         try {
-            Set<Integer> daySlots = availableOn(day);
-            date = day; available = daySlots; selected.clear(); request.setEnabled(false);
+            date = day;
+            available = availableOn(day);
+            selected.clear();
+            request.setEnabled(false);
             renderEditor();
-        } catch (DataAccessException ex) { AvailabilityCalendar.error("Unable to load availability. Please try again later."); }
+        } catch (DataAccessException ex) {
+            AvailabilityCalendar.error("Unable to load availability. Please try again later.");
+        }
     }
+
     private void renderEditor() {
         editingAvailability = true;
         times.removeAll();
@@ -118,39 +169,60 @@ public class AppointmentView extends VerticalLayout implements BeforeEnterObserv
                 AvailabilityCalendar.slots(date, available, false, Set.of(), slot -> {
                     boolean value = !available.contains(slot);
                     edits.computeIfAbsent(date, ignored -> new HashMap<>()).put(slot, value);
-                    var next = new HashSet<>(available);
-                    if (value) next.add(slot); else next.remove(slot);
-                    available = next; calendar.setDrafts(edits); renderEditor();
-                }, period.isPm()), new Button("Choose appointment times", e -> renderTimes()));
+                    var updated = new HashSet<>(available);
+                    if (value) updated.add(slot);
+                    else updated.remove(slot);
+                    available = updated;
+                    calendar.setDrafts(edits);
+                    renderEditor();
+                }, period.isPm()),
+                new Button("Choose appointment times", event -> renderTimes()));
     }
+
     private void renderTimes() {
         editingAvailability = false;
         times.removeAll();
-        times.add(new H2(date.toString()), period, AvailabilityCalendar.slots(date, selected, true, available, slot -> {
-            TreeSet<Integer> next = new TreeSet<>(selected);
-            if (!next.add(slot)) next.remove(slot);
-            if (!next.isEmpty() && next.last() - next.first() + 1 != next.size()) {
-                Dialog error = new Dialog(); error.setCloseOnOutsideClick(true);
-                var text = new Paragraph("Appointment times have to be in consecutive slots.");
-                text.getElement().addEventListener("click", e -> error.close());
-                error.add(text); error.open(); return;
-            }
-            selected.clear(); selected.addAll(next); renderTimes();
-        }, period.isPm()), new Button("Edit availability", e -> editAvailability(date)));
-        if (!selected.isEmpty()) times.add(new Paragraph("Selected appointment: "
-                + AvailabilityCalendar.timeLabel(selected.first()) + "–" + AvailabilityCalendar.timeLabel(selected.last() + 1)));
+        times.add(new H2(date.toString()), period,
+                AvailabilityCalendar.slots(date, selected, true, available, slot -> {
+                    TreeSet<Integer> updated = new TreeSet<>(selected);
+                    if (!updated.add(slot)) updated.remove(slot);
+                    if (!updated.isEmpty() && updated.last() - updated.first() + 1 != updated.size()) {
+                        Dialog error = new Dialog();
+                        error.setCloseOnOutsideClick(true);
+                        Paragraph message = new Paragraph("Appointment times have to be in consecutive slots.");
+                        message.getElement().addEventListener("click", event -> error.close());
+                        error.add(message);
+                        error.open();
+                        return;
+                    }
+                    selected.clear();
+                    selected.addAll(updated);
+                    renderTimes();
+                }, period.isPm()),
+                new Button("Edit availability", event -> editAvailability(date)));
+        if (!selected.isEmpty()) {
+            times.add(new Paragraph("Selected appointment: "
+                    + AvailabilityCalendar.timeLabel(selected.first()) + "–"
+                    + AvailabilityCalendar.timeLabel(selected.last() + 1)));
+        }
         request.setEnabled(!selected.isEmpty());
     }
+
     private void submit() {
+        if (conversationId == null || date == null || selected.isEmpty()) return;
         request.setEnabled(false);
         try {
             if (bookingId == null) bookings.requestAppointment(conversationId, date, selected, edits);
             else bookings.reschedule(bookingId, date, selected, edits);
             getUI().ifPresent(ui -> ui.navigate(returnPath));
-        } catch (IllegalArgumentException | AccessDeniedException ex) { AvailabilityCalendar.error(ex.getMessage()); }
-        catch (AvailabilityService.SaveException ex) {
+        } catch (IllegalArgumentException | AccessDeniedException ex) {
+            AvailabilityCalendar.error(ex.getMessage());
+        } catch (AvailabilityService.SaveException ex) {
             AvailabilityCalendar.error("Unable to save availability changes. Please try again later.");
-        } catch (DataAccessException ex) { AvailabilityCalendar.error("Unable to save the appointment. Please try again later."); }
-        finally { request.setEnabled(!selected.isEmpty()); }
+        } catch (DataAccessException ex) {
+            AvailabilityCalendar.error("Unable to save the appointment. Please try again later.");
+        } finally {
+            request.setEnabled(!selected.isEmpty());
+        }
     }
 }

@@ -96,8 +96,6 @@ public class Booking {
         status = BookingStatus.CONFIRMED;
     }
 
-
-
     public void cancel() {
         if (status != BookingStatus.REQUESTED && status != BookingStatus.CONFIRMED) {
             throw new IllegalArgumentException("This booking can no longer be cancelled.");

@@ -22,7 +22,8 @@ class ListingDiscoveryViewTest {
         var current = mock(CurrentUser.class);
         when(current.username()).thenReturn(Optional.of("buyer"));
         var catalog = mock(ListingCatalogService.class);
-        when(catalog.search(any(), any())).thenReturn(List.of());
+        when(catalog.search(any(), any(), anyInt())).thenReturn(
+                org.springframework.data.domain.Page.empty());
         var view = new LandingView(current, catalog, mock(ImageStorageService.class));
         var posted = (ComboBox<String>) components(view).filter(c -> c instanceof ComboBox<?> b && b.getLabel().equals("Posted")).findFirst().orElseThrow();
         var sort = (ComboBox<ListingSort>) components(view).filter(c -> c instanceof ComboBox<?> b && b.getLabel().equals("Sort by")).findFirst().orElseThrow();
@@ -58,7 +59,7 @@ class ListingDiscoveryViewTest {
     }
     private SearchFilter lastFilter(ListingCatalogService catalog) {
         var capture = ArgumentCaptor.forClass(SearchFilter.class);
-        verify(catalog, atLeastOnce()).search(capture.capture(), any());
+        verify(catalog, atLeastOnce()).search(capture.capture(), any(), anyInt());
         return capture.getValue();
     }
     private Stream<Component> components(Component root) {

@@ -39,4 +39,5 @@ public class SmtpVerificationEmailSender implements VerificationEmailSender {
             throw new DeliveryException();
         }
     }
+
 }

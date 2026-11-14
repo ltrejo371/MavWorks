@@ -7,6 +7,7 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.*;
 import java.time.Instant;
@@ -124,13 +125,47 @@ class MessagingViewTest {
         assertFalse(draft(view).isEnabled());
         assertFalse(button(view, "Send").isEnabled());
         assertFalse(button(view, "Confirm sale and close").isVisible());
+        assertFalse(bookingLink(view).isVisible());
         when(service.getChat(3L, null)).thenThrow(new AccessDeniedException("Not a participant"));
         var denied = view(service);
         assertFalse(components(denied).anyMatch(TextArea.class::isInstance));
     }
 
+    @Test void bookingLinkKeepsConversationForBothParticipantsAndHidesAfterAccessIsRevoked() {
+        for (boolean provider : List.of(false, true)) {
+            var service = mock(MessagingService.class);
+            when(service.getChat(3L, null)).thenReturn(new MessagingService.Chat(
+                    3L, 10L, "Tutoring", 2L, provider ? "buyer" : "provider", provider, false,
+                    true, List.of(), provider ? 1L : 2L));
+            var view = view(service);
+            assertEquals("listings/10/appointment?conversation=3", bookingLink(view).getHref());
+            assertTrue(bookingLink(view).isVisible());
+            when(service.getChat(eq(3L), any())).thenThrow(new AccessDeniedException("Not a participant"));
+            button(view, "Refresh").click();
+            assertFalse(bookingLink(view).isVisible());
+        }
+    }
+
+    private Anchor bookingLink(Component root) {
+        return components(root).filter(c -> c instanceof Anchor a && a.getText().equals("Book appointment"))
+                .map(Anchor.class::cast).findFirst().orElseThrow();
+    }
+
+    @Test void serviceConversationOffersBookingLink() {
+        var service = mock(MessagingService.class);
+        when(service.getChat(3L, null)).thenReturn(chat(false, true, List.of()));
+        var view = view(service);
+        assertTrue(components(view).anyMatch(c -> c instanceof Anchor a
+                && a.getText().equals("Book appointment")
+                && a.getHref().equals("listings/10/appointment?conversation=3")));
+    }
+
     private MessagingService.Chat chat(boolean closed, List<MessageSummary> messages) {
-        return new MessagingService.Chat(3L, 10L, "Book", 2L, "provider", false, closed, messages, 2L);
+        return chat(closed, false, messages);
+    }
+    private MessagingService.Chat chat(boolean closed, boolean serviceListing, List<MessageSummary> messages) {
+        return new MessagingService.Chat(3L, 10L, "Book", 2L, "provider", false, closed,
+                serviceListing, messages, 2L);
     }
     private ConversationView view(MessagingService service) {
         var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class), mock(ReportService.class), mock(com.mavworks.service.BookingService.class));
