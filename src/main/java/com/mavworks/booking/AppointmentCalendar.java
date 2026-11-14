@@ -25,7 +25,7 @@ public class AppointmentCalendar extends VerticalLayout {
     private final H2 heading = new H2();
     private final Div grid = new Div();
     private final Paragraph feedback = new Paragraph();
-    private final Set<LocalDate> expandedDays = new HashSet<>();
+    private com.vaadin.flow.component.dialog.Dialog dayDialog;
 
     private YearMonth month =
             YearMonth.now(BookingService.BOOKING_ZONE);
@@ -41,7 +41,7 @@ public class AppointmentCalendar extends VerticalLayout {
         Button previous = new Button("Previous", event -> move(-1));
         Button today = new Button("Today", event -> {
             month = YearMonth.now(BookingService.BOOKING_ZONE);
-            expandedDays.clear();
+
             reload();
         });
         Button next = new Button("Next", event -> move(1));
@@ -70,11 +70,12 @@ public class AppointmentCalendar extends VerticalLayout {
 
     private void move(int months) {
         month = month.plusMonths(months);
-        expandedDays.clear();
+
         reload();
     }
 
     public void reload() {
+        if (dayDialog != null) dayDialog.close();
         heading.setText(month.format(MONTH_FORMAT));
         grid.removeAll();
         feedback.setText("");
@@ -106,7 +107,7 @@ public class AppointmentCalendar extends VerticalLayout {
             }
         } catch (DataAccessException ex) {
             feedback.setText(
-                    "Unable to load appointments. Select Refresh to try again.");
+                    "Unable to load appointments. Use the refresh icon beside Calendar to try again.");
         }
     }
 
@@ -179,30 +180,50 @@ public class AppointmentCalendar extends VerticalLayout {
                     appointmentsByDay.getOrDefault(day, List.of());
 
             if (!dayItems.isEmpty()) cell.addClassName("has-appointments");
-            int limit = expandedDays.contains(day) ? dayItems.size() : 3;
-
-            dayItems.stream().limit(limit)
-                    .forEach(booking -> cell.add(appointmentRow(booking, day)));
-
-            if (dayItems.size() > 3) {
-                boolean expanded = expandedDays.contains(day);
-                Button more = new Button(
-                        expanded ? "Show less" : "+" + (dayItems.size() - 3) + " more",
-                        event -> {
-                            if (expanded) expandedDays.remove(day);
-                            else expandedDays.add(day);
-                            render(gridStart, appointmentsByDay);
-                        });
-                more.addClassName("appointment-calendar-more");
-                more.getElement().setAttribute(
-                        "aria-expanded", String.valueOf(expanded));
-                cell.add(more);
+            for (int index = 0; index < dayItems.size(); index++) {
+                Div row = appointmentRow(dayItems.get(index), day);
+                if (index >= 2) row.addClassName("appointment-calendar-mobile-extra");
+                cell.add(row);
             }
 
+            if (dayItems.size() > 2) {
+                Button more = new Button("+" + (dayItems.size() - 2) + " more",
+                        event -> openDay(day, dayItems));
+                more.addClassName("appointment-calendar-more");
+                more.setAriaLabel("View all " + dayItems.size() + " appointments on " + day);
+                more.getElement().setAttribute("aria-haspopup", "dialog");
+                cell.add(more);
+            }
             grid.add(cell);
         }
     }
 
+    private void openDay(LocalDate day, List<BookingSummary> items) {
+        if (dayDialog != null) dayDialog.close();
+        var dialog = new com.vaadin.flow.component.dialog.Dialog();
+        dayDialog = dialog;
+        dialog.setHeaderTitle(day.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.US)));
+        dialog.setWidth("32rem");
+        dialog.setMaxWidth("calc(100vw - 32px)");
+        Div schedule = new Div();
+        schedule.addClassName("appointment-day-schedule");
+        for (var booking : items) {
+            Div row = appointmentRow(booking, day);
+            row.add(new Paragraph(AppointmentActions.timeRange(booking)),
+                    new Paragraph("Buyer: " + booking.buyer() + " · Provider: " + booking.provider()));
+            schedule.add(row);
+        }
+        dialog.add(schedule);
+        dialog.getFooter().add(new Button("Close", event -> dialog.close()));
+        dialog.addOpenedChangeListener(event -> {
+            if (!event.isOpened()) {
+                remove(dialog);
+                if (dayDialog == dialog) dayDialog = null;
+            }
+        });
+        add(dialog);
+        dialog.open();
+    }
     private Div appointmentRow(BookingSummary booking, LocalDate day) {
         LocalDate startDay = booking.startAt()
                 .atZone(BookingService.BOOKING_ZONE).toLocalDate();
@@ -216,19 +237,24 @@ public class AppointmentCalendar extends VerticalLayout {
         row.addClassNames("appointment-calendar-entry",
                 "status-" + booking.status().name().toLowerCase(Locale.ROOT));
 
-        if (booking.conversationId() != null) {
-            row.add(new Anchor(
-                    "messages/" + booking.conversationId(), label));
-        } else {
-            row.add(new Span(label));
-        }
-
         String status = booking.status().name().toLowerCase(Locale.ROOT);
-        Span statusLabel = new Span(
-                Character.toUpperCase(status.charAt(0)) + status.substring(1));
-        statusLabel.addClassName("appointment-calendar-status");
+        String statusText = Character.toUpperCase(status.charAt(0)) + status.substring(1);
+        Span meta = new Span(time + " · " + statusText);
+        meta.addClassName("appointment-calendar-meta");
+        row.add(meta);
 
-        row.add(statusLabel);
+        if (booking.conversationId() != null) {
+            Anchor link = new Anchor("messages/" + booking.conversationId(), booking.listingName());
+            link.addClassName("appointment-calendar-title");
+            link.getElement().setAttribute("aria-label", label);
+            link.getElement().setAttribute("title", booking.listingName());
+            row.add(link);
+        } else {
+            Span title = new Span(booking.listingName());
+            title.addClassName("appointment-calendar-title");
+            title.getElement().setAttribute("title", booking.listingName());
+            row.add(title);
+        }
         return row;
     }
 }

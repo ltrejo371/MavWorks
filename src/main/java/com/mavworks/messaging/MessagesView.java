@@ -22,6 +22,10 @@ public class MessagesView extends VerticalLayout implements BeforeEnterObserver 
     private final MessagingService service;
     private final ImageStorageService images;
     private final Div conversations = new Div();
+    private com.vaadin.flow.shared.Registration poll;
+    private int previousPollInterval;
+    private java.util.List<MessagingService.ConversationSummary> displayed;
+    private final Paragraph feedback = new Paragraph();
     private java.util.Map<Long, Long> unreadCounts = java.util.Map.of();
 
     public MessagesView(MessagingService service, ImageStorageService images) {
@@ -30,28 +34,45 @@ public class MessagesView extends VerticalLayout implements BeforeEnterObserver 
         addClassName("messages-inbox");
         conversations.addClassName("messages-list");
         Div heading = new Div(new ViewTitle("Messages"), new Paragraph("Your conversations about marketplace listings."));
-        Div header = new Div(heading, new Button("Refresh", event -> refresh()));
+        Div header = new Div(heading);
         header.addClassName("messages-header");
-        add(header, conversations);
+        feedback.getElement().setAttribute("role", "status");
+        feedback.setVisible(false);
+        add(header, feedback, conversations);
     }
 
     @Override public void beforeEnter(BeforeEnterEvent event) { refresh(); }
 
-    private void refresh() {
-        conversations.removeAll();
-        try {
-            var items = service.getMyConversations();
-            unreadCounts = service.getUnreadNotifications().stream().collect(java.util.stream.Collectors.toMap(
-                    MessagingService.UnreadNotification::conversationId, MessagingService.UnreadNotification::count));
-            if (items.isEmpty()) conversations.add(new Paragraph("No conversations yet. Open a listing and select Message."));
-            for (var c : items) {
-                conversations.add(card(c));
-            }
-        } catch (DataAccessException ex) {
-            conversations.add(new Paragraph("Messages could not be loaded. Select Refresh to try again."));
-        }
+    @Override protected void onAttach(com.vaadin.flow.component.AttachEvent event) {
+        super.onAttach(event);
+        previousPollInterval = event.getUI().getPollInterval();
+        event.getUI().setPollInterval(previousPollInterval > 0 ? Math.min(previousPollInterval, 5000) : 5000);
+        poll = event.getUI().addPollListener(ignored -> refresh());
     }
 
+    @Override protected void onDetach(com.vaadin.flow.component.DetachEvent event) {
+        if (poll != null) { poll.remove(); poll = null; }
+        event.getUI().setPollInterval(previousPollInterval);
+        super.onDetach(event);
+    }
+
+    private void refresh() {
+        try {
+            var items = service.getMyConversations();
+            var unread = service.getUnreadNotifications().stream().collect(java.util.stream.Collectors.toMap(
+                    MessagingService.UnreadNotification::conversationId, MessagingService.UnreadNotification::count));
+            feedback.setVisible(false);
+            if (items.equals(displayed) && unread.equals(unreadCounts)) return;
+            displayed = java.util.List.copyOf(items);
+            unreadCounts = unread;
+            conversations.removeAll();
+            if (items.isEmpty()) conversations.add(new Paragraph("No conversations yet. Open a listing and select Message."));
+            for (var c : items) conversations.add(card(c));
+        } catch (DataAccessException ex) {
+            feedback.setText("Messages could not be updated. Retrying automatically.");
+            feedback.setVisible(true);
+        }
+    }
     private Anchor card(MessagingService.ConversationSummary conversation) {
         Anchor card = new Anchor("messages/" + conversation.id(), "");
         card.addClassName("message-card");

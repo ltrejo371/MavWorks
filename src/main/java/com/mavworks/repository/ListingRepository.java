@@ -46,8 +46,8 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
                    or locate(lower(:keyword), lower(l.description)) > 0)
               and (:category is null or l.category = :category)
               and (:type is null or l.type = :type)
-              and (:from is null or l.createdAt >= :from)
-              and (:until is null or l.createdAt < :until)
+              and l.createdAt >= :from
+              and l.createdAt < :until
             """,
             countQuery = """
             select count(l) from Listing l
@@ -57,8 +57,8 @@ public interface ListingRepository extends JpaRepository<Listing, Long> {
                    or locate(lower(:keyword), lower(l.description)) > 0)
               and (:category is null or l.category = :category)
               and (:type is null or l.type = :type)
-              and (:from is null or l.createdAt >= :from)
-              and (:until is null or l.createdAt < :until)
+              and l.createdAt >= :from
+              and l.createdAt < :until
             """)
     org.springframework.data.domain.Page<Listing> searchPublishedPage(
             @Param("status") ListingStatus status, @Param("keyword") String keyword,

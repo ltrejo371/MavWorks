@@ -42,7 +42,10 @@ public class DashboardView extends VerticalLayout {
         Button bookings = new Button("Bookings & availability", e -> getUI().ifPresent(ui -> ui.navigate("bookings")));
         Button logout = new Button("Logout", com.vaadin.flow.component.icon.VaadinIcon.SIGN_OUT.create(), e -> authentication.logout());
         logout.setDisableOnClick(true);
-        Div actions = new Div(new Button("Refresh", e -> loadAccount(service)), bookings, addListing, logout);
+        Button refresh = new Button(com.vaadin.flow.component.icon.VaadinIcon.REFRESH.create(), e -> loadAccount(service));
+        refresh.setAriaLabel("Refresh dashboard");
+        refresh.setTooltipText("Refresh dashboard");
+        Div actions = new Div(refresh, bookings, addListing, logout);
         actions.addClassName("dashboard-actions");
         Div header = new Div(heading, actions); header.addClassName("dashboard-header");
         account.addClassName("dashboard-content"); add(header, account, sleepyVisitor());

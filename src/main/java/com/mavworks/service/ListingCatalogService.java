@@ -46,8 +46,10 @@ public class ListingCatalogService {
 
     private Page<ListingSummary> searchPage(String keyword, com.mavworks.model.ListingCategory category,
             ListingType type, Instant from, Instant until, Sort ordering, int page) {
+        // Normalize both search entry points before binding PostgreSQL timestamp parameters.
+        SearchFilter bounds = new SearchFilter(keyword, category, null, from, until);
         Page<Listing> result = listings.searchPublishedPage(ListingStatus.ACTIVE, keyword,
-                category, type, from, until, PageRequest.of(page, PAGE_SIZE, ordering));
+                category, type, bounds.from(), bounds.until(), PageRequest.of(page, PAGE_SIZE, ordering));
         var imageReferences = new java.util.HashMap<Long, String>();
         if (!result.isEmpty()) {
             for (Object[] row : listings.findImageReferences(result.getContent().stream()

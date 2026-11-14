@@ -80,7 +80,10 @@ public class LandingView extends VerticalLayout {
         posted.setValue("All time");
         from.setVisible(false);
         to.setVisible(false);
-        Button refresh = new Button("Refresh", event -> loadListings());
+        Button refresh = new Button(com.vaadin.flow.component.icon.VaadinIcon.REFRESH.create(), event -> loadListings());
+        refresh.setAriaLabel("Refresh listings");
+        refresh.setTooltipText("Refresh listings");
+        refresh.addClassName("marketplace-refresh");
         HorizontalLayout filters = new HorizontalLayout(sort, category, type, posted, from, to);
         filters.addClassName("marketplace-filter-fields");
         var filterSection = new com.vaadin.flow.component.details.Details("Filters and sorting", filters);
@@ -105,7 +108,7 @@ public class LandingView extends VerticalLayout {
         searchBar.setWidthFull();
         searchBar.setAlignItems(Alignment.END);
         searchBar.addClassName("marketplace-search");
-        search.setWidthFull();
+        search.setWidth("auto");
         searchBar.setFlexGrow(1, search);
         filters.setAlignItems(Alignment.END);
         filters.setWidthFull();

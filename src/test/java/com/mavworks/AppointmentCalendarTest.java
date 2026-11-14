@@ -37,20 +37,27 @@ class AppointmentCalendarTest {
         verify(bookings, times(3)).getMyBookingsInRange(start(month), start(month).plusDays(42));
     }
 
-    @Test void entriesAreOrderedAndExpansionDoesNotReloadData() {
+    @Test void busyDayOpensOrderedDialogWithoutExpandingDesktopCells() {
         when(bookings.getMyBookingsInRange(any(), any())).thenReturn(List.of(
                 item(4, day.atTime(16, 0), day.atTime(17, 0)),
                 item(2, day.atTime(9, 0), day.atTime(10, 0)),
                 item(1, day.atTime(9, 0), day.atTime(10, 0)),
                 item(3, day.atTime(12, 0), day.atTime(13, 0))));
         var calendar = new AppointmentCalendar(bookings);
-        assertEquals(List.of("9:00 AM · Service 1", "9:00 AM · Service 2", "12:00 PM · Service 3"), labels(calendar));
-        button(calendar, "+1 more").click();
-        assertEquals(4, labels(calendar).size());
-        assertEquals("4:00 PM · Service 4", labels(calendar).getLast());
-        button(calendar, "Show less").click();
-        assertEquals(3, labels(calendar).size());
-        verify(bookings, times(1)).getMyBookingsInRange(any(), any());
+        assertEquals(List.of("9:00 AM · Service 1", "9:00 AM · Service 2",
+                "12:00 PM · Service 3", "4:00 PM · Service 4"), labels(calendar));
+        assertEquals(2, components(calendar).filter(c ->
+                c.getElement().getClassList().contains("appointment-calendar-mobile-extra")).count());
+        button(calendar, "+2 more").click();
+        var dialog = components(calendar).filter(com.vaadin.flow.component.dialog.Dialog.class::isInstance)
+                .map(com.vaadin.flow.component.dialog.Dialog.class::cast).findFirst().orElseThrow();
+        assertTrue(dialog.isOpened());
+        assertEquals(List.of("9:00 AM · Service 1", "9:00 AM · Service 2",
+                "12:00 PM · Service 3", "4:00 PM · Service 4"), labels(dialog));
+        assertTrue(dialog.getElement().getTextRecursively().contains("Buyer: buyer · Provider: provider"));
+        dialog.close();
+        assertFalse(dialog.isOpened());
+        assertEquals(4, labels(calendar).size());        verify(bookings, times(1)).getMyBookingsInRange(any(), any());
     }
 
     @Test void overnightEntryContinuesButMidnightEndDoesNotAddAnotherDay() {
@@ -61,7 +68,7 @@ class AppointmentCalendarTest {
         assertEquals(List.of("11:00 PM · Service 2", "11:30 PM · Service 1", "Continues · Service 1"), labels(calendar));
         assertTrue(components(calendar).filter(Anchor.class::isInstance).map(Anchor.class::cast)
                 .allMatch(a -> a.getHref().equals("messages/50")));
-        assertEquals(3, components(calendar).filter(c -> c instanceof Span s && s.getText().equals("Confirmed")).count());
+        assertEquals(3, components(calendar).filter(c -> c instanceof Span s && s.getText().endsWith(" · Confirmed")).count());
     }
 
     @Test void failedRefreshClearsOldEntriesAndCanRecover() {
@@ -92,7 +99,7 @@ class AppointmentCalendarTest {
         verify(bookings).getMyBookingsInRange(start(value), start(value).plusDays(42));
     }
     private List<String> labels(Component root) {
-        return components(root).filter(Anchor.class::isInstance).map(Anchor.class::cast).map(Anchor::getText).toList();
+        return components(root).filter(Anchor.class::isInstance).map(Anchor.class::cast).map(a -> a.getElement().getAttribute("aria-label")).toList();
     }
     private Button button(Component root, String text) {
         return components(root).filter(c -> c instanceof Button b && b.getText().equals(text))

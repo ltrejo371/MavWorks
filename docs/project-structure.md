@@ -10,7 +10,8 @@ Packages under com.mavworks:
 - landing.ui: Home at /, with shared published listings, search and filters.
   /market remains an alias for old bookmarks.
 - dashboard: account editing and owner listing management at /dashboard.
-- listing: listing creation and details screens.
+- listing: listing creation, details and appointment scheduling screens.
+- booking: appointment month/day display, availability editors and shared appointment actions.
 - profile: public profiles, available listings and provider reviews.
 - messaging: participant conversations and sale confirmation.
 - admin: report review and moderation screens.

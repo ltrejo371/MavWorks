@@ -32,13 +32,14 @@ public class BookingView extends VerticalLayout {
         addClassNames("mw-page", "calendar-page");
         times.setWidthFull();
         appointments.addClassName("appointment-details-list");
-        Button refreshButton = new Button("Refresh", event -> {
+        Button refreshButton = new Button(com.vaadin.flow.component.icon.VaadinIcon.REFRESH.create(), event -> {
             if (appointmentCalendar != null) {
                 appointmentCalendar.reload();
                 refresh();
             }
         });
         refreshButton.setAriaLabel("Refresh appointments");
+        refreshButton.setTooltipText("Refresh appointments");
         refreshButton.setEnabled(false);
         Div pageHeader = new Div(new H1("Calendar"), refreshButton);
         pageHeader.addClassName("calendar-page-header");

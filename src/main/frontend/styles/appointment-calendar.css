@@ -189,3 +189,25 @@
     color: var(--calendar-muted);
 }
 .appointment-calendar-feedback:empty { display: none; }
+/* Busy days keep the same footprint as quiet days in the desktop month. */
+.appointment-calendar-meta { display: block; font-size: 0.7rem; line-height: 1.4; }
+.appointment-calendar-title { display: block; line-height: 1.4; }
+.appointment-day-schedule { display: grid; gap: 8px; }
+.appointment-day-schedule .appointment-calendar-title { white-space: normal; overflow-wrap: anywhere; }
+.appointment-day-schedule p { margin: 4px 0 0; font-size: 0.85rem; }
+@media (min-width: 701px) {
+    .appointment-calendar-day { height: 190px; min-height: 190px; overflow: hidden; }
+    .appointment-calendar-day .appointment-calendar-entry { padding: 5px 6px; }
+    .appointment-calendar-day .appointment-calendar-title,
+    .appointment-calendar-day .appointment-calendar-meta {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    .appointment-calendar-mobile-extra { display: none; }
+    .appointment-calendar-more { height: 26px; min-height: 26px; margin: 4px 0 0; padding: 0 5px; }
+}
+@media (max-width: 700px) {
+    .appointment-calendar-more { display: none; }
+    .appointment-calendar-meta { font-size: 0.8rem; }
+}

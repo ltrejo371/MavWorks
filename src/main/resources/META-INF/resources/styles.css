@@ -183,3 +183,13 @@ vaadin-radio-group.availability-period-picker::part(group-field) {
     box-shadow: none;
     cursor: pointer;
 }
+/* Search and its refresh control share a single compact row. */
+.marketplace-search-card .marketplace-search { flex-wrap: nowrap; align-items: end; }
+.marketplace-search-card .marketplace-search > vaadin-text-field { flex: 1 1 0; width: auto; min-width: 0; }
+.marketplace-refresh { flex: 0 0 auto; min-width: 38px; width: 38px; padding: 0; }
+@media (min-width: 701px) {
+    .marketplace-filters > vaadin-details-summary { display: none; }
+    .marketplace-filters::part(content) { padding: 0; }
+    .marketplace-filter-fields { display: flex; flex-wrap: wrap; }
+    .marketplace-filter-fields > * { flex: 1 1 140px; min-width: 120px; max-width: 220px; }
+}

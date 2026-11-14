@@ -41,6 +41,34 @@ class MessagingViewTest {
             assertTrue(siblings.indexOf(notice) < siblings.indexOf(button(view, "Accept")));
         }
     }
+    @Test void appointmentsShareOneSectionAndPollingPreservesCollapsedState() {
+        var service = mock(MessagingService.class);
+        var bookings = mock(BookingService.class);
+        when(service.getChat(3L, null)).thenReturn(chat(false, List.of()));
+        when(bookings.getConversationBookings(3L)).thenReturn(List.of(
+                new BookingService.BookingSummary(7L, 10L, 3L, "Book", "buyer", "provider", true,
+                        Instant.now().plusSeconds(3600), Instant.now().plusSeconds(5400),
+                        com.mavworks.model.BookingStatus.REQUESTED, true),
+                new BookingService.BookingSummary(8L, 10L, 3L, "Book", "buyer", "provider", false,
+                        Instant.now().plusSeconds(7200), Instant.now().plusSeconds(9000),
+                        com.mavworks.model.BookingStatus.CONFIRMED, null)));
+        var view = new ConversationView(service, mock(ConversationService.class), mock(BlockService.class),
+                mock(ReportService.class), bookings);
+        var event = mock(BeforeEnterEvent.class);
+        when(event.getRouteParameters()).thenReturn(new RouteParameters("conversationId", "3"));
+        view.beforeEnter(event);
+        var sections = components(view).filter(com.vaadin.flow.component.details.Details.class::isInstance)
+                .map(com.vaadin.flow.component.details.Details.class::cast).toList();
+        assertEquals(1, sections.size());
+        var section = sections.getFirst();
+        assertEquals("Appointments (2) · 1 awaiting your response", section.getSummaryText());
+        assertTrue(section.isOpened());
+        section.setOpened(false);
+        poll(view);
+        assertFalse(section.isOpened());
+        assertTrue(button(view, "Accept").isEnabled());
+        assertTrue(components(section).anyMatch(c -> c instanceof Anchor a && a.getText().equals("Reschedule")));
+    }
     @Test void keyboardSendUsesCurrentInputEvenBeforeFieldChangeIsSynchronized() {
         var service = mock(MessagingService.class);
         when(service.getChat(3L, null)).thenReturn(chat(false, List.of()));
@@ -74,7 +102,7 @@ class MessagingViewTest {
         assertTrue(times.get(1).isVisible());
         assertTrue(times.get(2).isVisible());
         verify(service).markConversationRead(3L, 3L);
-        button(view, "Refresh").click();
+        poll(view);
         verify(service).markConversationRead(3L, 4L);
         assertFalse(times.get(2).isVisible());
         assertEquals(2, components(view).filter(c -> c instanceof com.vaadin.flow.component.html.Span s
@@ -108,7 +136,7 @@ class MessagingViewTest {
             ui.add(view);
             var draft = draft(view);
             draft.setValue("Not sent");
-            button(view, "Refresh").click();
+            poll(view);
             assertEquals("Not sent", draft.getValue());
             assertEquals(3000, ui.getPollInterval());
             ui.remove(view);
@@ -141,11 +169,24 @@ class MessagingViewTest {
             assertEquals("listings/10/appointment?conversation=3", bookingLink(view).getHref());
             assertTrue(bookingLink(view).isVisible());
             when(service.getChat(eq(3L), any())).thenThrow(new AccessDeniedException("Not a participant"));
-            button(view, "Refresh").click();
+            poll(view);
             assertFalse(bookingLink(view).isVisible());
         }
     }
 
+    private void poll(ConversationView view) {
+        UI previous = UI.getCurrent();
+        UI ui = view.getUI().orElseGet(UI::new);
+        boolean attach = view.getUI().isEmpty();
+        UI.setCurrent(ui);
+        try {
+            if (attach) ui.add(view);
+            com.vaadin.flow.component.ComponentUtil.fireEvent(ui, new com.vaadin.flow.component.PollEvent(ui, true));
+        } finally {
+            if (attach) ui.remove(view);
+            UI.setCurrent(previous);
+        }
+    }
     private Anchor bookingLink(Component root) {
         return components(root).filter(c -> c instanceof Anchor a && a.getText().equals("Book appointment"))
                 .map(Anchor.class::cast).findFirst().orElseThrow();
