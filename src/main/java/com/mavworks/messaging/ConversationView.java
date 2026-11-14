@@ -140,7 +140,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             requestAppointment.setVisible(false);
             Div composer = new Div(appointmentMenu, draft, send);
             composer.addClassName("mav-chat-composer");
-            bookAppointment.setHref("listings/" + chat.listingId() + "/appointment");
+            bookAppointment.setHref("listings/" + chat.listingId() + "/appointment?conversation=" + conversationId);
             bookAppointment.setText("Book appointment");
             Div actions = new Div(new Anchor("profiles/" + chat.providerId(), "Provider profile and reviews"),
                     bookAppointment, confirm);
@@ -186,6 +186,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         send.setEnabled(!chat.closed());
         confirm.setVisible(chat.provider() && !chat.closed());
         confirm.setEnabled(!chat.closed());
+        bookAppointment.setVisible(!chat.closed());
         appointmentMenu.setEnabled(!chat.closed());
         requestAppointment.setEnabled(!chat.closed());
         refreshAppointments();
@@ -335,6 +336,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         draft.clear();
         draft.setEnabled(false);
         send.setEnabled(false);
+        bookAppointment.setVisible(false);
         appointmentMenu.setEnabled(false);
         requestAppointment.setVisible(false);
         confirm.setVisible(false);
