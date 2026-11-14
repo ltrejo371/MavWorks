@@ -127,3 +127,10 @@ a:focus-visible, button:focus-visible { outline: 3px solid #3267b4; outline-offs
     .profile-listing-card { grid-template-columns: 80px minmax(0, 1fr); }
     .auth-card { padding: 22px; }
 }
+
+/* Keep the availability period choices together in one row. */
+vaadin-radio-group.availability-period-picker::part(group-field) {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}

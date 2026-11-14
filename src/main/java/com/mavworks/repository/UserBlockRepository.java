@@ -4,8 +4,8 @@ import com.mavworks.model.UserBlock;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
-    @org.springframework.data.jpa.repository.Query("select b.blocked.username from UserBlock b where b.blocker.id = :userId order by b.blocked.username")
-    java.util.List<String> findBlockedUsernames(@org.springframework.data.repository.query.Param("userId") Long userId);
+    @org.springframework.data.jpa.repository.Query("select b.blocked from UserBlock b where b.blocker.id = :userId order by b.blocked.username")
+    java.util.List<com.mavworks.model.User> findBlockedUsers(@org.springframework.data.repository.query.Param("userId") Long userId);
     boolean existsByBlockerIdAndBlockedId(Long blockerId, Long blockedId);
 
     @org.springframework.data.jpa.repository.Query("select b.id from UserBlock b where b.blocker.id = :blockerId and b.blocked.id = :blockedId")
