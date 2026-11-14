@@ -30,6 +30,13 @@
 .dashboard-status-invalid { background: #eef0f4; color: #505b6c; }
 .dashboard-empty { padding: 8px 0; margin: 0; color: var(--vaadin-text-color-secondary, #586574); line-height: 1.6; font-size: 14px; }
 .dashboard-warnings { border-color: #eacb86; }
+.dashboard-sleepy-visitor { align-self: flex-end; max-width: 100%; text-align: right; }
+.dashboard-sleepy-visitor summary { display: inline-block; padding: 12px; color: var(--vaadin-text-color-secondary, #586574); font-size: 12px; letter-spacing: 2px; cursor: pointer; border-radius: 8px; list-style: none; }
+.dashboard-sleepy-visitor summary::-webkit-details-marker { display: none; }
+.dashboard-sleepy-visitor summary:hover { background: var(--vaadin-background-container, #f2f4f7); }
+.dashboard-sleepy-visitor summary:focus-visible { outline: 2px solid var(--vaadin-focus-ring-color, #315b9b); outline-offset: 2px; }
+.dashboard-sleepy-visitor img { display: block; width: 140px; max-width: 100%; height: auto; margin-left: auto; }
+.dashboard-sleepy-visitor p { margin: 8px 0; font-size: 12px; color: var(--vaadin-text-color-secondary, #586574); }
 @media (max-width: 680px) {
     .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
     .dashboard-card { padding: 14px; }

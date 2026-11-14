@@ -8,6 +8,8 @@ import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.*;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import jakarta.annotation.security.PermitAll;
 import java.text.NumberFormat;
 import java.util.Locale;
@@ -19,6 +21,7 @@ import org.springframework.dao.DataAccessException;
 @PermitAll
 @CssImport("./styles/dashboard.css")
 public class DashboardView extends VerticalLayout {
+    private static final String SLEEPY_CAT_REFERENCE = "0-d36837b9-13d8-440c-9cd3-412ea873b285.png";
     private final Div account = new Div();
     private final AccountEditingService editing;
     private final ImageStorageService storage;
@@ -42,8 +45,34 @@ public class DashboardView extends VerticalLayout {
         Div actions = new Div(new Button("Refresh", e -> loadAccount(service)), bookings, addListing, logout);
         actions.addClassName("dashboard-actions");
         Div header = new Div(heading, actions); header.addClassName("dashboard-header");
-        account.addClassName("dashboard-content"); add(header, account);
+        account.addClassName("dashboard-content"); add(header, account, sleepyVisitor());
         loadAccount(service);
+    }
+
+    private Component sleepyVisitor() {
+        Div corner = new Div();
+        corner.addClassName("dashboard-sleepy-visitor");
+        com.vaadin.flow.dom.Element details = new com.vaadin.flow.dom.Element("details");
+        com.vaadin.flow.dom.Element summary = new com.vaadin.flow.dom.Element("summary");
+        summary.setText("z z z");
+        summary.setAttribute("aria-label", "Who's napping here?");
+        Image cat = new Image(DownloadHandler.fromInputStream(event -> {
+            try {
+                return new DownloadResponse(storage.open(SLEEPY_CAT_REFERENCE),
+                        "sleepy-cat.png", "image/png", -1);
+            } catch (java.io.IOException ex) {
+                // Keep the easter egg available for local storage and storage outages.
+            }
+            var image = DashboardView.class.getResourceAsStream(
+                    "/META-INF/resources/images/sleepy-cat.png");
+            return image == null ? DownloadResponse.error(404)
+                    : new DownloadResponse(image, "sleepy-cat.png", "image/png", -1);
+        }), "A gray and white cat having a very big yawn");
+        cat.getElement().setAttribute("loading", "lazy");
+        Paragraph caption = new Paragraph("Purrhaps it's time for a break.");
+        details.appendChild(summary, cat.getElement(), caption.getElement());
+        corner.getElement().appendChild(details);
+        return corner;
     }
 
     private void loadAccount(AccountDashboardService service) {
