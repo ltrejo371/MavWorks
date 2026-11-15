@@ -5,3 +5,7 @@ Administrators can open **Moderate listings** from the sidebar or the link on **
 The default **Outdated or inactive** filter includes expired listings (including active rows whose expiration time has passed), sold listings, and withdrawn listings. **All current listings** includes every listing not already removed. **Removed listings** shows retained records without another removal action. Results are paginated in groups of 50 with owner, status, posted date, and expiration date.
 
 **Remove listing** opens a confirmation naming the listing and owner. Cancel leaves it unchanged. Confirm sets its existing status to `REMOVED`, hides it from marketplace results, and prevents the owner from editing or renewing it. The record and conversation history are retained. This uses the existing removal service and requires no database migration.
+
+New and edited listing titles and descriptions are also checked for prohibited
+language before saving. This does not scan existing listings or image contents,
+and does not replace administrator review. See [Text screening](../README.md#text-screening).

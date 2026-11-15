@@ -34,6 +34,9 @@ public final class RegistrationValidation {
         if (passwordConfirmation == null || passwordConfirmation.isEmpty() || !passwordConfirmation.equals(password)) {
             errors.put(Field.CONFIRMATION, "Passwords do not match.");
         }
+        if (!errors.containsKey(Field.USERNAME) && TextModerationService.containsProhibitedLanguage(normalizedUsername)) {
+            errors.put(Field.USERNAME, "Username contains prohibited language. Please choose another username.");
+        }
         return errors;
     }
 }

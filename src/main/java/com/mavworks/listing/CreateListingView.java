@@ -36,6 +36,9 @@ public class CreateListingView extends VerticalLayout {
         IntegerField appointmentDuration = new IntegerField("Appointment length (minutes)");
 
         TextArea description = new TextArea("Description");
+        var moderation = new com.mavworks.base.ui.ModeratedTextFields();
+        moderation.add("Listing title", name);
+        moderation.add("Listing description", description);
         Paragraph errors = new Paragraph();
         errors.getElement().setAttribute("role", "alert");
 
@@ -113,6 +116,7 @@ public class CreateListingView extends VerticalLayout {
                 return;
             }
             errors.setText("");
+            if (!moderation.validate()) return;
             BigDecimal amount;
             try {
                 amount = price.getValue().isBlank() ? null : new BigDecimal(price.getValue().trim());

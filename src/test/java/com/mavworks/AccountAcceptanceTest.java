@@ -290,4 +290,14 @@ class AccountAcceptanceTest {
         assertEquals("/login?error", result.getResponse().getRedirectedUrl());
         assertNull(authenticationContext(result));
     }
+
+    @Test void prohibitedUsernameCannotRequestCodeOrRegister() {
+        assertThrows(IllegalArgumentException.class, () -> accounts.requestVerification("fuck", "student@mavs.uta.edu",
+                PASSWORD, PASSWORD, termsId));
+        assertThrows(IllegalArgumentException.class, () -> accounts.register("fuck", "student@mavs.uta.edu",
+                PASSWORD, PASSWORD, termsId, java.util.UUID.randomUUID(), "123456"));
+        assertEquals(0, users.count()); assertEquals(0, verifications.count());
+        org.mockito.Mockito.verifyNoInteractions(verificationMail);
+    }
+
 }

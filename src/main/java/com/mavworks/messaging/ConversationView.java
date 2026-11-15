@@ -118,7 +118,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         draft.clear();
         firstId = null;
         lastId = null;
-        feedback.setText("");
+        showFeedback("");
         try {
             conversationId = Long.valueOf(event.getRouteParameters().get("conversationId").orElse(""));
             var chat = service.getChat(conversationId, null);
@@ -230,7 +230,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         try {
             if (accept) bookings.approve(id); else bookings.decline(id);
             refresh();
-        } catch (IllegalArgumentException | AccessDeniedException ex) { feedback.setText(ex.getMessage()); }
+        } catch (IllegalArgumentException | AccessDeniedException ex) { showFeedback(ex.getMessage()); }
         catch (DataAccessException ex) {
             com.mavworks.booking.AvailabilityCalendar.error("Unable to save the appointment. Please try again later.");
         }
@@ -242,10 +242,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             var chat = service.getChat(conversationId, lastId);
             append(chat.messages());
             updateState(chat);
-            if (refreshFailed) { feedback.setText(""); refreshFailed = false; }
+            if (refreshFailed) { showFeedback(""); refreshFailed = false; }
         } catch (MessagingBlockedException ex) { blocked(ex); }
         catch (AccessDeniedException ex) { denied(); }
-        catch (DataAccessException ex) { refreshFailed = true; feedback.setText("New messages could not be loaded. Retrying automatically."); }
+        catch (DataAccessException ex) { refreshFailed = true; showFeedback("New messages could not be loaded. Retrying automatically."); }
     }
 
     private void send() {
@@ -261,24 +261,25 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             // browser too, even when Flow coalesces the server value back to its original empty value.
             draft.getElement().executeJs("this.value = '';");
             draft.focus();
-            feedback.setText("");
+            showFeedback("");
             refresh();
         } catch (MessagingBlockedException ex) { blocked(ex); }
         catch (AccessDeniedException ex) { denied(); }
-        catch (IllegalArgumentException ex) { feedback.setText(ex.getMessage()); }
-        catch (DataAccessException ex) { feedback.setText("The message could not be sent. Your text is still here; select Send to retry."); }
+        catch (IllegalArgumentException ex) { showFeedback(ex.getMessage()); }
+        catch (DataAccessException ex) { showFeedback("The message could not be sent. Your text is still here; select Send to retry."); }
         finally { send.setEnabled(draft.isEnabled()); }
     }
 
     private void confirmSale() {
         try {
             sales.confirmSaleAndClose(conversationId);
-            feedback.setText("Sale confirmed. The buyer can now leave a review on your profile.");
+            showFeedback("Sale confirmed. The buyer can now leave a review on your profile.");
+            feedback.getStyle().remove("color");
             refresh();
         } catch (MessagingBlockedException ex) { blocked(ex); }
         catch (AccessDeniedException ex) { denied(); }
-        catch (IllegalArgumentException ex) { feedback.setText(ex.getMessage()); }
-        catch (DataAccessException ex) { feedback.setText("The sale could not be confirmed. Try again."); }
+        catch (IllegalArgumentException ex) { showFeedback(ex.getMessage()); }
+        catch (DataAccessException ex) { showFeedback("The sale could not be confirmed. Try again."); }
         finally { confirm.setEnabled(draft.isEnabled()); }
     }
 
@@ -291,7 +292,7 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
             older.setVisible(messages.size() == 100);
         } catch (MessagingBlockedException ex) { blocked(ex); }
         catch (AccessDeniedException ex) { denied(); }
-        catch (DataAccessException ex) { feedback.setText("Older messages could not be loaded. Try again."); }
+        catch (DataAccessException ex) { showFeedback("Older messages could not be loaded. Try again."); }
     }
 
     private void append(List<MessageSummary> messages) {
@@ -358,6 +359,10 @@ public class ConversationView extends VerticalLayout implements BeforeEnterObser
         bookAppointment.setVisible(false);
         confirm.setVisible(false);
         older.setVisible(false);
-        feedback.setText("Conversation not available.");
+        showFeedback("Conversation not available.");
+    }
+    private void showFeedback(String message) {
+        feedback.setText(message);
+        feedback.getStyle().set("color", "#b42318");
     }
 }

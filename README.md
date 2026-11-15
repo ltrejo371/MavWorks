@@ -376,3 +376,26 @@ The supabase profile uses online PostgreSQL; the default profile continues to us
 See [Azure deployment](docs/azure-deployment.md) for the pilot URL, environment settings, and manual deployment steps. Email setup is described in [production email](docs/production-email.md).
 
 Registration highlights invalid fields with an explanation when submitted. Correct the highlighted fields and try again; entered details are preserved.
+
+## Text screening
+
+New and edited listing titles/descriptions, messages, reviews/replies, usernames,
+bios, and contact information are checked for prohibited language before saving.
+Rejected submissions show an explanation and keep the text available for correction.
+Forms highlight affected text fields in red. Messages show a small red error without
+highlighting the message box.
+The rules are applied by backend services, including registration before sending a code.
+
+Edit `src/main/resources/moderation/prohibited-terms.txt` to maintain the English
+profanity/slur list. Use one lowercase term or phrase per line; lines starting with
+`#` are comments. Rebuild and deploy after changing it. Matching ignores case,
+normalizes Unicode and accents, removes zero-width formatting characters, and
+recognizes common letter substitutions, separators, and limited repeated letters.
+Word boundaries avoid blocking words such as "class" or "Scunthorpe". This is a
+basic word-list filter, not contextual hate-speech detection. Ambiguous words or
+names can still be rejected; review false positives when maintaining the list.
+
+Reports are exempt so users can quote abuse. Passwords, email addresses, image
+references, existing saved text, and image contents are not screened. The filter
+does not issue warnings or bans. Reporting and administrator moderation remain
+necessary for bypasses and inappropriate images.

@@ -162,4 +162,19 @@ class AccountEditingTest {
                     .get("/profile-pictures/" + owner.getId())).andReturn().getResponse().getStatus());
         } finally { login(owner, "USER"); images.delete(reference); }
     }
+
+    @Test void prohibitedProfileFieldsDoNotPersistAndReportsCanQuoteAbuse() {
+        editing.save("owner", "Original bio", null, "Original contact");
+        for (String[] fields : new String[][] {{"fuck", "New bio", "New contact"},
+                {"owner", "shit", "New contact"}, {"owner", "New bio", "fuck you"}}) {
+            assertThrows(IllegalArgumentException.class, () -> editing.save(fields[0], fields[1], null, fields[2]));
+            var saved = users.findById(owner.getId()).orElseThrow();
+            assertEquals("owner", saved.getUsername());
+            assertEquals("Original bio", saved.getProfile().getBio());
+            assertEquals("Original contact", saved.getProfile().getContactInformation());
+        }
+        Long report = reporting.reportUser(other.getId(), ReportCategory.OTHER, "They said fuck you.");
+        assertNotNull(report);
+    }
+
 }
