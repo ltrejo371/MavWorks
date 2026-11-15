@@ -31,3 +31,7 @@ vite.generated.ts
 /src/main/resources/application-local.yml
 /src/main/resources/application-local.yaml
 /data/
+
+
+#prod bundle
+/src/main/bundles/prod.bundle
