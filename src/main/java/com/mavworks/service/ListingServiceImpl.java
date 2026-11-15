@@ -34,7 +34,11 @@ public class ListingServiceImpl implements ListingService {
 
     @Override
     public Long createListing(CreateListingRequest request) {
-        Listing listing = owner().createListing(request);
+        var owner = owner();
+        if (request == null) throw new IllegalArgumentException("Enter listing details.");
+        TextModerationService.validate("Listing title", request.name());
+        TextModerationService.validate("Listing description", request.description());
+        Listing listing = owner.createListing(request);
         request.imageReferences().forEach(images::validateOwnedReference);
         return listings.saveAndFlush(listing).getId();
     }

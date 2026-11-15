@@ -72,6 +72,18 @@ ReviewService supplies public-profile listings and reviews. Rating averages and
 counts include all reviews, while individual review visibility follows mutual
 blocking rules. University email addresses are excluded from public profiles.
 
+## Text screening
+
+TextModerationService checks new and edited public text and messages before saving.
+The shared term list is in `src/main/resources/moderation/prohibited-terms.txt`.
+ModeratedTextFields shows field errors in listing, account and review forms;
+registration uses its existing field validation. ConversationView shows a small
+red error and preserves the message draft. Backend checks still apply independently
+of the forms. Reports are exempt so users can quote abuse.
+
+No database migration or new environment variables are needed. See
+[Text screening](../README.md#text-screening) for coverage and limitations.
+
 ## Image storage
 
 Views and application services depend on ImageStorageService for storing,

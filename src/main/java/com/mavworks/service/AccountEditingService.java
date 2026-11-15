@@ -42,6 +42,9 @@ public class AccountEditingService {
         }
         if (usernameChanged && users.existsByUsername(name))
             throw new IllegalArgumentException("This username is unavailable. Choose another username.");
+        TextModerationService.validate("Username", name);
+        TextModerationService.validate("Bio", text);
+        TextModerationService.validate("Contact information", contact);
         if (pictureReference != null) images.validateOwnedReference(pictureReference);
         if (user.getProfile() == null) user.setProfile(new Profile());
         user.getProfile().setBio(text);

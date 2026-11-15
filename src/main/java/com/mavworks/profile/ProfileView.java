@@ -172,13 +172,19 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
         text.setMaxLength(2000);
         text.setWidthFull();
         text.setHelperText("Up to 2000 characters. Each review accepts one provider response.");
+        var moderation = new com.mavworks.base.ui.ModeratedTextFields();
+        moderation.add("Review reply", text);
         var error = new Paragraph();
         error.getElement().setAttribute("role", "alert");
         var confirm = new Button("Confirm reply");
         var ignore = new Button("Ignore");
         confirm.setDisableOnClick(true);
         ignore.setDisableOnClick(true);
-        confirm.addClickListener(event -> saveReply(reviewId, text.getValue(), false, error, confirm));
+        confirm.addClickListener(event -> {
+            error.setText("");
+            if (!moderation.validate()) { confirm.setEnabled(true); return; }
+            saveReply(reviewId, text.getValue(), false, error, confirm);
+        });
         ignore.addClickListener(event -> saveReply(reviewId, null, true, error, ignore));
         editor.add(text, confirm, new Button("Cancel", event -> editor.setVisible(false)));
         card.add(new Button("Reply", event -> editor.setVisible(true)), ignore, editor, error);
@@ -220,6 +226,8 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
             comment.setMaxLength(2000);
             comment.setHelperText("Up to 2000 characters. One review per listing; reviews cannot be edited yet.");
             comment.setWidthFull();
+            var moderation = new com.mavworks.base.ui.ModeratedTextFields();
+            moderation.add("Review", comment);
             Paragraph error = new Paragraph();
             error.getElement().setAttribute("role", "alert");
             Button submit = new Button("Submit");
@@ -230,7 +238,8 @@ public class ProfileView extends VerticalLayout implements BeforeEnterObserver {
                 listing.setErrorMessage("Select the listing you are reviewing.");
                 rating.setInvalid(rating.getValue() == null);
                 rating.setErrorMessage("A rating from 1 to 5 is required.");
-                if (listing.isInvalid() || rating.isInvalid()) {
+                boolean textValid = moderation.validate();
+                if (listing.isInvalid() || rating.isInvalid() || !textValid) {
                     submit.setEnabled(true);
                     return;
                 }

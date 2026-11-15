@@ -32,6 +32,10 @@ public class EditAccountDialog extends Dialog {
         contact.setMaxLength(255);
         contact.setWidthFull();
         contact.setHelperText("Optional email, phone number, or preferred contact method. Shown on your profile. Up to 255 characters.");
+        var moderation = new com.mavworks.base.ui.ModeratedTextFields();
+        moderation.add("Username", username);
+        moderation.add("Bio", bio);
+        moderation.add("Contact information", contact);
         Paragraph error = new Paragraph();
         error.getElement().setAttribute("role", "alert");
         Paragraph selected = new Paragraph();
@@ -67,6 +71,8 @@ public class EditAccountDialog extends Dialog {
         upload.addAllFinishedListener(e -> { save.setEnabled(true); upload.clearFileList(); });
         save.addClickListener(e -> {
             if (uploading.get() > 0) { error.setText("Wait for the picture to finish uploading."); save.setEnabled(true); return; }
+            error.setText("");
+            if (!moderation.validate()) { save.setEnabled(true); return; }
             String reference = null;
             boolean committed = false;
             try {

@@ -225,4 +225,25 @@ class MessagingViewTest {
     private Stream<Component> components(Component root) {
         return Stream.concat(Stream.of(root), root.getChildren().flatMap(this::components));
     }
+
+    @Test void moderationRejectionPreservesDraftAndAllowsCorrection() {
+        var service = mock(MessagingService.class);
+        when(service.getChat(3L, null)).thenReturn(chat(false, List.of()));
+        when(service.sendMessage(3L, "fuck you")).thenThrow(new IllegalArgumentException(
+                "Message contains prohibited language. Please revise it before submitting."));
+        when(service.sendMessage(3L, "Please explain.")).thenReturn(8L);
+        var view = view(service);
+        draft(view).setValue("fuck you");
+        button(view, "Send").click();
+        assertEquals("fuck you", draft(view).getValue());
+        assertTrue(button(view, "Send").isEnabled());
+        assertFalse(draft(view).isInvalid());
+        assertTrue(components(view).anyMatch(c -> c instanceof Paragraph p
+                && p.getText().contains("prohibited language")
+                && "#b42318".equals(p.getStyle().get("color"))));
+        draft(view).setValue("Please explain.");
+        button(view, "Send").click();
+        assertEquals("", draft(view).getValue());
+        verify(service).sendMessage(3L, "Please explain.");
+    }
 }

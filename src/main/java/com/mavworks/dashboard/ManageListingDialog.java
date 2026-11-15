@@ -63,6 +63,10 @@ public class ManageListingDialog extends Dialog {
         description.setRequiredIndicatorVisible(true);
         description.setWidthFull();
 
+        var moderation = new com.mavworks.base.ui.ModeratedTextFields();
+        moderation.add("Listing title", name);
+        moderation.add("Listing description", description);
+
         BigDecimalField price = new BigDecimalField("Price ($)");
         price.setValue(listing.price());
         price.setRequiredIndicatorVisible(true);
@@ -103,6 +107,8 @@ public class ManageListingDialog extends Dialog {
                 error.setText("Wait for your images to finish uploading before saving.");
                 return;
             }
+            error.setText("");
+            if (!moderation.validate()) return;
             perform(() -> {
                 List<String> references = new ArrayList<>();
                 boolean saved = false;

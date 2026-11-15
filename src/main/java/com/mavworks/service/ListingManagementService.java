@@ -77,6 +77,8 @@ public class ListingManagementService {
             imageReferences.forEach(images::validateOwnedReference);
         }
 
+        TextModerationService.validate("Listing title", name);
+        TextModerationService.validate("Listing description", description);
         listing.setName(name.trim());
         listing.setDescription(description.trim());
         listing.setPrice(price.setScale(2));

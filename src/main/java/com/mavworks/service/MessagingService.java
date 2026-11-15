@@ -87,6 +87,7 @@ public class MessagingService {
     public Long sendMessage(Long conversationId, String text) {
         var sender = user(false);
         var conversation = accessible(conversationId, sender, true);
+        TextModerationService.validate("Message", text);
         return messages.saveAndFlush(sender.sendMessage(conversation, text)).getId();
     }
 

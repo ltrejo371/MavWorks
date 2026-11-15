@@ -116,6 +116,7 @@ public class ReviewService {
         if (!review.getListing().getOwner().getId().equals(provider.getId())) {
             throw new AccessDeniedException("Only the listing provider can respond to this review.");
         }
+        TextModerationService.validate("Review reply", text);
         review.respond(text);
         reviews.flush();
     }
@@ -139,6 +140,7 @@ public class ReviewService {
         if (reviews.existsByAuthorIdAndListingId(user.getId(), request.listingId())) {
             throw new IllegalArgumentException("You have already reviewed this listing.");
         }
+        TextModerationService.validate("Review", request.comment());
         return reviews.saveAndFlush(user.leaveReview(conversation, request.rating(), request.comment())).getId();
     }
 }

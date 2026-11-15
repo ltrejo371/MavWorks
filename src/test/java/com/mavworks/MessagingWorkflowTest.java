@@ -965,4 +965,46 @@ class MessagingWorkflowTest {
                 () -> service.startConversation(listing.getId()));
         assertEquals(1, conversations.count());
     }
+
+    @Test void prohibitedMessagesDoNotPersistAndCleanRetryWorks() {
+        Long chat = service.startConversation(listing.getId());
+        long before = messages.count();
+        assertThrows(IllegalArgumentException.class, () -> service.sendMessage(chat, "fuck you"));
+        assertEquals(before, messages.count());
+        assertNotNull(service.sendMessage(chat, "Please clarify the price."));
+        assertEquals(before + 1, messages.count());
+    }
+
+    @Test void prohibitedListingCreateAndEditLeaveDatabaseUnchanged() {
+        login(provider);
+        long before = listings.count();
+        for (String[] fields : new String[][] {{"shit", "A book"}, {"Book", "shit"}}) {
+            assertThrows(IllegalArgumentException.class, () -> listingService.createListing(
+                    new com.mavworks.dto.CreateListingRequest(fields[0], fields[1], BigDecimal.TEN,
+                            ListingType.PRODUCT, ListingCategory.OTHER, List.of())));
+            assertThrows(IllegalArgumentException.class, () -> management.updateDetails(listing.getId(),
+                    fields[0], fields[1], BigDecimal.ONE, ListingCategory.OTHER));
+        }
+        assertEquals(before, listings.count());
+        var saved = listings.findById(listing.getId()).orElseThrow();
+        assertEquals("Book", saved.getName());
+        assertEquals("A textbook", saved.getDescription());
+        assertEquals(0, BigDecimal.TEN.compareTo(saved.getPrice()));
+    }
+
+    @Test void prohibitedReviewsAndRepliesDoNotPersist() {
+        Long chat = service.startConversation(listing.getId());
+        service.sendMessage(chat, "I received the book.");
+        login(provider); sales.confirmSaleAndClose(chat); login(buyer);
+        assertThrows(IllegalArgumentException.class, () -> reviews.leaveReview(provider.getId(),
+                new CreateReviewRequest(listing.getId(), 1, "This was shit")));
+        assertEquals(0, jdbc.queryForObject("select count(*) from mavworks.reviews", Integer.class));
+        Long review = reviews.leaveReview(provider.getId(), new CreateReviewRequest(listing.getId(), 2, "Arrived late."));
+        login(provider);
+        assertThrows(IllegalArgumentException.class, () -> reviews.replyToReview(review, "fuck you"));
+        assertNull(jdbc.queryForObject("select reply from mavworks.reviews where id = ?", String.class, review));
+        reviews.replyToReview(review, "Sorry about the delay.");
+        assertEquals("Sorry about the delay.", jdbc.queryForObject("select reply from mavworks.reviews where id = ?", String.class, review));
+    }
+
 }
