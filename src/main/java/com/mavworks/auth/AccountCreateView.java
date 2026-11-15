@@ -1,6 +1,8 @@
 package com.mavworks.auth;
 
 import com.mavworks.service.AccountService;
+import com.mavworks.service.RegistrationValidation;
+import com.mavworks.service.AccountServiceImpl.VerificationRejectedException;
 import com.mavworks.security.RegistrationLogin;
 import com.mavworks.service.TermsOfServiceService;
 import com.vaadin.flow.component.button.Button;
@@ -48,6 +50,15 @@ public class AccountCreateView extends Main {
         username.setWidthFull(); email.setWidthFull(); password.setWidthFull(); confirmation.setWidthFull();
         username.setHelperText("3–30 letters, numbers, dots, underscores or hyphens. Case-insensitive.");
         username.setMaxLength(30);
+        username.setManualValidation(true); email.setManualValidation(true);
+        password.setManualValidation(true); confirmation.setManualValidation(true);
+        verificationCode.setManualValidation(true);
+        username.addValueChangeListener(e -> username.setInvalid(false));
+        email.addValueChangeListener(e -> email.setInvalid(false));
+        password.addValueChangeListener(e -> password.setInvalid(false));
+        confirmation.addValueChangeListener(e -> confirmation.setInvalid(false));
+        acceptance.addValueChangeListener(e -> acceptance.setInvalid(false));
+        verificationCode.addValueChangeListener(e -> verificationCode.setInvalid(false));
         email.setPlaceholder("you@mavs.uta.edu");
         email.setMaxLength(254);
         password.setHelperText("At least 8 characters.");
@@ -93,8 +104,7 @@ public class AccountCreateView extends Main {
 
     private void sendVerification() {
         feedback.setVisible(false);
-        if (!acceptance.getValue()) {
-            showError("Please read and accept the terms before creating an account.");
+        if (!validateDetails()) {
             sendCode.setEnabled(termsId != null);
             return;
         }
@@ -107,6 +117,9 @@ public class AccountCreateView extends Main {
             sendCode.setText("Resend verification code");
             showError("A verification code was sent to " + email.getValue().trim() + ". Your account will be created after verification.");
             verificationCode.focus();
+        } catch (RegistrationValidation.FieldException ex) {
+            showFieldError(ex.field(), ex.getMessage());
+            showError("Please correct the highlighted field. Use Edit registration details if needed.");
         } catch (IllegalArgumentException | com.mavworks.service.VerificationEmailSender.DeliveryException ex) {
             showError(ex.getMessage());
         } catch (DataAccessException ex) {
@@ -131,13 +144,26 @@ public class AccountCreateView extends Main {
     private void register() {
         verify.setEnabled(true);
         feedback.setVisible(false);
-        if (!acceptance.getValue()) {
-            showError("Please read and accept the terms before creating an account.");
+        if (!validateDetails()) return;
+        verificationCode.setInvalid(false);
+        if (!verificationCode.getValue().trim().matches("[0-9]{6}")) {
+            verificationCode.setErrorMessage("Enter the 6-digit verification code from your email.");
+            verificationCode.setInvalid(true);
+            verificationCode.focus();
             return;
         }
         try {
             accounts.register(username.getValue(), email.getValue(), password.getValue(),
                     confirmation.getValue(), termsId, verificationToken, verificationCode.getValue().trim());
+        } catch (VerificationRejectedException ex) {
+            verificationCode.setErrorMessage(ex.getMessage());
+            verificationCode.setInvalid(true);
+            verificationCode.focus();
+            return;
+        } catch (RegistrationValidation.FieldException ex) {
+            showFieldError(ex.field(), ex.getMessage());
+            showError("Please correct the highlighted field. Use Edit registration details if needed.");
+            return;
         } catch (IllegalArgumentException ex) {
             showError(ex.getMessage());
             return;
@@ -156,6 +182,28 @@ public class AccountCreateView extends Main {
             password.clear();
             confirmation.clear();
             showError("Your account was created. Use Back to login to sign in.");
+        }
+    }
+
+    private boolean validateDetails() {
+        username.setInvalid(false); email.setInvalid(false); password.setInvalid(false);
+        confirmation.setInvalid(false); acceptance.setInvalid(false);
+        var errors = RegistrationValidation.errors(username.getValue(), email.getValue(),
+                password.getValue(), confirmation.getValue());
+        if (!acceptance.getValue()) errors.put(RegistrationValidation.Field.TERMS,
+                "Confirm that you are at least 18 and accept the Terms of Service.");
+        errors.forEach(this::showFieldError);
+        if (!errors.isEmpty()) showError("Please correct the highlighted fields.");
+        return errors.isEmpty();
+    }
+
+    private void showFieldError(RegistrationValidation.Field field, String message) {
+        switch (field) {
+            case USERNAME -> { username.setErrorMessage(message); username.setInvalid(true); }
+            case EMAIL -> { email.setErrorMessage(message); email.setInvalid(true); }
+            case PASSWORD -> { password.setErrorMessage(message); password.setInvalid(true); }
+            case CONFIRMATION -> { confirmation.setErrorMessage(message); confirmation.setInvalid(true); }
+            case TERMS -> { acceptance.setErrorMessage(message); acceptance.setInvalid(true); }
         }
     }
 

@@ -370,3 +370,9 @@ profile to apply it. Ban removal and changing archived decisions are not impleme
 
 See [Supabase setup](docs/supabase-setup.md) for the password prompt and launch command.
 The supabase profile uses online PostgreSQL; the default profile continues to use local H2.
+
+## Hosted pilot
+
+See [Azure deployment](docs/azure-deployment.md) for the pilot URL, environment settings, and manual deployment steps. Email setup is described in [production email](docs/production-email.md).
+
+Registration highlights invalid fields with an explanation when submitted. Correct the highlighted fields and try again; entered details are preserved.
