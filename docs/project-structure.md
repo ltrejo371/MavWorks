@@ -30,7 +30,8 @@ login fails after saving, the screen directs the user to the login page.
 
 Login uses database accounts. The old user/user, mod/mod and admin/admin demo
 accounts are no longer provided. New accounts receive the USER role.
-Email syntax/domain validation does not verify ownership of that mailbox.
+Registration requires the emailed verification code to confirm mailbox access.
+See [Email verification](email-verification.md) for the code and resend rules.
 
 The default H2 development database is stored under data/mavworks relative to the project
 working directory and survives restarts. Run the app from the folder containing
@@ -103,19 +104,17 @@ ImageValidationService provides shared content validation: JPEG or PNG, at most
 5 MB and 20 megapixels. Existing local files are not migrated automatically.
 See [Supabase setup](supabase-setup.md) for configuration and transition steps.
 
-## Remaining work
+## Student pilot release
 
-1. Add password reset and verify live registration email delivery.
-2. Review the bundled terms for public use and complete use-case validation
-   for the student pilot.
-3. Add pagination for large catalogs and refine marketplace navigation.
-4. Extend owner listing editing to images if included in the next iteration.
-5. Complete live profile-picture and blocked profile access checks, and decide
-   whether existing local test images need transferring.
+Version 1.0.0 includes registration with email verification, password recovery,
+listing creation and editing (including images), paginated marketplace search,
+public profiles, messaging, reviews, blocking, reports, administrator decisions,
+and appointment calendars and availability.
 
-Listing creation, public profiles, account editing, owner listing management,
-messaging, reviews, blocking, reports and administrator report decisions are
-implemented. Further policy and usability changes should build on those workflows.
+SpamLimitService applies per-account limits before saving messages, new
+conversations and reports. Counters are held in memory for the single-instance
+pilot and reset on restart. Existing conversations can still be opened when the
+new-conversation limit is reached. See [Spam limits](../README.md#spam-limits).
 
 ## Verification
 
@@ -134,5 +133,4 @@ product and service sales, and check marketplace and profile visibility.
 SupabaseImageStorageTest checks upload/download requests, ownership, validation,
 missing files and network errors with a mock HTTP client. These tests do not
 contact Supabase. Automated tests passed. Live bucket uploads were verified,
-and teammates confirmed the branch works on their app instances. Live profile-picture
-and blocked profile access checks remain to be verified explicitly.
+and teammates confirmed the branch works on their app instances. Include profile pictures and blocked profile access in release smoke checks.

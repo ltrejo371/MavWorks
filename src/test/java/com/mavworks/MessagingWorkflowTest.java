@@ -419,7 +419,9 @@ class MessagingWorkflowTest {
 
     @Test void historyIsPagedAndChangesOfListingStatusDoNotLoseConversation() {
         Long id = service.startConversation(listing.getId());
-        for (int i = 0; i < 105; i++) service.sendMessage(id, "Message " + i);
+        // Seed historical messages directly; this test checks pagination, not sending rate.
+        var history = conversations.findById(id).orElseThrow();
+        for (int i = 0; i < 105; i++) messages.saveAndFlush(buyer.sendMessage(history, "Message " + i));
         var latest = service.getChat(id, null).messages();
         assertEquals(100, latest.size());
         assertEquals("Message 5", latest.getFirst().body());
@@ -1007,4 +1009,34 @@ class MessagingWorkflowTest {
         assertEquals("Sorry about the delay.", jdbc.queryForObject("select reply from mavworks.reviews where id = ?", String.class, review));
     }
 
+    @Test void messageLimitAppliesAcrossChatsAndDoesNotSaveRejectedMessage() {
+        Long first = service.startConversation(listing.getId());
+        Listing another = new Listing();
+        another.setOwner(provider); another.setName("Another book");
+        another.setDescription("Textbook"); another.setPrice(BigDecimal.TEN);
+        another.setType(ListingType.PRODUCT);
+        Long second = service.startConversation(listings.saveAndFlush(another).getId());
+        for (int i = 0; i < 20; i++) service.sendMessage(i % 2 == 0 ? first : second, "Hello " + i);
+        long count = messages.count();
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> service.sendMessage(second, "One more"))
+                .getMessage().contains("Please wait"));
+        assertEquals(count, messages.count());
+        login(provider);
+        assertNotNull(service.sendMessage(first, "Reply"));
+    }
+
+    @Test void conversationLimitStillAllowsOpeningExistingChat() {
+        Long first = service.startConversation(listing.getId());
+        for (int i = 0; i < 5; i++) {
+            Listing another = new Listing();
+            another.setOwner(provider); another.setName("Book " + i);
+            another.setDescription("Textbook"); another.setPrice(BigDecimal.TEN);
+            another.setType(ListingType.PRODUCT);
+            Long id = listings.saveAndFlush(another).getId();
+            if (i < 4) assertNotNull(service.startConversation(id));
+            else assertThrows(IllegalArgumentException.class, () -> service.startConversation(id));
+        }
+        assertEquals(5, conversations.count());
+        assertEquals(first, service.startConversation(listing.getId()));
+    }
 }

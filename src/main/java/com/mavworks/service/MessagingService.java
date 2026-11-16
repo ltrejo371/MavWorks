@@ -19,6 +19,7 @@ public class MessagingService {
             String imageReference, java.time.Instant lastMessageAt) {}
     public record Chat(Long id, Long listingId, String listingName, Long providerId, String otherUser,
             boolean provider, boolean closed, boolean serviceListing, List<MessageSummary> messages, Long otherUserId) {}
+    private final SpamLimitService spam;
     private final CurrentUser current;
     private final UserRepository users;
     private final ListingRepository listings;
@@ -28,7 +29,8 @@ public class MessagingService {
     private static final PageRequest PAGE = PageRequest.of(0, 100);
 
     public MessagingService(CurrentUser current, UserRepository users, ListingRepository listings,
-            ConversationRepository conversations, MessageRepository messages, UserBlockRepository blocks) {
+            ConversationRepository conversations, MessageRepository messages, UserBlockRepository blocks, SpamLimitService spam) {
+        this.spam = spam;
         this.current = current;
         this.users = users;
         this.listings = listings;
@@ -80,7 +82,9 @@ public class MessagingService {
             }
         }
         if (listing.getStatus() != ListingStatus.ACTIVE) throw new IllegalArgumentException("This listing is no longer available for new conversations.");
-        return conversations.saveAndFlush(new Conversation(buyer, listing)).getId();
+        var conversation = new Conversation(buyer, listing);
+        spam.check(buyer.getId(), SpamLimitService.Action.CONVERSATION);
+        return conversations.saveAndFlush(conversation).getId();
     }
 
     @Transactional
@@ -88,7 +92,9 @@ public class MessagingService {
         var sender = user(false);
         var conversation = accessible(conversationId, sender, true);
         TextModerationService.validate("Message", text);
-        return messages.saveAndFlush(sender.sendMessage(conversation, text)).getId();
+        var message = sender.sendMessage(conversation, text);
+        spam.check(sender.getId(), SpamLimitService.Action.MESSAGE);
+        return messages.saveAndFlush(message).getId();
     }
 
     public List<ConversationSummary> getMyConversations() {

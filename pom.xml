@@ -4,7 +4,7 @@
     <!-- Project from https://start.vaadin.com/c71ab83a-fbf6-449e-a72f-14ded232d2be -->
     <groupId>com.mavworks</groupId>
     <artifactId>mavworks</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     
     <properties>

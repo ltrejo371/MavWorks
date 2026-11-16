@@ -2,6 +2,10 @@
 
 Built with Java 21, Spring Boot, Vaadin, and Maven.
 
+For an independent deployment or continued development, see
+[Hosting your own instance](docs/self-hosting.md). This is a student project;
+continued maintenance and availability of the pilot website are not guaranteed.
+
 ## Requirements
 
 - **JDK 21** — [Download Eclipse Temurin](https://adoptium.net/temurin/releases/?version=21)
@@ -373,7 +377,7 @@ The supabase profile uses online PostgreSQL; the default profile continues to us
 
 ## Hosted pilot
 
-See [Azure deployment](docs/azure-deployment.md) for the pilot URL, environment settings, and manual deployment steps. Email setup is described in [production email](docs/production-email.md).
+See [Azure deployment](docs/azure-deployment.md) for the pilot URL, environment settings, and automatic GitHub deployment setup. Email setup is described in [production email](docs/production-email.md).
 
 Registration highlights invalid fields with an explanation when submitted. Correct the highlighted fields and try again; entered details are preserved.
 
@@ -399,3 +403,38 @@ Reports are exempt so users can quote abuse. Passwords, email addresses, image
 references, existing saved text, and image contents are not screened. The filter
 does not issue warnings or bans. Reporting and administrator moderation remain
 necessary for bypasses and inappropriate images.
+
+## Spam limits
+
+The student pilot limits each account to 20 messages per rolling minute,
+5 new conversations per rolling minute, and 3 reports per rolling 10 minutes.
+Message limits apply across conversations. Opening an existing conversation does
+not count. Rejected submissions are not saved; message drafts stay available and
+the error explains how many seconds to wait. Invalid submissions are checked first.
+A save failure after the limit check still uses a slot.
+
+Optional settings (defaults work without additional configuration):
+
+| Spring property | Default |
+| --- | --- |
+| `mavworks.spam.messages-per-minute` | 20 |
+| `mavworks.spam.conversations-per-minute` | 5 |
+| `mavworks.spam.reports-per-ten-minutes` | 3 |
+
+Values must be positive. Limits are enforced in the backend, including concurrent
+requests. Counters are held in memory and reset on restart. This is intended for
+one app instance; multiple instances would need a shared limiter. No database
+migration is required.
+
+## Release
+
+Version `1.0.0` is the student pilot. After merging and checking the deployed app,
+create the `v1.0.0` tag and GitHub release on that commit. Pushes to `main` run the
+production build and Azure deployment; branch pushes do not deploy.
+
+ChatGPT was used as a development aid during this project.
+
+## License
+
+Released under [The Unlicense](LICENSE.md). Third-party dependencies retain their
+own licenses.

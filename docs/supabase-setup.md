@@ -5,6 +5,10 @@ It also uses Supabase Storage for shared listing and profile images. The default
 profile still uses local H2 and local image files. Supabase hosts the shared data;
 the Java application still runs on your computer.
 
+For a separate deployment, start with [Hosting your own instance](self-hosting.md).
+The defaults below point to the team's project; a new host must override both the
+database URL and username as well as provide its own credentials.
+
 ## Image storage setup
 
 In the team's Supabase project, open Storage and create a bucket named
@@ -34,7 +38,7 @@ the same project and bucket configuration.
 New account registration also requires SMTP configuration; see
 [Email verification](email-verification.md). Existing accounts can sign in
 without email delivery configured. Forgot-password requests use the same SMTP
-settings. Set `PUBLIC_URL` to the public application base URL so reset emails
+settings. Set `MAVWORKS_PUBLIC_BASE_URL` to the public application base URL so reset emails
 contain a link that can reach the deployed instance.
 
 ## Start from PowerShell
