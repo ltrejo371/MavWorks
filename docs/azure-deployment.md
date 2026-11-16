@@ -6,6 +6,9 @@ Website: https://mavworks-pilot-dqauafcqe3ctfhb0.westus3-01.azurewebsites.net
 
 The Web App is named `mavworks-pilot` in West US 3. Confirm the resource group in Azure Overview; the commands below use `mavworks-pilot`. Confirm the selected hosting plan and cost in Azure. Student credits cover charges while available. Set a budget alert to track usage; alerts do not stop spending.
 
+For a new Azure account or fork, follow [Hosting your own instance](self-hosting.md)
+to configure your own resources and GitHub deployment identity.
+
 ## Environment variables
 
 Set these in the Web App's Environment variables and apply the changes:
@@ -29,13 +32,13 @@ From the project folder, with Java 21 selected:
 .\mvnw.cmd clean package "-Dvaadin.productionMode=true"
 ```
 
-This runs tests and creates `target/mavworks-1.0-SNAPSHOT.jar`. Vaadin may also generate `src/main/bundles/prod.bundle`. Upload the JAR using Manage files in Azure Cloud Shell, then run in Bash:
+This runs tests and creates `target/mavworks-1.0.0.jar`. Vaadin may also generate `src/main/bundles/prod.bundle`. Upload the JAR using Manage files in Azure Cloud Shell, then run in Bash:
 
 ```bash
-az webapp deploy --resource-group mavworks-pilot --name mavworks-pilot --src-path "$HOME/mavworks-1.0-SNAPSHOT.jar" --type jar
+az webapp deploy --resource-group mavworks-pilot --name mavworks-pilot --src-path "$HOME/mavworks-1.0.0.jar" --type jar
 ```
 
-Deployment is manual; pushing to GitHub does not update the website. Record the deployed commit when releasing. The first pilot deployment used `cd9d93b`. Confirm the build succeeds and review pending database migrations before each deployment. Startup with the Supabase profile applies pending Flyway migrations to the shared database. Do not delete migration history to silence warnings.
+Pushes and merges to `main` run `.github/workflows/main_mavworks-pilot.yml`, which tests, builds the production JAR and deploys it to Azure using OIDC. Feature branch pushes do not deploy. The commands above are a manual fallback. Record the deployed commit when releasing. Confirm the build succeeds and review pending database migrations before each deployment. Startup with the Supabase profile applies pending Flyway migrations to the shared database. Do not delete migration history to silence warnings.
 
 ## Checks after deployment
 
@@ -49,4 +52,4 @@ az webapp log config --resource-group mavworks-pilot --name mavworks-pilot --doc
 
 The email teammate checks Brevo delivery logs and verified sender settings. Do not enable SMTP debug output or share passwords, verification codes, or message bodies in logs.
 
-Pilot status on November 15, 2026: existing-account flows were manually checked. New-account email delivery is still under investigation. Supabase contains V21 (profile banners), while the deployed source contains migrations through V20; coordinate that migration with its author before changing it.
+Release 1.0.0 is the student pilot. Supabase contains V21 (profile banners); keep shared migration history intact and coordinate any migration changes with the team.

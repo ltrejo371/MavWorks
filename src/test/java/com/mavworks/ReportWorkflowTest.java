@@ -159,4 +159,13 @@ class ReportWorkflowTest {
                 List.of(new SimpleGrantedAuthority("ROLE_" + role))));
         SecurityContextHolder.setContext(context);
     }
+    @Test void reportLimitDoesNotSaveFourthReport() {
+        login(reporter, "USER");
+        for (int i = 0; i < 3; i++) service.reportUser(target.getId(), ReportCategory.SPAM, "Incident " + i);
+        long count = reports.count();
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> service.reportUser(target.getId(), ReportCategory.SPAM, "Another incident"))
+                .getMessage().contains("Please wait"));
+        assertEquals(count, reports.count());
+    }
 }

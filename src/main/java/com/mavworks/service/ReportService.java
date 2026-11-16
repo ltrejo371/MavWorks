@@ -16,6 +16,7 @@ public class ReportService {
             String reason, ReportStatus status, Instant createdAt) {}
     public record ReportDetails(ReportSummary report, long priorValidReports, boolean accountDeleted,
             boolean accountBanned, String reviewedBy, Instant reviewedAt, ModerationAction action, String explanation) {}
+    private final SpamLimitService spam;
     private final CurrentUser current;
     private final UserRepository users;
     private final ReportRepository reports;
@@ -31,7 +32,8 @@ public class ReportService {
         if (warningLimit < 1) throw new IllegalArgumentException("mavworks.warning-limit must be positive.");
     }
 
-    public ReportService(CurrentUser current, UserRepository users, ReportRepository reports) {
+    public ReportService(CurrentUser current, UserRepository users, ReportRepository reports, SpamLimitService spam) {
+        this.spam = spam;
         this.current = current;
         this.users = users;
         this.reports = reports;
@@ -44,7 +46,9 @@ public class ReportService {
         if (targetId == null) throw new IllegalArgumentException("Select an account to report.");
         var target = users.findById(targetId).orElseThrow(() -> new IllegalArgumentException("Account not available."));
         // A block does not prevent reporting misconduct. Reporting does not create a block.
-        return reports.saveAndFlush(reporter.reportUser(target, category, reason)).getId();
+        var report = reporter.reportUser(target, category, reason);
+        spam.check(reporter.getId(), SpamLimitService.Action.REPORT);
+        return reports.saveAndFlush(report).getId();
     }
 
     @Transactional(readOnly = true)
